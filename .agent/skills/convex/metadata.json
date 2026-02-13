@@ -1,0 +1,14 @@
+{
+    "name": "convex",
+    "description": "Convex backend and real-time database guidelines.",
+    "version": "1.0.0",
+    "author": "Antigravity",
+    "tags": [
+        "convex",
+        "backend",
+        "real-time",
+        "typescript",
+        "db"
+    ],
+    "rulesDirectory": "rules"
+}

@@ -1,0 +1,14 @@
+{
+    "name": "bun",
+    "description": "Bun package management and runtime guidelines.",
+    "version": "1.0.0",
+    "author": "Antigravity",
+    "tags": [
+        "bun",
+        "package-manager",
+        "runtime",
+        "fast",
+        "javascript"
+    ],
+    "rulesDirectory": "rules"
+}
