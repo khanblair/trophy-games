@@ -2,8 +2,8 @@ import { MatchData, LeagueInfo } from '@trophy-games/shared';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const convex = new ConvexHttpClient(convexUrl);
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
 export interface ScrapedData {
     leagues: LeagueInfo[];
@@ -12,7 +12,7 @@ export interface ScrapedData {
 }
 
 export async function saveData(data: Partial<ScrapedData>) {
-    if (!data.matches || !data.leagues) return;
+    if (!convex || !data.matches || !data.leagues) return;
 
     console.log(`[Storage] Pushing ${data.matches.length} matches to Convex...`);
     try {
@@ -26,6 +26,11 @@ export async function saveData(data: Partial<ScrapedData>) {
 }
 
 export async function loadData(): Promise<ScrapedData> {
+    if (!convex) {
+        console.warn('[Storage] Convex not configured. Using empty data.');
+        return { leagues: [], matches: [], lastUpdated: '' };
+    }
+    
     try {
         const matches = await convex.query(api.matches.get);
         return {
