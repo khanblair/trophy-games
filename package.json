@@ -6,11 +6,12 @@
         "apps/*",
         "packages/*"
     ],
-    "scripts": {
+"scripts": {
         "dev": "turbo dev",
         "build": "turbo build",
         "lint": "turbo lint",
-        "clean": "turbo clean"
+        "clean": "turbo clean",
+        "scrape": "bun run scrape.ts"
     },
     "devDependencies": {
         "turbo": "latest"
