@@ -1,6 +1,7 @@
 {
     "name": "trophy-games-monorepo",
     "private": true,
+    "packageManager": "bun@1.3.6",
     "workspaces": [
         "apps/*",
         "packages/*"
