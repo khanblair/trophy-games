@@ -1,0 +1,275 @@
+
+'use client';
+
+import React, { useState } from 'react';
+import { Timer, Trophy, TrendingUp, AlertCircle, CheckCircle2, BarChart3, History, Layers } from 'lucide-react';
+import { MatchData } from '@/lib/scraper/parsers';
+import { Modal } from './Modal';
+import { cn } from '@/lib/utils';
+
+interface MatchDetailModalProps {
+    match: MatchData | null;
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+type Tab = 'Overview' | 'Odds' | 'H2H' | 'Standings';
+
+export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalProps) {
+    const [activeTab, setActiveTab] = useState<Tab>('Overview');
+
+    if (!match) return null;
+
+    const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
+        { id: 'Overview', icon: Trophy, label: 'Overview' },
+        { id: 'Odds', icon: TrendingUp, label: 'Odds' },
+        { id: 'H2H', icon: History, label: 'H2H' },
+        { id: 'Standings', icon: Layers, label: 'Standings' },
+    ];
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Match Insights"
+            className="max-w-4xl"
+        >
+            <div className="space-y-6 pb-4">
+                {/* Scoreboard Header */}
+                <div className="relative overflow-hidden rounded-3xl bg-zinc-900 p-8 text-white shadow-xl dark:bg-black border border-zinc-800">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500" />
+
+                    <div className="flex flex-col items-center gap-6 text-center">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 backdrop-blur-md">
+                            <Timer size={14} className="text-blue-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{match.status}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex-1 space-y-2">
+                                <div className="text-2xl font-black">{match.homeTeam}</div>
+                                <div className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Home</div>
+                            </div>
+
+                            <div className="px-8 space-y-1">
+                                <div className="text-5xl font-black tracking-tighter tabular-nums">
+                                    {match.score || '0-0'}
+                                </div>
+                                <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Score</div>
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                <div className="text-2xl font-black">{match.awayTeam}</div>
+                                <div className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Away</div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 pt-2">
+                            <div className="flex items-center gap-1.5 text-zinc-400 text-xs font-medium">
+                                <Trophy size={14} />
+                                <span>{match.league}</span>
+                            </div>
+                            <div className="h-1 w-1 rounded-full bg-zinc-700" />
+                            <div className="text-zinc-400 text-xs font-medium">
+                                {match.timestamp}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tab Navigation */}
+                <div className="flex p-1 space-x-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-xl">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cn(
+                                'flex items-center justify-center gap-2 w-full py-2.5 text-sm font-bold rounded-lg transition-all',
+                                activeTab === tab.id
+                                    ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                            )}
+                        >
+                            <tab.icon size={16} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Tab Content */}
+                <div className="min-h-[300px]">
+                    {activeTab === 'Overview' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                            {/* Stats Snapshot */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
+                                    <AlertCircle size={16} className="text-zinc-500" />
+                                    Quick Stats
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                        <span className="text-xs font-semibold text-zinc-500">ID Reference</span>
+                                        <span className="text-xs font-mono text-blue-600">{match.id}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                        <span className="text-xs font-semibold text-zinc-500">Source</span>
+                                        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded-md">Goaloo Live</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 rounded-2xl bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/20 md:col-span-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-white dark:bg-zinc-800 text-blue-600 shadow-sm border border-blue-100 dark:border-blue-500/20 shrink-0">
+                                        <CheckCircle2 size={18} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-bold text-blue-900 dark:text-blue-400 uppercase tracking-wide">Data Verification</p>
+                                        <p className="text-sm text-blue-800 dark:text-zinc-300 leading-relaxed">
+                                            This match data was scraped directly from the official Goaloo media servers. All scores and timestamps are reconciled in real-time.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'Odds' && (
+                        <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                            {['FT', 'HT'].map((period) => {
+                                const oddsData = period === 'FT' ? match.detailedOdds?.ft : match.detailedOdds?.ht;
+                                if (!oddsData) return null;
+
+                                return (
+                                    <div key={period} className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                        <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+                                            <span className="text-xs font-bold text-zinc-500 uppercase">{period === 'FT' ? 'Full Time' : 'Half Time'} Odds</span>
+                                        </div>
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs uppercase text-zinc-500 font-semibold">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left">Market</th>
+                                                    <th className="px-4 py-3 text-center text-blue-600">Home</th>
+                                                    <th className="px-4 py-3 text-center text-zinc-600">Line/Draw</th>
+                                                    <th className="px-4 py-3 text-center text-purple-600">Away</th>
+                                                    <th className="px-4 py-3 text-center text-zinc-400 border-l border-zinc-100 dark:border-zinc-800">Init Home</th>
+                                                    <th className="px-4 py-3 text-center text-zinc-400">Init Line</th>
+                                                    <th className="px-4 py-3 text-center text-zinc-400">Init Away</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                                <tr className="bg-white dark:bg-zinc-900/20">
+                                                    <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">1x2</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-green-500/10 text-green-700 dark:text-green-400">{oddsData['1x2'].home}</td>
+                                                    <td className="px-4 py-3 text-center font-bold">{oddsData['1x2'].draw}</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{oddsData['1x2'].away}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400 border-l border-zinc-100 dark:border-zinc-800">{oddsData['1x2'].initHome}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['1x2'].initDraw}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['1x2'].initAway}</td>
+                                                </tr>
+                                                <tr className="bg-white dark:bg-zinc-900/20">
+                                                    <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">O/U</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{oddsData['ou'].over}</td>
+                                                    <td className="px-4 py-3 text-center font-bold">{oddsData['ou'].line}</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-green-500/10 text-green-700 dark:text-green-400">{oddsData['ou'].under}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400 border-l border-zinc-100 dark:border-zinc-800">{oddsData['ou'].initOver}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['ou'].initLine}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['ou'].initUnder}</td>
+                                                </tr>
+                                                <tr className="bg-white dark:bg-zinc-900/20">
+                                                    <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">AH</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-green-500/10 text-green-700 dark:text-green-400">{oddsData['ah'].home}</td>
+                                                    <td className="px-4 py-3 text-center font-bold">{oddsData['ah'].line}</td>
+                                                    <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{oddsData['ah'].away}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400 border-l border-zinc-100 dark:border-zinc-800">{oddsData['ah'].initHome}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['ah'].initLine}</td>
+                                                    <td className="px-4 py-3 text-center text-zinc-400">{oddsData['ah'].initAway}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {activeTab === 'H2H' && match.h2h && (
+                        <div className="space-y-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                            {/* Stats Summary */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between text-xs font-bold uppercase text-zinc-500">
+                                    <span>Win {match.h2h.summary.wins} ({Math.round(match.h2h.summary.wins / match.h2h.summary.total * 100)}%)</span>
+                                    <span>Draw {match.h2h.summary.draws} ({Math.round(match.h2h.summary.draws / match.h2h.summary.total * 100)}%)</span>
+                                    <span>Loss {match.h2h.summary.losses} ({Math.round(match.h2h.summary.losses / match.h2h.summary.total * 100)}%)</span>
+                                </div>
+                                <div className="flex h-3 rounded-full overflow-hidden">
+                                    <div style={{ width: `${match.h2h.summary.wins / match.h2h.summary.total * 100}%` }} className="bg-green-500" />
+                                    <div style={{ width: `${match.h2h.summary.draws / match.h2h.summary.total * 100}%` }} className="bg-zinc-300 dark:bg-zinc-600" />
+                                    <div style={{ width: `${match.h2h.summary.losses / match.h2h.summary.total * 100}%` }} className="bg-red-500" />
+                                </div>
+
+                                <div className="pt-2 flex justify-between text-xs font-bold">
+                                    <span className="text-green-600">{match.h2h.summary.homeGoalsAvg} goals/game</span>
+                                    <span className="text-red-600">{match.h2h.summary.awayGoalsAvg} goals/game</span>
+                                </div>
+                                <div className="flex h-2 rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                                    <div style={{ width: '60%' }} className="bg-gradient-to-r from-green-500 to-red-500" />
+                                </div>
+                            </div>
+
+                            {/* History Table */}
+                            <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-zinc-100 dark:bg-zinc-800/50 uppercase text-zinc-500 font-bold">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left">Date</th>
+                                            <th className="px-3 py-2 text-left">League</th>
+                                            <th className="px-3 py-2 text-right">Home</th>
+                                            <th className="px-3 py-2 text-center">Score</th>
+                                            <th className="px-3 py-2 text-left">Away</th>
+                                            <th className="px-3 py-2 text-center">HT</th>
+                                            <th className="px-3 py-2 text-center">Corner</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                        {match.h2h.history.map((game, i) => (
+                                            <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                <td className="px-3 py-2 text-zinc-500">{game.date}</td>
+                                                <td className="px-3 py-2 font-medium text-blue-600 dark:text-blue-400">{game.league}</td>
+                                                <td className={cn("px-3 py-2 text-right font-medium", game.home === match.homeTeam ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500")}>
+                                                    {game.home}
+                                                </td>
+                                                <td className="px-3 py-2 text-center font-bold">
+                                                    <span className={cn(
+                                                        "px-1.5 py-0.5 rounded",
+                                                        game.outcome === 'W' ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                                                            game.outcome === 'L' ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" :
+                                                                "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                                                    )}>
+                                                        {game.score}
+                                                    </span>
+                                                </td>
+                                                <td className={cn("px-3 py-2 text-left font-medium", game.away === match.awayTeam ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500")}>
+                                                    {game.away}
+                                                </td>
+                                                <td className="px-3 py-2 text-center text-zinc-400">{game.htScore}</td>
+                                                <td className="px-3 py-2 text-center text-zinc-400">{game.corner}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'Standings' && (
+                        <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-4">
+                            <BarChart3 size={48} className="opacity-20" />
+                            <p className="text-sm font-medium">Standings data not available yet.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Modal>
+    );
+}
