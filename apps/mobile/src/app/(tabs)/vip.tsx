@@ -2,22 +2,21 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import { Crown } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { fetchFixturesWithCache } from '../../api/sportmonks';
+import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
 import { colors } from '../../theme/colors';
 
 export default function VIPTipsScreen() {
-    const [fixtures, setFixtures] = useState<any[]>([]);
+    const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
-    const date = new Date().toISOString().split('T')[0];
 
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
-            const data = await fetchFixturesWithCache(date);
-            setFixtures(data || []);
+            const data = await webApi.getMatches('vip');
+            setMatches(data || []);
             setLoading(false);
         };
         loadData();
@@ -41,28 +40,26 @@ export default function VIPTipsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : fixtures.length > 0 ? (
+                ) : matches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {fixtures.map((fixture: any) => {
-                            const home = fixture.participants?.find((p: any) => p.meta?.location === 'home');
-                            const away = fixture.participants?.find((p: any) => p.meta?.location === 'away');
-
-                            return (
-                                <MatchCard
-                                    key={fixture.id}
-                                    leagueName={fixture.league?.name || "VIP League"}
-                                    time={new Date(fixture.starting_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    homeTeam={home?.name || 'Home'}
-                                    awayTeam={away?.name || 'Away'}
-                                    isLocked={true}
-                                    price={200}
-                                />
-                            );
-                        })}
+                        {matches.map((match: any) => (
+                            <MatchCard
+                                key={match.id}
+                                leagueName={match.league}
+                                time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                homeTeam={match.homeTeam}
+                                awayTeam={match.awayTeam}
+                                isLocked={true}
+                                price={200}
+                            />
+                        ))}
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyText, { color: themeColors.text }]}>No VIP Tips Available</Text>
+                        <Text style={[styles.emptySubtext, { color: themeColors.text }]}>
+                            Mark matches as VIP in the web app.
+                        </Text>
                     </View>
                 )}
             </ScrollView>
@@ -122,5 +119,9 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         opacity: 0.5,
+    },
+    emptySubtext: {
+        opacity: 0.3,
+        marginTop: 8,
     },
 });

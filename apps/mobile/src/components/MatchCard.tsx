@@ -17,6 +17,8 @@ interface MatchCardProps {
     price?: number;
     prediction?: string;
     odds?: string;
+    homeScore?: number;
+    awayScore?: number;
 }
 
 export const MatchCard = ({
@@ -31,6 +33,8 @@ export const MatchCard = ({
     price,
     prediction,
     odds,
+    homeScore,
+    awayScore,
 }: MatchCardProps) => {
     const [insight, setInsight] = useState<string | null>(null);
     const [loadingAI, setLoadingAI] = useState(false);
@@ -73,9 +77,20 @@ export const MatchCard = ({
                         <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
                     )}
                     <Text style={[styles.teamName, { color: themeColors.text }]}>{homeTeam}</Text>
+                    {homeScore !== undefined && (
+                        <Text style={[styles.score, { color: themeColors.primary }]}>{homeScore}</Text>
+                    )}
                 </View>
 
-                <Text style={[styles.vsText, { color: themeColors.text }]}>VS</Text>
+                <View style={styles.scoreContainer}>
+                    {homeScore !== undefined && awayScore !== undefined ? (
+                        <Text style={[styles.scoreDisplay, { color: themeColors.text }]}>
+                            {homeScore} - {awayScore}
+                        </Text>
+                    ) : (
+                        <Text style={[styles.vsText, { color: themeColors.text }]}>VS</Text>
+                    )}
+                </View>
 
                 <View style={styles.teamColumn}>
                     {awayLogo ? (
@@ -84,6 +99,9 @@ export const MatchCard = ({
                         <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
                     )}
                     <Text style={[styles.teamName, { color: themeColors.text }]}>{awayTeam}</Text>
+                    {awayScore !== undefined && (
+                        <Text style={[styles.score, { color: themeColors.primary }]}>{awayScore}</Text>
+                    )}
                 </View>
             </View>
 
@@ -216,6 +234,18 @@ const styles = StyleSheet.create({
     vsText: {
         fontWeight: 'bold',
         fontSize: 24,
+    },
+    scoreContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    scoreDisplay: {
+        fontWeight: 'bold',
+        fontSize: 32,
+    },
+    score: {
+        fontSize: 18,
+        fontWeight: 'bold',
     },
     actions: {
         flexDirection: 'row',

@@ -1,6 +1,7 @@
 export interface MatchData {
     id: string;
     league: string;
+    leagueId?: number;
     homeTeam: string;
     awayTeam: string;
     timestamp: string;
@@ -8,6 +9,14 @@ export interface MatchData {
     score: string;
     homeScore?: number;
     awayScore?: number;
+    matchType?: 'free' | 'paid' | 'vip';
+    isTrending?: boolean;
+    aiPrediction?: {
+        prediction: string;
+        confidence: number;
+        reasoning: string[];
+        suggestedBet?: string;
+    };
     odds?: {
         home: string;
         away: string;

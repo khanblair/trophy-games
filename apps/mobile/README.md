@@ -74,6 +74,7 @@ in my project, i have the web and mobile. analyze and understand how each of the
 - in the wins screen, show the history for given matches
 
 in the web:
+- add a live scrap button in the leagues page
 - add a section to mark matches as paid, free, vip or all; this will be used in the app
 - fecth the most trending leagues for example English Premier League  at 'https://football.goaloo.com/league/36',  German Bundesliga  at 'https://football.goaloo.com/league/8' among others...
 

@@ -4,12 +4,24 @@ import { parseLeaguePage, parseMatchData, parseGoalooJS } from '@/lib/scraper/pa
 import { MatchData, LeagueInfo } from '@trophy-games/shared';
 import { saveData } from '@/lib/storage';
 
+// Trending league URLs to scrape
+const TRENDING_LEAGUES = [
+    { url: 'https://football.goaloo.com/league/36', name: 'English Premier League', country: 'England' },
+    { url: 'https://football.goaloo.com/league/8', name: 'German Bundesliga', country: 'Germany' },
+    { url: 'https://football.goaloo.com/league/11', name: 'Spanish La Liga', country: 'Spain' },
+    { url: 'https://football.goaloo.com/league/12', name: 'Italian Serie A', country: 'Italy' },
+    { url: 'https://football.goaloo.com/league/13', name: 'French Ligue 1', country: 'France' },
+    { url: 'https://football.goaloo.com/league/107', name: 'UEFA Champions League', country: 'Europe' },
+    { url: 'https://football.goaloo.com/league/23', name: 'UEFA Europa League', country: 'Europe' },
+];
+
 // In-memory state for UI monitoring
 interface ScrapeTask {
     status: 'idle' | 'running' | 'completed' | 'failed';
     processedCount: number;
     totalCount: number;
     results: { url: string; data: LeagueInfo | MatchData }[];
+    currentLeague?: string;
 }
 
 const currentTask: ScrapeTask = {
@@ -22,7 +34,113 @@ const currentTask: ScrapeTask = {
 const scraper = new GoalooScraper();
 
 export async function POST(req: Request) {
-    const { action, sitemapUrl, limit = 5 } = await req.json();
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // Disable scraping in production - it won't work on Vercel
+    if (isProduction) {
+        return NextResponse.json({ 
+            error: 'Scraping is disabled in production. Run scraping locally and the data will be available in production.',
+            isProduction: true 
+        }, { status: 403 });
+    }
+
+    const { action, sitemapUrl, limit = 5, leagueUrl } = await req.json();
+
+    if (action === 'scrape_league') {
+        if (currentTask.status === 'running') {
+            return NextResponse.json({ error: 'Task already running' }, { status: 400 });
+        }
+
+        console.log(`[API] 🚀 Starting league scrape for: ${leagueUrl}`);
+
+        (async () => {
+            try {
+                currentTask.status = 'running';
+                currentTask.results = [];
+                currentTask.processedCount = 0;
+                currentTask.totalCount = 1;
+                currentTask.currentLeague = leagueUrl;
+
+                const jsContent = await scraper.fetchLiveScan();
+                const { matches, leagues } = parseGoalooJS(jsContent);
+
+                // Filter matches for this league
+                const leagueId = parseInt(leagueUrl.match(/league\/(\d+)/)?.[1] || '0');
+                const filteredMatches = matches.filter((m: any) => m.leagueId === leagueId);
+
+                // Mark as trending
+                const trendingMatches = filteredMatches.map((m: any) => ({
+                    ...m,
+                    isTrending: true,
+                    matchType: 'free'
+                }));
+
+                await saveData({
+                    leagues,
+                    matches: trendingMatches
+                });
+
+                currentTask.results = trendingMatches.map((m: any) => ({ url: leagueUrl, data: m }));
+                currentTask.processedCount = 1;
+                currentTask.status = 'completed';
+                console.log(`[API] ✅ League scrape completed. Found ${trendingMatches.length} matches.`);
+
+            } catch (error) {
+                console.error(`[API] ❌ League scrape failed:`, error);
+                currentTask.status = 'failed';
+            }
+        })();
+
+        return NextResponse.json({ message: 'League scraping started' });
+    }
+
+    if (action === 'scrape_trending') {
+        if (currentTask.status === 'running') {
+            return NextResponse.json({ error: 'Task already running' }, { status: 400 });
+        }
+
+        console.log(`[API] 🚀 Starting trending leagues scrape...`);
+
+        (async () => {
+            try {
+                currentTask.status = 'running';
+                currentTask.results = [];
+                currentTask.processedCount = 0;
+                currentTask.totalCount = TRENDING_LEAGUES.length;
+
+                const jsContent = await scraper.fetchLiveScan();
+                const { matches, leagues } = parseGoalooJS(jsContent);
+
+                // Map trending league IDs
+                const trendingLeagueIds = TRENDING_LEAGUES.map(l => parseInt(l.url.match(/league\/(\d+)/)?.[1] || '0'));
+
+                // Filter and mark trending matches
+                const trendingMatches = matches
+                    .filter((m: any) => trendingLeagueIds.includes(m.leagueId))
+                    .map((m: any) => ({
+                        ...m,
+                        isTrending: true,
+                        matchType: 'free'
+                    }));
+
+                await saveData({
+                    leagues,
+                    matches: trendingMatches
+                });
+
+                currentTask.results = trendingMatches.map((m: any) => ({ url: 'trending', data: m }));
+                currentTask.processedCount = TRENDING_LEAGUES.length;
+                currentTask.status = 'completed';
+                console.log(`[API] ✅ Trending scrape completed. Found ${trendingMatches.length} matches.`);
+
+            } catch (error) {
+                console.error(`[API] ❌ Trending scrape failed:`, error);
+                currentTask.status = 'failed';
+            }
+        })();
+
+        return NextResponse.json({ message: 'Trending leagues scraping started' });
+    }
 
     if (action === 'live_scrape') {
         if (currentTask.status === 'running') {
@@ -145,5 +263,12 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-    return NextResponse.json(currentTask);
+    const isProduction = process.env.NODE_ENV === 'production';
+    return NextResponse.json({
+        ...currentTask,
+        trendingLeagues: TRENDING_LEAGUES,
+        isProduction,
+        scrapingDisabled: isProduction,
+        message: isProduction ? 'Scraping is disabled in production. Run scraping locally.' : undefined
+    });
 }

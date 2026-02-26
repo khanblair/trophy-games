@@ -2,29 +2,25 @@ import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-nat
 import { CheckCircle2 } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { fetchFixturesWithCache } from '../../api/sportmonks';
+import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
 import { colors } from '../../theme/colors';
 
 export default function WinsScreen() {
-    const [fixtures, setFixtures] = useState<any[]>([]);
+    const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().split('T')[0];
-
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
-            const data = await fetchFixturesWithCache(dateStr);
-            setFixtures(data || []);
+            const data = await webApi.getHistory();
+            setMatches(data || []);
             setLoading(false);
         };
         loadData();
-    }, [dateStr]);
+    }, []);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background, padding: 16 }]}>
@@ -38,28 +34,28 @@ export default function WinsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : fixtures.length > 0 ? (
+                ) : matches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {fixtures.map((fixture: any) => {
-                            const home = fixture.participants?.find((p: any) => p.meta?.location === 'home');
-                            const away = fixture.participants?.find((p: any) => p.meta?.location === 'away');
-
-                            return (
-                                <MatchCard
-                                    key={fixture.id}
-                                    leagueName={fixture.league?.name || "League Win"}
-                                    time="FT"
-                                    homeTeam={home?.name || 'Home'}
-                                    awayTeam={away?.name || 'Away'}
-                                    prediction="WIN"
-                                    odds="2.10"
-                                />
-                            );
-                        })}
+                        {matches.map((match: any) => (
+                            <MatchCard
+                                key={match.id}
+                                leagueName={match.league}
+                                time="FT"
+                                homeTeam={match.homeTeam}
+                                awayTeam={match.awayTeam}
+                                prediction="WIN"
+                                odds="2.10"
+                                homeScore={match.homeScore}
+                                awayScore={match.awayScore}
+                            />
+                        ))}
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyText, { color: themeColors.text }]}>No Recent Wins Recorded</Text>
+                        <Text style={[styles.emptySubtext, { color: themeColors.text }]}>
+                            Completed matches will appear here.
+                        </Text>
                     </View>
                 )}
             </ScrollView>
@@ -101,5 +97,10 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         opacity: 0.5,
+        fontSize: 18,
+    },
+    emptySubtext: {
+        opacity: 0.3,
+        marginTop: 8,
     },
 });

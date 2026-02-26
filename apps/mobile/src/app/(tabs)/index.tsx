@@ -1,13 +1,13 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { fetchFixturesFromRapid } from '../../api/rapidapi';
+import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
 import { colors } from '../../theme/colors';
 
 export default function FreeTipsScreen() {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [fixtures, setFixtures] = useState<any[]>([]);
+    const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
@@ -15,8 +15,8 @@ export default function FreeTipsScreen() {
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
-            const data = await fetchFixturesFromRapid(selectedDate);
-            setFixtures(data || []);
+            const data = await webApi.getMatches('free');
+            setMatches(data || []);
             setLoading(false);
         };
         loadData();
@@ -59,33 +59,28 @@ export default function FreeTipsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : fixtures.length > 0 ? (
+                ) : matches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {fixtures.map((item: any) => {
-                            const { fixture, league, teams, goals } = item;
-                            const prediction = "H / A";
-                            const odds = "1.85";
-
-                            return (
-                                <MatchCard
-                                    key={fixture.id}
-                                    leagueName={league.name}
-                                    leagueLogo={league.logo}
-                                    time={new Date(fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    homeTeam={teams.home.name}
-                                    homeLogo={teams.home.logo}
-                                    awayTeam={teams.away.name}
-                                    awayLogo={teams.away.logo}
-                                    prediction={prediction}
-                                    odds={odds}
-                                />
-                            );
-                        })}
+                        {matches.map((match: any) => (
+                            <MatchCard
+                                key={match.id}
+                                leagueName={match.league}
+                                time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                homeTeam={match.homeTeam}
+                                awayTeam={match.awayTeam}
+                                prediction={match.aiPrediction?.prediction || "H / A"}
+                                odds={match.odds?.home || "1.85"}
+                                homeScore={match.homeScore}
+                                awayScore={match.awayScore}
+                            />
+                        ))}
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No Free Tips Found</Text>
-                        <Text style={[styles.emptySubtitle, { color: themeColors.text }]}>The list is currently empty for this date.</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.text }]}>
+                            Run live scrape on the web app to get matches.
+                        </Text>
                     </View>
                 )}
             </ScrollView>

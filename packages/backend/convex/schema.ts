@@ -5,6 +5,7 @@ export default defineSchema({
     matches: defineTable({
         id: v.string(),
         league: v.string(),
+        leagueId: v.optional(v.number()),
         homeTeam: v.string(),
         awayTeam: v.string(),
         timestamp: v.string(),
@@ -12,6 +13,14 @@ export default defineSchema({
         score: v.string(),
         homeScore: v.optional(v.number()),
         awayScore: v.optional(v.number()),
+        matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'))),
+        isTrending: v.optional(v.boolean()),
+        aiPrediction: v.optional(v.object({
+            prediction: v.string(),
+            confidence: v.number(),
+            reasoning: v.array(v.string()),
+            suggestedBet: v.optional(v.string()),
+        })),
         odds: v.optional(v.object({
             home: v.string(),
             away: v.string(),
