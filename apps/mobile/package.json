@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-navigation/drawer": "^7.3.0",
+    "@react-navigation/native": "^7.1.0",
     "axios": "^1.13.5",
     "expo": "~54.0.33",
     "expo-asset": "^12.0.12",
@@ -23,13 +25,14 @@
     "lucide-react-native": "^0.563.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "^5.6.2",
     "react-native-screens": "~4.16.0",
     "convex": "latest",
     "react-native-get-random-values": "latest",
     "@trophy-games/shared": "workspace:*",
-    "@trophy-games/backend": "workspace:*",
-    "react-native-reanimated": "~3.16.1"
+    "@trophy-games/backend": "workspace:*"
   },
   "private": true,
   "devDependencies": {

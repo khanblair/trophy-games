@@ -2,8 +2,15 @@ export interface MatchData {
     id: string;
     league: string;
     leagueId?: number;
+    leagueLogo?: string;
     homeTeam: string;
+    homeTeamId?: number;
+    homeTeamLogo?: string;
     awayTeam: string;
+    awayTeamId?: number;
+    awayTeamLogo?: string;
+    country?: string;
+    countryFlag?: string;
     timestamp: string;
     status: string;
     score: string;
@@ -16,6 +23,7 @@ export interface MatchData {
         confidence: number;
         reasoning: string[];
         suggestedBet?: string;
+        generatedAt?: string;
     };
     odds?: {
         home: string;
@@ -61,8 +69,10 @@ export interface LeagueInfo {
     id: number;
     name: string;
     url: string;
+    logo?: string;
     type: 'league' | 'cup';
     matchCount?: number;
     country?: string;
     countryId?: number;
+    countryFlag?: string;
 }

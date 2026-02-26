@@ -86,7 +86,7 @@ class WebApiService {
         }
     }
 
-    async updateMatch(matchId: string, matchType?: 'free' | 'paid' | 'vip', isTrending?: boolean) {
+async updateMatch(matchId: string, matchType?: 'free' | 'paid' | 'vip', isTrending?: boolean) {
         try {
             await axios.post(`${WEB_API_URL}/api/mobile/update-match`, {
                 matchId,
@@ -101,6 +101,9 @@ class WebApiService {
             return false;
         }
     }
-}
 
+    async clearCache() {
+        await CacheManager.clear();
+    }
+}
 export const webApi = new WebApiService();

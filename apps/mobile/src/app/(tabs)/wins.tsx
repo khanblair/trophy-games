@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { CheckCircle2 } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
@@ -9,18 +9,30 @@ import { colors } from '../../theme/colors';
 export default function WinsScreen() {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
 
-    useEffect(() => {
-        const loadData = async () => {
+    const loadData = useCallback(async (isRefresh = false) => {
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
             setLoading(true);
-            const data = await webApi.getHistory();
-            setMatches(data || []);
-            setLoading(false);
-        };
-        loadData();
+        }
+        await webApi.clearCache();
+        const data = await webApi.getHistory();
+        setMatches(data || []);
+        setLoading(false);
+        setRefreshing(false);
     }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const onRefresh = useCallback(() => {
+        loadData(true);
+    }, [loadData]);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background, padding: 16 }]}>
@@ -29,7 +41,18 @@ export default function WinsScreen() {
                 <Text style={[styles.title, { color: themeColors.text }]}>RECENT WINS</Text>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.content} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={themeColors.primary}
+                        colors={[themeColors.primary]}
+                    />
+                }
+            >
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
@@ -40,13 +63,17 @@ export default function WinsScreen() {
                             <MatchCard
                                 key={match.id}
                                 leagueName={match.league}
+                                leagueLogo={match.leagueLogo}
                                 time="FT"
                                 homeTeam={match.homeTeam}
+                                homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
+                                awayTeamLogo={match.awayTeamLogo}
                                 prediction="WIN"
                                 odds="2.10"
                                 homeScore={match.homeScore}
                                 awayScore={match.awayScore}
+                                aiInsight={match.aiPrediction}
                             />
                         ))}
                     </View>
@@ -54,7 +81,7 @@ export default function WinsScreen() {
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyText, { color: themeColors.text }]}>No Recent Wins Recorded</Text>
                         <Text style={[styles.emptySubtext, { color: themeColors.text }]}>
-                            Completed matches will appear here.
+                            Pull to refresh
                         </Text>
                     </View>
                 )}

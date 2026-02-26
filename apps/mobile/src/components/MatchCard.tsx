@@ -4,38 +4,51 @@ import { useState } from 'react';
 import { fetchMatchInsights } from '../api/groq';
 import { colors } from '../theme/colors';
 import { useColorScheme } from 'react-native';
+import { useRouter } from 'expo-router';
 
 interface MatchCardProps {
     leagueName: string;
     leagueLogo?: string;
+    countryFlag?: string;
     time: string;
     homeTeam: string;
-    homeLogo?: string;
+    homeTeamLogo?: string;
     awayTeam: string;
-    awayLogo?: string;
+    awayTeamLogo?: string;
     isLocked?: boolean;
     price?: number;
     prediction?: string;
     odds?: string;
     homeScore?: number;
     awayScore?: number;
+    aiInsight?: {
+        prediction: string;
+        confidence: number;
+        reasoning: string[];
+        suggestedBet?: string;
+    };
+    matchId?: string;
 }
 
 export const MatchCard = ({
     leagueName,
     leagueLogo,
+    countryFlag,
     time,
     homeTeam,
-    homeLogo,
+    homeTeamLogo,
     awayTeam,
-    awayLogo,
+    awayTeamLogo,
     isLocked,
     price,
     prediction,
     odds,
     homeScore,
     awayScore,
+    aiInsight,
+    matchId,
 }: MatchCardProps) => {
+    const router = useRouter();
     const [insight, setInsight] = useState<string | null>(null);
     const [loadingAI, setLoadingAI] = useState(false);
     const [showAI, setShowAI] = useState(false);
@@ -43,7 +56,7 @@ export const MatchCard = ({
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
 
     const handleGetInsight = async () => {
-        if (insight) {
+        if (insight || aiInsight) {
             setShowAI(!showAI);
             return;
         }
@@ -55,8 +68,35 @@ export const MatchCard = ({
         setLoadingAI(false);
     };
 
+    const handleCardPress = () => {
+        if (matchId) {
+            const matchData = encodeURIComponent(JSON.stringify({
+                id: matchId,
+                leagueName,
+                leagueLogo,
+                countryFlag,
+                time,
+                homeTeam,
+                homeTeamLogo,
+                awayTeam,
+                awayTeamLogo,
+                isLocked,
+                prediction,
+                odds,
+                homeScore,
+                awayScore,
+                aiInsight,
+            }));
+            router.push(`/match/${matchId}?matchData=${matchData}`);
+        }
+    };
+
     return (
-        <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+        <TouchableOpacity 
+            style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}
+            onPress={handleCardPress}
+            activeOpacity={0.7}
+        >
             <View style={styles.header}>
                 <View style={styles.leagueRow}>
                     {leagueLogo ? (
@@ -71,8 +111,8 @@ export const MatchCard = ({
 
             <View style={styles.teamsContainer}>
                 <View style={styles.teamColumn}>
-                    {homeLogo ? (
-                        <Image source={{ uri: homeLogo }} style={styles.teamLogo} />
+                    {homeTeamLogo ? (
+                        <Image source={{ uri: homeTeamLogo }} style={styles.teamLogo} />
                     ) : (
                         <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
                     )}
@@ -93,8 +133,8 @@ export const MatchCard = ({
                 </View>
 
                 <View style={styles.teamColumn}>
-                    {awayLogo ? (
-                        <Image source={{ uri: awayLogo }} style={styles.teamLogo} />
+                    {awayTeamLogo ? (
+                        <Image source={{ uri: awayTeamLogo }} style={styles.teamLogo} />
                     ) : (
                         <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
                     )}
@@ -165,7 +205,7 @@ export const MatchCard = ({
                     )}
                 </View>
             )}
-        </View>
+            </TouchableOpacity>
     );
 };
 

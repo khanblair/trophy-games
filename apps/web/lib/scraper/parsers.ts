@@ -78,9 +78,14 @@ function splitJSArray(content: string): string[] {
 
 export function parseGoalooJS(jsContent: string): { matches: MatchData[]; leagues: LeagueInfo[] } {
     const matches: MatchData[] = [];
-    const leaguesMap = new Map<number, LeagueInfo>();
+const leaguesMap = new Map<number, LeagueInfo>();
     const uniqueLeagues = new Map<string, LeagueInfo>();
-    const countriesMap = new Map<number, string>();
+    const countriesMap = new Map<number, { name: string; flag: string }>();
+
+    // Goaloo CDN URLs for images
+    const GOALOO_TEAM_LOGO = 'https://static.goaloo.com/logo/team';
+    const GOALOO_COUNTRY_FLAG = 'https://static.goaloo.com/country/flag';
+    const GOALOO_LEAGUE_LOGO = 'https://static.goaloo.com/logo/league';
 
     // Parse C array (Countries)
     // Format: C[0]=[3,'Spain',0];
@@ -92,7 +97,10 @@ export function parseGoalooJS(jsContent: string): { matches: MatchData[]; league
         const countryId = parseInt(parts[0]);
         const countryName = parts[1];
         if (!isNaN(countryId) && countryName) {
-            countriesMap.set(countryId, countryName);
+            countriesMap.set(countryId, {
+                name: countryName,
+                flag: `${GOALOO_COUNTRY_FLAG}/${countryId}.png`
+            });
         }
     }
 
@@ -114,16 +122,18 @@ export function parseGoalooJS(jsContent: string): { matches: MatchData[]; league
 
         if (!isNaN(leagueId)) {
             const leagueName = longName || shortName || 'Unknown League';
-            const countryName = !isNaN(countryIdVal) ? countriesMap.get(countryIdVal) : 'Unknown';
+            const countryData = !isNaN(countryIdVal) ? countriesMap.get(countryIdVal) : null;
 
             const league: LeagueInfo = {
                 id: leagueId,
                 name: leagueName,
                 url: `http://www.goaloo.com/${urlPart || ''}`,
+                logo: `${GOALOO_LEAGUE_LOGO}/${leagueId}.png`,
                 type: 'league',
                 matchCount: 0,
-                country: countryName || 'Unknown',
-                countryId: countryIdVal
+                country: countryData?.name || 'Unknown',
+                countryId: countryIdVal,
+                countryFlag: countryData?.flag
             };
             leaguesMap.set(index, league);
 
@@ -167,8 +177,11 @@ const match: MatchData = {
             id,
             league: league?.name || 'Unknown League',
             leagueId: league?.id,
+            leagueLogo: league?.logo,
             homeTeam: homeName || 'Unknown Team',
             awayTeam: awayName || 'Unknown Team',
+            country: league?.country,
+            countryFlag: league?.countryFlag,
             timestamp: MatchTime,
             status: statusStr,
             homeScore: !isNaN(homeScore) ? homeScore : undefined,

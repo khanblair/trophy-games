@@ -89,6 +89,33 @@ export const updateMatchType = mutation({
     },
 });
 
+export const saveAIPrediction = mutation({
+    args: {
+        matchId: v.string(),
+        aiPrediction: v.object({
+            prediction: v.string(),
+            confidence: v.number(),
+            reasoning: v.array(v.string()),
+            suggestedBet: v.optional(v.string()),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, { 
+                aiPrediction: {
+                    ...args.aiPrediction,
+                    generatedAt: new Date().toISOString()
+                }
+            });
+        }
+    },
+});
+
 export const toggleTrending = mutation({
     args: {
         matchId: v.string(),

@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Crown } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
@@ -9,18 +9,30 @@ import { colors } from '../../theme/colors';
 export default function VIPTipsScreen() {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
 
-    useEffect(() => {
-        const loadData = async () => {
+    const loadData = useCallback(async (isRefresh = false) => {
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
             setLoading(true);
-            const data = await webApi.getMatches('vip');
-            setMatches(data || []);
-            setLoading(false);
-        };
-        loadData();
+        }
+        await webApi.clearCache();
+        const data = await webApi.getMatches('vip');
+        setMatches(data || []);
+        setLoading(false);
+        setRefreshing(false);
     }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const onRefresh = useCallback(() => {
+        loadData(true);
+    }, [loadData]);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background, padding: 16 }]}>
@@ -35,7 +47,18 @@ export default function VIPTipsScreen() {
                 </View>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.content} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={themeColors.primary}
+                        colors={[themeColors.primary]}
+                    />
+                }
+            >
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
@@ -46,11 +69,15 @@ export default function VIPTipsScreen() {
                             <MatchCard
                                 key={match.id}
                                 leagueName={match.league}
+                                leagueLogo={match.leagueLogo}
                                 time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 homeTeam={match.homeTeam}
+                                homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
+                                awayTeamLogo={match.awayTeamLogo}
                                 isLocked={true}
                                 price={200}
+                                aiInsight={match.aiPrediction}
                             />
                         ))}
                     </View>

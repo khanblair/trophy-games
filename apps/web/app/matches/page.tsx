@@ -79,11 +79,27 @@ export default function MatchesPage() {
         fetchMatches();
     }, []);
 
-    const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
+const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         e.stopPropagation(); // Don't open modal when analyzing
         setAnalyzingId(match.id);
         const result = await analyzeMatch(match);
         setAnalyses(prev => ({ ...prev, [match.id]: result }));
+        
+        // Save AI prediction to Convex for mobile sync
+        try {
+            await fetch('/api/mobile/ai-prediction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    matchId: match.id,
+                    aiPrediction: result
+                })
+            });
+            console.log(`[AI] Saved prediction for match ${match.id}`);
+        } catch (err) {
+            console.error('[AI] Failed to save prediction:', err);
+        }
+        
         setAnalyzingId(null);
     };
 

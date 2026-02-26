@@ -1,5 +1,5 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
@@ -9,18 +9,31 @@ export default function FreeTipsScreen() {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
 
-    useEffect(() => {
-        const loadData = async () => {
+    const loadData = useCallback(async (isRefresh = false) => {
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
             setLoading(true);
-            const data = await webApi.getMatches('free');
-            setMatches(data || []);
-            setLoading(false);
-        };
+        }
+        // Clear cache and fetch fresh data
+        await webApi.clearCache();
+        const data = await webApi.getMatches('free');
+        setMatches(data || []);
+        setLoading(false);
+        setRefreshing(false);
+    }, []);
+
+    useEffect(() => {
         loadData();
-    }, [selectedDate]);
+    }, [loadData, selectedDate]);
+
+    const onRefresh = useCallback(() => {
+        loadData(true);
+    }, [loadData]);
 
     const generateDates = () => {
         const dates = [];
@@ -36,7 +49,19 @@ export default function FreeTipsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background, padding: 16 }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datePicker}>
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.datePicker}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={themeColors.primary}
+                        colors={[themeColors.primary]}
+                    />
+                }
+            >
                 {dates.map((date) => {
                     const dateStr = date.toISOString().split('T')[0];
                     const isSelected = dateStr === selectedDate;
@@ -54,7 +79,18 @@ export default function FreeTipsScreen() {
                 })}
             </ScrollView>
 
-            <ScrollView style={styles.fixtureList} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.fixtureList} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={themeColors.primary}
+                        colors={[themeColors.primary]}
+                    />
+                }
+            >
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
@@ -64,14 +100,20 @@ export default function FreeTipsScreen() {
                         {matches.map((match: any) => (
                             <MatchCard
                                 key={match.id}
+                                matchId={match.id}
                                 leagueName={match.league}
+                                leagueLogo={match.leagueLogo}
+                                countryFlag={match.countryFlag}
                                 time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 homeTeam={match.homeTeam}
+                                homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
+                                awayTeamLogo={match.awayTeamLogo}
                                 prediction={match.aiPrediction?.prediction || "H / A"}
                                 odds={match.odds?.home || "1.85"}
                                 homeScore={match.homeScore}
                                 awayScore={match.awayScore}
+                                aiInsight={match.aiPrediction}
                             />
                         ))}
                     </View>
@@ -79,7 +121,7 @@ export default function FreeTipsScreen() {
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No Free Tips Found</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.text }]}>
-                            Run live scrape on the web app to get matches.
+                            Pull to refresh or run live scrape on web.
                         </Text>
                     </View>
                 )}
