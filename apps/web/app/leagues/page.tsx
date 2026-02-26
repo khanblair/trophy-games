@@ -18,7 +18,6 @@ export default function LeaguesPage() {
     const [typeFilter, setTypeFilter] = useState<'All' | 'league' | 'cup'>('All');
     const [countryFilter, setCountryFilter] = useState('All');
     const [sortBy, setSortBy] = useState<'name' | 'matchCount'>('name');
-    const [matchTypeFilter, setMatchTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip'>('All');
     const [trendingLeagues, setTrendingLeagues] = useState<{url: string; name: string; country: string}[]>([]);
 
     // Selection state
@@ -169,41 +168,6 @@ export default function LeaguesPage() {
                         </div>
                     </>
                 )}
-            </div>
-
-            {/* Match Type Filter */}
-            <div className="flex flex-wrap gap-4 items-center">
-                <span className="text-sm font-medium text-zinc-500">Match Types:</span>
-                <div className="flex gap-2">
-                    {(['All', 'free', 'paid', 'vip'] as const).map((type) => (
-                        <button
-                            key={type}
-                            onClick={() => setMatchTypeFilter(type)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize flex items-center gap-1",
-                                matchTypeFilter === type
-                                    ? type === 'vip' ? 'bg-purple-500 text-white' : type === 'paid' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                            )}
-                        >
-                            {type === 'free' && 'Free'}
-                            {type === 'paid' && '$ Paid'}
-                            {type === 'vip' && '★ VIP'}
-                            {type === 'All' && 'All'}
-                            {type !== 'All' && matchTypeCounts[type] > 0 && (
-                                <span className="ml-1 text-[10px] opacity-70">({matchTypeCounts[type]})</span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-                <button
-                    onClick={handleLiveScrape}
-                    disabled={scraping}
-                    className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
-                >
-                    {scraping ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                    {scraping ? `Scraping ${scrapeStatus?.processedCount || 0}/${scrapeStatus?.totalCount || 0}` : 'Live Scrape'}
-                </button>
             </div>
 
             {/* Filters */}

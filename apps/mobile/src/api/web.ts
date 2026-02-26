@@ -1,13 +1,17 @@
 import axios from 'axios';
 import { CacheManager } from '../utils/cache';
 
-// Use local URL in development, live URL in production
+// Web API URLs
 const DEV_URL = process.env.EXPO_PUBLIC_WEB_API_URL_LOCAL || 'http://localhost:3000';
 const LIVE_URL = process.env.EXPO_PUBLIC_WEB_API_URL_LIVE || 'https://trophy-games-web.vercel.app';
 
-// In Expo, __DEV__ is true during development
-const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
-const WEB_API_URL = isDev ? DEV_URL : LIVE_URL;
+// Use local only if explicitly set to true
+const useLocal = process.env.EXPO_PUBLIC_USE_LOCAL === 'true';
+
+const WEB_API_URL = useLocal ? DEV_URL : LIVE_URL;
+
+console.log(`[WebAPI] Mode: ${useLocal ? 'LOCAL' : 'LIVE'}`);
+console.log(`[WebAPI] URL: ${WEB_API_URL}`);
 
 class WebApiService {
     async getMatches(type?: 'free' | 'paid' | 'vip') {

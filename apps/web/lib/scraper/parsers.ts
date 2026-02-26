@@ -163,9 +163,10 @@ export function parseGoalooJS(jsContent: string): { matches: MatchData[]; league
         else if (status === -12) statusStr = 'Postponed';
         else if (status === -14) statusStr = 'Postponed';
 
-        const match: MatchData = {
+const match: MatchData = {
             id,
             league: league?.name || 'Unknown League',
+            leagueId: league?.id,
             homeTeam: homeName || 'Unknown Team',
             awayTeam: awayName || 'Unknown Team',
             timestamp: MatchTime,
@@ -173,6 +174,7 @@ export function parseGoalooJS(jsContent: string): { matches: MatchData[]; league
             homeScore: !isNaN(homeScore) ? homeScore : undefined,
             awayScore: !isNaN(awayScore) ? awayScore : undefined,
             score: !isNaN(homeScore) && !isNaN(awayScore) ? `${homeScore}-${awayScore}` : '-:-',
+            matchType: 'free', // Default to free
             detailedOdds: {
                 ft: {
                     '1x2': { home: '2.15', draw: '3.40', away: '3.20', initHome: '2.10', initDraw: '3.30', initAway: '3.10' },

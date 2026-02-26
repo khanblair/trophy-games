@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar } from 'lucide-react';
+import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AIAnalysis } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
@@ -13,10 +13,12 @@ export default function MatchesPage() {
     const [loading, setLoading] = useState(true);
     const [analyzingId, setAnalyzingId] = useState<string | null>(null);
     const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Live' | 'Finished' | 'Scheduled'>('All');
+    const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip'>('All');
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
 
@@ -33,11 +35,28 @@ export default function MatchesPage() {
                     action: 'live_scrape'
                 })
             });
-            // Give it a moment to update backend, then reload to fetch new data
             setTimeout(() => window.location.reload(), 2000);
         } catch (e) {
             console.error('Scrape failed', e);
         }
+    };
+
+    const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip') => {
+        setUpdatingId(matchId);
+        try {
+            await fetch('/api/mobile/update-match', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matchId, matchType })
+            });
+            // Update local state
+            setMatches(prev => prev.map(m => 
+                m.id === matchId ? { ...m, matchType } : m
+            ));
+        } catch (e) {
+            console.error('Update failed', e);
+        }
+        setUpdatingId(null);
     };
 
     useEffect(() => {
@@ -73,7 +92,7 @@ export default function MatchesPage() {
         setIsModalOpen(true);
     };
 
-    // Filter Logic
+// Filter Logic
     const filteredMatches = matches.filter(match => {
         const matchesSearch =
             match.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -82,20 +101,25 @@ export default function MatchesPage() {
 
         const matchesStatus =
             statusFilter === 'All' ||
-            (statusFilter === 'Live' && match.status.includes(':')) || // simplified live check
+            (statusFilter === 'Live' && match.status.includes(':')) ||
             (statusFilter === 'Finished' && match.status === 'FT') ||
             (statusFilter === 'Scheduled' && !match.status.includes(':') && match.status !== 'FT');
 
         const matchesLeague = selectedLeague === 'All' || match.league === selectedLeague;
-
-        // Simple date matching - assumes timestamp contains date string or is compared loosely
-        // If timestamp is ISO or similar, this might need refinement based on exact data format
         const matchesDate = !dateFilter || match.timestamp.includes(dateFilter);
+        
+        const matchesType = typeFilter === 'All' || match.matchType === typeFilter;
 
-        return matchesSearch && matchesStatus && matchesLeague && matchesDate;
+        return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType;
     });
 
     const uniqueLeagues = Array.from(new Set(matches.map(m => m.league))).sort();
+    
+    const matchTypeCounts = {
+        free: matches.filter(m => !m.matchType || m.matchType === 'free').length,
+        paid: matches.filter(m => m.matchType === 'paid').length,
+        vip: matches.filter(m => m.matchType === 'vip').length,
+    };
 
     return (
         <div className="p-8 space-y-8">
@@ -147,7 +171,7 @@ export default function MatchesPage() {
                     </select>
                 </div>
 
-                <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-full sm:w-auto">
+<div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-full sm:w-auto">
                     {(['All', 'Live', 'Finished', 'Scheduled'] as const).map((s) => (
                         <button
                             key={s}
@@ -160,6 +184,33 @@ export default function MatchesPage() {
                             )}
                         >
                             {s}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Match Type Filter */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-sm font-medium text-zinc-500">Match Type:</span>
+                <div className="flex gap-2">
+                    {(['All', 'free', 'paid', 'vip'] as const).map((type) => (
+                        <button
+                            key={type}
+                            onClick={() => setTypeFilter(type)}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize flex items-center gap-1",
+                                typeFilter === type
+                                    ? type === 'vip' ? 'bg-purple-500 text-white' : type === 'paid' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                            )}
+                        >
+                            {type === 'free' && 'Free'}
+                            {type === 'paid' && '$ Paid'}
+                            {type === 'vip' && '★ VIP'}
+                            {type === 'All' && 'All'}
+                            {type !== 'All' && matchTypeCounts[type] > 0 && (
+                                <span className="ml-1 text-[10px] opacity-70">({matchTypeCounts[type]})</span>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -213,12 +264,23 @@ export default function MatchesPage() {
 
                                     {/* Match Info */}
                                     <div className="p-6 md:w-1/3 space-y-4">
-                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-500">
+<div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-500">
                                             <span className="flex items-center gap-1.5">
                                                 <Timer size={14} />
                                                 {match.status}
                                             </span>
-                                            <span>{match.league}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span>{match.league}</span>
+                                                {/* Match Type Badge */}
+                                                <span className={cn(
+                                                    "px-2 py-0.5 rounded text-[10px] font-bold",
+                                                    match.matchType === 'vip' ? "bg-purple-500 text-white" :
+                                                    match.matchType === 'paid' ? "bg-orange-500 text-white" :
+                                                    "bg-blue-500 text-white"
+                                                )}>
+                                                    {match.matchType || 'free'}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="space-y-3">
@@ -232,6 +294,59 @@ export default function MatchesPage() {
                                             </div>
                                         </div>
 
+<div className="pt-2">
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateMatchType(match.id, 'free');
+                                                    }}
+                                                    disabled={updatingId === match.id}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
+                                                        !match.matchType || match.matchType === 'free'
+                                                            ? "bg-blue-600 text-white"
+                                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-blue-100 dark:hover:bg-blue-900"
+                                                    )}
+                                                >
+                                                    <Star size={12} />
+                                                    Free
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateMatchType(match.id, 'paid');
+                                                    }}
+                                                    disabled={updatingId === match.id}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
+                                                        match.matchType === 'paid'
+                                                            ? "bg-orange-500 text-white"
+                                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-orange-100 dark:hover:bg-orange-900"
+                                                    )}
+                                                >
+                                                    <DollarSign size={12} />
+                                                    Paid
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateMatchType(match.id, 'vip');
+                                                    }}
+                                                    disabled={updatingId === match.id}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
+                                                        match.matchType === 'vip'
+                                                            ? "bg-purple-500 text-white"
+                                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-purple-100 dark:hover:bg-purple-900"
+                                                    )}
+                                                >
+                                                    <Crown size={12} />
+                                                    VIP
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
                                         <div className="pt-2">
                                             <button
                                                 onClick={(e) => handleAnalyze(e, match)}

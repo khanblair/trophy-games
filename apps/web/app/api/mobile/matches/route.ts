@@ -8,10 +8,18 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get('limit') || '50');
         
         const data = await loadData();
+        
+        console.log(`[API /mobile/matches] Loaded ${data.matches.length} matches from storage`);
+        
         let matches = data.matches;
 
-        if (type && ['free', 'paid', 'vip'].includes(type)) {
-            matches = matches.filter((m: any) => m.matchType === type);
+        if (type) {
+            console.log(`[API /mobile/matches] Filtering by type: ${type}`);
+            matches = matches.filter((m: any) => {
+                console.log(`[API /mobile/matches] Match ${m.id}: matchType=${m.matchType}`);
+                return m.matchType === type;
+            });
+            console.log(`[API /mobile/matches] After filter: ${matches.length} matches`);
         }
 
         return NextResponse.json(matches.slice(0, limit));

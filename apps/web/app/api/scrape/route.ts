@@ -111,17 +111,25 @@ export async function POST(req: Request) {
                 const jsContent = await scraper.fetchLiveScan();
                 const { matches, leagues } = parseGoalooJS(jsContent);
 
-                // Map trending league IDs
-                const trendingLeagueIds = TRENDING_LEAGUES.map(l => parseInt(l.url.match(/league\/(\d+)/)?.[1] || '0'));
+                console.log(`[API] ✅ Parsed ${matches.length} matches, ${leagues.length} leagues`);
 
-                // Filter and mark trending matches
+                // Get trending league names
+                const trendingLeagueNames = TRENDING_LEAGUES.map(l => l.name.toLowerCase());
+                console.log(`[API] Looking for leagues:`, trendingLeagueNames);
+
+                // Filter by league name (case insensitive)
                 const trendingMatches = matches
-                    .filter((m: any) => trendingLeagueIds.includes(m.leagueId))
+                    .filter((m: any) => {
+                        const leagueName = m.league?.toLowerCase() || '';
+                        return trendingLeagueNames.some(name => leagueName.includes(name));
+                    })
                     .map((m: any) => ({
                         ...m,
                         isTrending: true,
                         matchType: 'free'
                     }));
+
+                console.log(`[API] Found ${trendingMatches.length} trending matches`);
 
                 await saveData({
                     leagues,
@@ -156,16 +164,23 @@ export async function POST(req: Request) {
                 currentTask.processedCount = 0;
                 currentTask.totalCount = 1; // 1 big file
 
-                const jsContent = await scraper.fetchLiveScan();
+const jsContent = await scraper.fetchLiveScan();
                 currentTask.processedCount = 0.5; // Fetched
 
                 const { matches, leagues } = parseGoalooJS(jsContent);
                 console.log(`[API] ✅ Parsed ${matches.length} matches and ${leagues.length} leagues.`);
 
+                // Ensure all matches have matchType and isTrending
+                const matchesWithType = matches.map((m: any) => ({
+                    ...m,
+                    matchType: m.matchType || 'free',
+                    isTrending: m.isTrending || false
+                }));
+
                 // Save to storage
                 await saveData({
                     leagues,
-                    matches
+                    matches: matchesWithType
                 });
 
                 currentTask.results = matches.map(m => ({ url: 'live-data', data: m }));
