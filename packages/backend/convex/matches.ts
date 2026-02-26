@@ -11,6 +11,13 @@ export const getAll = query({
     },
 });
 
+export const getAllLeagues = query({
+    args: {},
+    handler: async (ctx) => {
+        return await ctx.db.query("leagues").order("desc").take(100);
+    },
+});
+
 export const get = query({
     args: {
         matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'))),

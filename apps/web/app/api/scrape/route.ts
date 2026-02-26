@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { GoalooScraper } from '@/lib/scraper/scraper';
 import { parseLeaguePage, parseMatchData, parseGoalooJS } from '@/lib/scraper/parsers';
 import { MatchData, LeagueInfo } from '@trophy-games/shared';
-import { saveData } from '@/lib/storage';
+import { saveData, loadData } from '@/lib/storage';
 
 // Trending league URLs to scrape
 const TRENDING_LEAGUES = [
@@ -113,11 +113,15 @@ export async function POST(req: Request) {
 
                 console.log(`[API] ✅ Parsed ${matches.length} matches, ${leagues.length} leagues`);
 
+                // Get existing matches from storage to preserve matchType
+                const existingData = await loadData();
+                const existingMatchTypes = new Map(existingData.matches.map((m: any) => [m.id, m.matchType]));
+
                 // Get trending league names
                 const trendingLeagueNames = TRENDING_LEAGUES.map(l => l.name.toLowerCase());
                 console.log(`[API] Looking for leagues:`, trendingLeagueNames);
 
-                // Filter by league name (case insensitive)
+                // Filter by league name (case insensitive) and preserve existing types
                 const trendingMatches = matches
                     .filter((m: any) => {
                         const leagueName = m.league?.toLowerCase() || '';
@@ -126,7 +130,7 @@ export async function POST(req: Request) {
                     .map((m: any) => ({
                         ...m,
                         isTrending: true,
-                        matchType: 'free'
+                        matchType: existingMatchTypes.get(m.id) || 'free'
                     }));
 
                 console.log(`[API] Found ${trendingMatches.length} trending matches`);
@@ -170,10 +174,14 @@ const jsContent = await scraper.fetchLiveScan();
                 const { matches, leagues } = parseGoalooJS(jsContent);
                 console.log(`[API] ✅ Parsed ${matches.length} matches and ${leagues.length} leagues.`);
 
-                // Ensure all matches have matchType and isTrending
+                // Get existing matches from storage to preserve matchType
+                const existingData = await loadData();
+                const existingMatchTypes = new Map(existingData.matches.map((m: any) => [m.id, m.matchType]));
+
+                // Merge with existing types (preserve paid/vip, default to free only for new matches)
                 const matchesWithType = matches.map((m: any) => ({
                     ...m,
-                    matchType: m.matchType || 'free',
+                    matchType: existingMatchTypes.get(m.id) || 'free',
                     isTrending: m.isTrending || false
                 }));
 
