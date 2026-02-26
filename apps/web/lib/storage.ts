@@ -31,8 +31,8 @@ export async function loadData(): Promise<ScrapedData> {
         return { leagues: [], matches: [], lastUpdated: '' };
     }
     
-    try {
-        const matches = await convex.query(api.matches.get);
+try {
+        const matches = await convex.query(api.matches.getAll, { limit: 200 });
         return {
             leagues: [], // We'll add a league query later if needed
             matches: matches as any,

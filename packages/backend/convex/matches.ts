@@ -1,6 +1,16 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+export const getAll = query({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = args.limit || 100;
+        return await ctx.db.query("matches").order("desc").take(limit);
+    },
+});
+
 export const get = query({
     args: {
         matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'))),
