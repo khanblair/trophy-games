@@ -1,5 +1,6 @@
 import { MatchData, LeagueInfo } from '@trophy-games/shared';
 
+export type { MatchData, LeagueInfo };
 
 export function parseSitemap(xml: string): string[] {
     const urls: string[] = [];
