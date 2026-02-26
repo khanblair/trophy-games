@@ -95,8 +95,8 @@ export function LeagueDetailModal({ league, matches, isOpen, onClose }: LeagueDe
 
                         <div className="grid grid-cols-2 gap-4 pt-4">
                             <div className="p-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
-                                <div className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mb-1">>
-                                <divTotal Matches</div className="text-2xl font-black">{league.matchCount || 0}</div>
+                                <div className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mb-1">Total Matches</div>
+                                <div className="text-2xl font-black">{league.matchCount || 0}</div>
                             </div>
                             {league.id ? (
                                 <div className="p-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">

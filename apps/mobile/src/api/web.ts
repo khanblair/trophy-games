@@ -90,8 +90,7 @@ class WebApiService {
                 isTrending
             });
             // Invalidate cache
-            await CacheManager.remove('web_matches_all');
-            await CacheManager.remove('web_trending');
+            await CacheManager.clear();
             return true;
         } catch (error: any) {
             console.error('[WebAPI] Failed to update match:', error.message);

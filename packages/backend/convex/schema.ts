@@ -28,7 +28,10 @@ export default defineSchema({
         })),
         detailedOdds: v.optional(v.any()),
         h2h: v.optional(v.any()),
-    }).index("by_match_id", ["id"]),
+    })
+    .index("by_match_id", ["id"])
+    .index("by_match_type", ["matchType"])
+    .index("by_trending", ["isTrending"]),
 
     leagues: defineTable({
         id: v.number(),
