@@ -3,7 +3,7 @@ import { parseLeaguePage } from '../lib/scraper/parsers';
 
 async function runTest() {
     console.log('--- Starting Scraper Test ---');
-    const scraper = new GoalooScraper('TestBot/1.0', 1000);
+    const scraper = new GoalooScraper(1000);
 
     const sitemapUrl = 'https://www.goaloo.com/football/league/sitemap.xml';
 
