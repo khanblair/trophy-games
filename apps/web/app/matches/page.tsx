@@ -66,6 +66,17 @@ export default function MatchesPage() {
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     setMatches(data);
+                    
+                    // Load existing AI predictions into analyses state
+                    const existingAnalyses: Record<string, AIAnalysis> = {};
+                    data.forEach((match: MatchData) => {
+                        if (match.aiPrediction) {
+                            existingAnalyses[match.id] = match.aiPrediction;
+                            console.log(`[Loaded] AI prediction for match ${match.id}`);
+                        }
+                    });
+                    setAnalyses(existingAnalyses);
+                    console.log(`[Loaded] ${Object.keys(existingAnalyses).length} AI predictions from database`);
                 } else {
                     setMatches([]);
                     console.error('Invalid matches data:', data);
@@ -85,6 +96,11 @@ const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         const result = await analyzeMatch(match);
         setAnalyses(prev => ({ ...prev, [match.id]: result }));
         
+        // Update selectedMatch if it's the same match
+        if (selectedMatch?.id === match.id) {
+            setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
+        }
+        
         // Save AI prediction to Convex for mobile sync
         try {
             await fetch('/api/mobile/ai-prediction', {
@@ -103,8 +119,12 @@ const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         setAnalyzingId(null);
     };
 
-    const handleOpenModal = (match: MatchData) => {
-        setSelectedMatch(match);
+const handleOpenModal = (match: MatchData) => {
+        // Include AI prediction from analyses state if available
+        const matchWithAnalysis = analyses[match.id] 
+            ? { ...match, aiPrediction: analyses[match.id] }
+            : match;
+        setSelectedMatch(matchWithAnalysis);
         setIsModalOpen(true);
     };
 

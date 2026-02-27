@@ -33,16 +33,15 @@ export async function loadData(): Promise<ScrapedData> {
 
     try {
         const [rawMatches, rawLeagues] = await Promise.all([
-            convex.query(api.matches.getAll, { limit: 500 }), // Increased limit to ensure we get enough trending matches
+            convex.query(api.matches.getAll, { limit: 500 }),
             convex.query(api.matches.getAllLeagues)
         ]);
 
-        // Filter and ensure type safety
-        const matches = (rawMatches as MatchData[]).filter(m =>
+        const matches = (rawMatches as MatchData[] || []).filter(m =>
             m.leagueId && TRENDING_LEAGUE_IDS.has(m.leagueId)
         );
 
-        const leagues = (rawLeagues as LeagueInfo[]).filter(l =>
+        const leagues = (rawLeagues as LeagueInfo[] || []).filter(l =>
             TRENDING_LEAGUE_IDS.has(l.id)
         );
 

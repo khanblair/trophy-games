@@ -16,6 +16,10 @@ export interface MatchData {
     score: string;
     homeScore?: number;
     awayScore?: number;
+    homeStanding?: number;
+    awayStanding?: number;
+    referee?: string;
+    weather?: string;
     matchType?: 'free' | 'paid' | 'vip';
     isTrending?: boolean;
     aiPrediction?: {

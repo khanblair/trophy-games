@@ -22,10 +22,13 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
 
     if (!match) return null;
 
+    const hasLiveOdds = match.detailedOdds && !match.detailedOdds.isGenerated;
+    const hasLiveH2h = match.h2h && !match.h2h.isGenerated;
+
     const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
         { id: 'Overview', icon: Trophy, label: 'Overview' },
-        { id: 'Odds', icon: TrendingUp, label: 'Odds' },
-        { id: 'H2H', icon: History, label: 'H2H' },
+        ...(hasLiveOdds ? [{ id: 'Odds' as Tab, icon: TrendingUp, label: 'Odds' }] : []),
+        ...(hasLiveH2h ? [{ id: 'H2H' as Tab, icon: History, label: 'H2H' }] : []),
         { id: 'Standings', icon: Layers, label: 'Standings' },
     ];
 
@@ -235,37 +238,39 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
                                     <AlertCircle size={16} className="text-zinc-500" />
-                                    Quick Stats
+                                    Match Info
                                 </h3>
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
-                                        <span className="text-xs font-semibold text-zinc-500">ID Reference</span>
-                                        <span className="text-xs font-mono text-blue-600">{match.id}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
-                                        <span className="text-xs font-semibold text-zinc-500">Source</span>
-                                        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded-md">Goaloo Live</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-5 rounded-2xl bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/20 md:col-span-2">
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2 rounded-lg bg-white dark:bg-zinc-800 text-blue-600 shadow-sm border border-blue-100 dark:border-blue-500/20 shrink-0">
-                                        <CheckCircle2 size={18} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-bold text-blue-900 dark:text-blue-400 uppercase tracking-wide">Data Verification</p>
-                                        <p className="text-sm text-blue-800 dark:text-zinc-300 leading-relaxed">
-                                            This match data was scraped directly from the official Goaloo media servers. All scores and timestamps are reconciled in real-time.
-                                        </p>
-                                    </div>
+                                    {match.homeStanding && (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                            <span className="text-xs font-semibold text-zinc-500">{match.homeTeam} Position</span>
+                                            <span className="text-xs font-bold text-blue-600">{match.homeStanding}</span>
+                                        </div>
+                                    )}
+                                    {match.awayStanding && (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                            <span className="text-xs font-semibold text-zinc-500">{match.awayTeam} Position</span>
+                                            <span className="text-xs font-bold text-blue-600">{match.awayStanding}</span>
+                                        </div>
+                                    )}
+                                    {match.referee && (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                            <span className="text-xs font-semibold text-zinc-500">Referee</span>
+                                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{match.referee}</span>
+                                        </div>
+                                    )}
+                                    {match.weather && (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/30 border border-dashed border-zinc-200 dark:border-zinc-700">
+                                            <span className="text-xs font-semibold text-zinc-500">Weather</span>
+                                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{match.weather}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {activeTab === 'Odds' && (
+                    {activeTab === 'Odds' && match.detailedOdds && !match.detailedOdds.isGenerated && (
                         <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
                             {['FT', 'HT'].map((period) => {
                                 const oddsData = period === 'FT' ? match.detailedOdds?.ft : match.detailedOdds?.ht;
@@ -324,7 +329,14 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                         </div>
                     )}
 
-                    {activeTab === 'H2H' && match.h2h && (
+                    {activeTab === 'Odds' && (!match.detailedOdds || match.detailedOdds.isGenerated) && (
+                        <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-4">
+                            <TrendingUp size={48} className="opacity-20" />
+                            <p className="text-sm font-medium">Odds data unavailable from live source.</p>
+                        </div>
+                    )}
+
+                    {activeTab === 'H2H' && match.h2h && !match.h2h.isGenerated && (
                         <div className="space-y-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
                             {/* Stats Summary */}
                             <div className="space-y-3">
@@ -390,6 +402,13 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'H2H' && (!match.h2h || match.h2h.isGenerated) && (
+                        <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-4">
+                            <History size={48} className="opacity-20" />
+                            <p className="text-sm font-medium">Head-to-head data unavailable from live source.</p>
                         </div>
                     )}
 

@@ -132,7 +132,8 @@ export class GoalooScraper {
                 'Referer': 'http://www.goaloo.com/',
                 'Accept': '*/*',
                 'Connection': 'keep-alive'
-            }
+            },
+            redirect: 'follow'
         });
 
         if (!response.ok) {
@@ -155,7 +156,8 @@ export class GoalooScraper {
                 'Referer': 'http://www.goaloo.com/',
                 'Accept': '*/*',
                 'Connection': 'keep-alive'
-            }
+            },
+            redirect: 'follow'
         });
 
         if (!response.ok) {
@@ -179,7 +181,8 @@ export class GoalooScraper {
                 'Referer': 'http://www.goaloo.com/',
                 'Accept': '*/*',
                 'Connection': 'keep-alive'
-            }
+            },
+            redirect: 'follow'
         });
 
         if (!response.ok) {
