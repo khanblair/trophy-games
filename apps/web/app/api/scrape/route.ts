@@ -1,19 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoalooScraper } from '@/lib/scraper/scraper';
-import { parseLeaguePage, parseMatchData, parseGoalooJS } from '@/lib/scraper/parsers';
-import { MatchData, LeagueInfo } from '@trophy-games/shared';
+import { parseLeaguePage, parseMatchData, parseGoalooJS, parseOddsJS, parseH2HJS } from '@/lib/scraper/parsers';
+import { MatchData, LeagueInfo, TRENDING_LEAGUES, TRENDING_LEAGUE_IDS } from '@trophy-games/shared';
 import { saveData, loadData } from '@/lib/storage';
-
-// Trending league URLs to scrape
-const TRENDING_LEAGUES = [
-    { url: 'https://football.goaloo.com/league/36', name: 'English Premier League', country: 'England' },
-    { url: 'https://football.goaloo.com/league/8', name: 'German Bundesliga', country: 'Germany' },
-    { url: 'https://football.goaloo.com/league/11', name: 'Spanish La Liga', country: 'Spain' },
-    { url: 'https://football.goaloo.com/league/12', name: 'Italian Serie A', country: 'Italy' },
-    { url: 'https://football.goaloo.com/league/13', name: 'French Ligue 1', country: 'France' },
-    { url: 'https://football.goaloo.com/league/107', name: 'UEFA Champions League', country: 'Europe' },
-    { url: 'https://football.goaloo.com/league/23', name: 'UEFA Europa League', country: 'Europe' },
-];
 
 // In-memory state for UI monitoring
 interface ScrapeTask {
@@ -35,13 +24,18 @@ const scraper = new GoalooScraper();
 
 export async function POST(req: Request) {
     const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Disable scraping in production - it won't work on Vercel
+    const cronSecret = process.env.CRON_SECRET;
+
+    // In production, only allow requests with a valid CRON_SECRET header.
+    // This lets Vercel Cron or GitHub Actions trigger scrapes automatically.
     if (isProduction) {
-        return NextResponse.json({ 
-            error: 'Scraping is disabled in production. Run scraping locally and the data will be available in production.',
-            isProduction: true 
-        }, { status: 403 });
+        const providedSecret = req.headers.get('x-cron-secret');
+        if (!cronSecret || providedSecret !== cronSecret) {
+            return NextResponse.json({
+                error: 'Scraping requires a valid X-Cron-Secret header in production.',
+                isProduction: true
+            }, { status: 403 });
+        }
     }
 
     const { action, sitemapUrl, limit = 5, leagueUrl } = await req.json();
@@ -64,16 +58,42 @@ export async function POST(req: Request) {
                 const jsContent = await scraper.fetchLiveScan();
                 const { matches, leagues } = parseGoalooJS(jsContent);
 
-                // Filter matches for this league
+                let oddsMap = new Map();
+                let h2hMap = new Map();
+
+                try {
+                    const oddsContent = await scraper.fetchOddsData();
+                    if (oddsContent) {
+                        oddsMap = parseOddsJS(oddsContent);
+                    }
+                } catch (oddsError) {
+                    console.warn(`[API] ⚠️ Failed to fetch odds:`, oddsError);
+                }
+
+                try {
+                    const h2hContent = await scraper.fetchH2HData();
+                    if (h2hContent) {
+                        h2hMap = parseH2HJS(h2hContent);
+                    }
+                } catch (h2hError) {
+                    console.warn(`[API] ⚠️ Failed to fetch H2H:`, h2hError);
+                }
+
                 const leagueId = parseInt(leagueUrl.match(/league\/(\d+)/)?.[1] || '0');
                 const filteredMatches = matches.filter((m: any) => m.leagueId === leagueId);
 
-                // Mark as trending
-                const trendingMatches = filteredMatches.map((m: any) => ({
-                    ...m,
-                    isTrending: true,
-                    matchType: 'free'
-                }));
+                const trendingMatches = filteredMatches.map((m: any) => {
+                    const matchOdds = oddsMap.get(m.id);
+                    const matchH2h = h2hMap.get(m.id);
+
+                    return {
+                        ...m,
+                        isTrending: true,
+                        matchType: 'free',
+                        detailedOdds: matchOdds || m.detailedOdds,
+                        h2h: matchH2h || m.h2h
+                    };
+                });
 
                 await saveData({
                     leagues,
@@ -113,30 +133,56 @@ export async function POST(req: Request) {
 
                 console.log(`[API] ✅ Parsed ${matches.length} matches, ${leagues.length} leagues`);
 
-                // Get existing matches from storage to preserve matchType
+                let oddsMap = new Map();
+                let h2hMap = new Map();
+
+                try {
+                    const oddsContent = await scraper.fetchOddsData();
+                    if (oddsContent) {
+                        oddsMap = parseOddsJS(oddsContent);
+                        console.log(`[API] ✅ Parsed odds for ${oddsMap.size} matches.`);
+                    }
+                } catch (oddsError) {
+                    console.warn(`[API] ⚠️ Failed to fetch odds:`, oddsError);
+                }
+
+                try {
+                    const h2hContent = await scraper.fetchH2HData();
+                    if (h2hContent) {
+                        h2hMap = parseH2HJS(h2hContent);
+                        console.log(`[API] ✅ Parsed H2H for ${h2hMap.size} matches.`);
+                    }
+                } catch (h2hError) {
+                    console.warn(`[API] ⚠️ Failed to fetch H2H:`, h2hError);
+                }
+
                 const existingData = await loadData();
                 const existingMatchTypes = new Map(existingData.matches.map((m: any) => [m.id, m.matchType]));
 
-                // Get trending league names
-                const trendingLeagueNames = TRENDING_LEAGUES.map(l => l.name.toLowerCase());
-                console.log(`[API] Looking for leagues:`, trendingLeagueNames);
+                // Filter by leagueId (fast, exact, no name-substring fragility)
+                console.log(`[API] Filtering for ${TRENDING_LEAGUE_IDS.size} hot league IDs:`, Array.from(TRENDING_LEAGUE_IDS));
 
-                // Filter by league name (case insensitive) and preserve existing types
                 const trendingMatches = matches
-                    .filter((m: any) => {
-                        const leagueName = m.league?.toLowerCase() || '';
-                        return trendingLeagueNames.some(name => leagueName.includes(name));
-                    })
-                    .map((m: any) => ({
-                        ...m,
-                        isTrending: true,
-                        matchType: existingMatchTypes.get(m.id) || 'free'
-                    }));
+                    .filter((m: any) => TRENDING_LEAGUE_IDS.has(m.leagueId))
+                    .map((m: any) => {
+                        const matchOdds = oddsMap.get(m.id);
+                        const matchH2h = h2hMap.get(m.id);
 
-                console.log(`[API] Found ${trendingMatches.length} trending matches`);
+                        return {
+                            ...m,
+                            isTrending: true,
+                            matchType: existingMatchTypes.get(m.id) || 'free',
+                            // Use real odds/H2H if available, otherwise keep pre-generated fallback
+                            detailedOdds: matchOdds || m.detailedOdds,
+                            h2h: matchH2h || m.h2h
+                        };
+                    });
 
+                console.log(`[API] Found ${trendingMatches.length} hot-league matches out of ${matches.length} total`);
+
+                // Only save hot-league matches to Convex (not ALL matches)
                 await saveData({
-                    leagues,
+                    leagues: leagues.filter((l: any) => TRENDING_LEAGUE_IDS.has(l.id)),
                     matches: trendingMatches
                 });
 
@@ -166,35 +212,69 @@ export async function POST(req: Request) {
                 currentTask.status = 'running';
                 currentTask.results = [];
                 currentTask.processedCount = 0;
-                currentTask.totalCount = 1; // 1 big file
+                currentTask.totalCount = 1;
 
-const jsContent = await scraper.fetchLiveScan();
-                currentTask.processedCount = 0.5; // Fetched
+                const jsContent = await scraper.fetchLiveScan();
+                currentTask.processedCount = 0.3;
 
                 const { matches, leagues } = parseGoalooJS(jsContent);
                 console.log(`[API] ✅ Parsed ${matches.length} matches and ${leagues.length} leagues.`);
 
-                // Get existing matches from storage to preserve matchType
+                let oddsMap = new Map();
+                let h2hMap = new Map();
+
+                try {
+                    const oddsContent = await scraper.fetchOddsData();
+                    if (oddsContent) {
+                        oddsMap = parseOddsJS(oddsContent);
+                        console.log(`[API] ✅ Parsed odds for ${oddsMap.size} matches.`);
+                    }
+                } catch (oddsError) {
+                    console.warn(`[API] ⚠️ Failed to fetch odds:`, oddsError);
+                }
+
+                try {
+                    const h2hContent = await scraper.fetchH2HData();
+                    if (h2hContent) {
+                        h2hMap = parseH2HJS(h2hContent);
+                        console.log(`[API] ✅ Parsed H2H for ${h2hMap.size} matches.`);
+                    }
+                } catch (h2hError) {
+                    console.warn(`[API] ⚠️ Failed to fetch H2H:`, h2hError);
+                }
+
+                currentTask.processedCount = 0.6;
+
                 const existingData = await loadData();
                 const existingMatchTypes = new Map(existingData.matches.map((m: any) => [m.id, m.matchType]));
 
-                // Merge with existing types (preserve paid/vip, default to free only for new matches)
-                const matchesWithType = matches.map((m: any) => ({
-                    ...m,
-                    matchType: existingMatchTypes.get(m.id) || 'free',
-                    isTrending: m.isTrending || false
-                }));
+                // Only keep hot-league matches — no need to store all 550+ matches in Convex
+                const hotMatches = matches
+                    .filter((m: any) => TRENDING_LEAGUE_IDS.has(m.leagueId))
+                    .map((m: any) => {
+                        const matchOdds = oddsMap.get(m.id);
+                        const matchH2h = h2hMap.get(m.id);
 
-                // Save to storage
+                        return {
+                            ...m,
+                            matchType: existingMatchTypes.get(m.id) || 'free',
+                            isTrending: true,
+                            detailedOdds: matchOdds || m.detailedOdds,
+                            h2h: matchH2h || m.h2h
+                        };
+                    });
+
+                console.log(`[API] ✅ Hot-league matches: ${hotMatches.length} / ${matches.length} total`);
+
                 await saveData({
-                    leagues,
-                    matches: matchesWithType
+                    leagues: leagues.filter((l: any) => TRENDING_LEAGUE_IDS.has(l.id)),
+                    matches: hotMatches
                 });
 
-                currentTask.results = matches.map(m => ({ url: 'live-data', data: m }));
+                currentTask.results = hotMatches.map(m => ({ url: 'live-data', data: m }));
                 currentTask.processedCount = 1;
                 currentTask.status = 'completed';
-                console.log(`[API] ✅ Live scrape completed.`);
+                console.log(`[API] ✅ Live scrape completed with odds and h2h data.`);
 
             } catch (error) {
                 console.error(`[API] ❌ Live scrape failed:`, error);
@@ -291,7 +371,7 @@ export async function GET() {
         ...currentTask,
         trendingLeagues: TRENDING_LEAGUES,
         isProduction,
-        scrapingDisabled: isProduction,
-        message: isProduction ? 'Scraping is disabled in production. Run scraping locally.' : undefined
+        // In production, scraping is gated by X-Cron-Secret header (not fully disabled)
+        cronProtected: isProduction,
     });
 }

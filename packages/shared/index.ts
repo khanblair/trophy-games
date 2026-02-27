@@ -31,6 +31,7 @@ export interface MatchData {
         draw?: string;
     };
     detailedOdds?: {
+        isGenerated?: boolean;
         ft: {
             '1x2': { home: string; draw: string; away: string; initHome: string; initDraw: string; initAway: string; };
             'ou': { over: string; line: string; under: string; initOver: string; initLine: string; initUnder: string; };
@@ -43,6 +44,7 @@ export interface MatchData {
         };
     };
     h2h?: {
+        isGenerated?: boolean;
         summary: {
             wins: number;
             draws: number;
@@ -76,3 +78,21 @@ export interface LeagueInfo {
     countryId?: number;
     countryFlag?: string;
 }
+
+export const TRENDING_LEAGUES = [
+    { id: 36, name: 'English Premier League', country: 'England' },
+    { id: 8, name: 'German Bundesliga', country: 'Germany' },
+    { id: 31, name: 'Spanish La Liga', country: 'Spain' },
+    { id: 34, name: 'Italian Serie A', country: 'Italy' },
+    { id: 11, name: 'French Ligue 1', country: 'France' },
+    { id: 25, name: 'Japan J1 League', country: 'Japan' },
+    { id: 273, name: 'Australian A-League', country: 'Australia' },
+    { id: 39, name: 'English Championship', country: 'England' },
+    { id: 27, name: 'USA MLS', country: 'USA' },
+    { id: 37, name: 'English FA Cup', country: 'England' },
+    { id: 10, name: 'Champions League', country: 'Europe' },
+    { id: 15, name: 'Europa League', country: 'Europe' },
+    { id: 103, name: 'Africa Cup of Nations', country: 'Africa' },
+];
+
+export const TRENDING_LEAGUE_IDS = new Set(TRENDING_LEAGUES.map(l => l.id));

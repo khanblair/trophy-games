@@ -1,4 +1,4 @@
-import { MatchData, LeagueInfo } from '@trophy-games/shared';
+import { MatchData, LeagueInfo, TRENDING_LEAGUE_IDS } from '@trophy-games/shared';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 
@@ -30,15 +30,27 @@ export async function loadData(): Promise<ScrapedData> {
         console.warn('[Storage] Convex not configured. Using empty data.');
         return { leagues: [], matches: [], lastUpdated: '' };
     }
-    
-try {
-        const [matches, leagues] = await Promise.all([
-            convex.query(api.matches.getAll, { limit: 200 }),
+
+    try {
+        const [rawMatches, rawLeagues] = await Promise.all([
+            convex.query(api.matches.getAll, { limit: 500 }), // Increased limit to ensure we get enough trending matches
             convex.query(api.matches.getAllLeagues)
         ]);
+
+        // Filter and ensure type safety
+        const matches = (rawMatches as MatchData[]).filter(m =>
+            m.leagueId && TRENDING_LEAGUE_IDS.has(m.leagueId)
+        );
+
+        const leagues = (rawLeagues as LeagueInfo[]).filter(l =>
+            TRENDING_LEAGUE_IDS.has(l.id)
+        );
+
+        console.log(`[Storage] Loaded ${matches.length} trending matches and ${leagues.length} trending leagues.`);
+
         return {
-            leagues: leagues as any,
-            matches: matches as any,
+            leagues: leagues,
+            matches: matches,
             lastUpdated: new Date().toISOString(),
         };
     } catch (error) {
@@ -46,4 +58,3 @@ try {
         return { leagues: [], matches: [], lastUpdated: '' };
     }
 }
-

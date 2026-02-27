@@ -141,4 +141,150 @@ export class GoalooScraper {
 
         return await response.text();
     }
+
+    /**
+     * Fetches odds data from Goaloo
+     */
+    async fetchOddsData(): Promise<string> {
+        const url = 'http://www.goaloo.com/gf/data/bf_ou.js';
+        console.log(`[Scraper] 🌐 Fetching odds data: ${url}`);
+
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': this.getRandomUserAgent(),
+                'Referer': 'http://www.goaloo.com/',
+                'Accept': '*/*',
+                'Connection': 'keep-alive'
+            }
+        });
+
+        if (!response.ok) {
+            console.warn(`[Scraper] ⚠️ Failed to fetch odds data: ${response.status}`);
+            return '';
+        }
+
+        return await response.text();
+    }
+
+    /**
+     * Fetches H2H data from Goaloo
+     */
+    async fetchH2HData(): Promise<string> {
+        const url = 'http://www.goaloo.com/gf/data/bf_tiaoshi.js';
+        console.log(`[Scraper] 🌐 Fetching H2H data: ${url}`);
+
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': this.getRandomUserAgent(),
+                'Referer': 'http://www.goaloo.com/',
+                'Accept': '*/*',
+                'Connection': 'keep-alive'
+            }
+        });
+
+        if (!response.ok) {
+            console.warn(`[Scraper] ⚠️ Failed to fetch H2H data: ${response.status}`);
+            return '';
+        }
+
+        return await response.text();
+    }
+
+    /**
+     * Fetches match detail page to extract odds and h2h
+     */
+    async fetchMatchDetails(matchId: string): Promise<{ odds?: any; h2h?: any }> {
+        const url = `https://football.goaloo.com/match/${matchId}`;
+        console.log(`[Scraper] 🌐 Fetching match details: ${url}`);
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': this.getRandomUserAgent(),
+                    'Referer': 'http://www.goaloo.com/',
+                    'Accept': 'text/html,*/*',
+                }
+            });
+
+            if (!response.ok) {
+                console.warn(`[Scraper] ⚠️ Failed to fetch match details: ${response.status}`);
+                return {};
+            }
+
+            const html = await response.text();
+            return this.parseMatchDetailsPage(html, matchId);
+        } catch (error) {
+            console.error(`[Scraper] ❌ Error fetching match details:`, error);
+            return {};
+        }
+    }
+
+    private parseMatchDetailsPage(html: string, matchId: string): { odds?: any; h2h?: any } {
+        const $ = cheerio.load(html);
+        const result: { odds?: any; h2h?: any } = {};
+
+        try {
+            const oddsFT: any = { '1x2': {}, 'ou': {}, 'ah': {} };
+            const oddsHT: any = { '1x2': {}, 'ou': {}, 'ah': {} };
+
+            $('table.odds-table, table.ou-table, table.ah-table').each((_, table) => {
+                const tableType = $(table).attr('class') || '';
+                
+                $(table).find('tr').each((_, row) => {
+                    const cells = $(row).find('td');
+                    if (cells.length >= 3) {
+                        const homeVal = $(cells[0]).text().trim();
+                        const drawVal = $(cells[1])?.text().trim();
+                        const awayVal = $(cells[2])?.text().trim();
+
+                        if (tableType.includes('odds-table') || tableType.includes('1x2')) {
+                            oddsFT['1x2'] = { home: homeVal, draw: drawVal, away: awayVal };
+                        } else if (tableType.includes('ou-table')) {
+                            oddsFT['ou'] = { over: homeVal, line: drawVal, under: awayVal };
+                        } else if (tableType.includes('ah-table')) {
+                            oddsFT['ah'] = { home: homeVal, line: drawVal, away: awayVal };
+                        }
+                    }
+                });
+            });
+
+            result.odds = { ft: oddsFT, ht: oddsHT };
+
+            const h2hMatches: any[] = [];
+            $('div.h2h-section, div.head2head, table.h2h-table').find('tr').each((_, row) => {
+                const cells = $(row).find('td');
+                if (cells.length >= 5) {
+                    h2hMatches.push({
+                        date: $(cells[0]).text().trim(),
+                        home: $(cells[1]).text().trim(),
+                        away: $(cells[2]).text().trim(),
+                        score: $(cells[3]).text().trim(),
+                        league: $(cells[4]).text().trim(),
+                    });
+                }
+            });
+
+            if (h2hMatches.length > 0) {
+                const wins = h2hMatches.filter(m => m.score && parseInt(m.score.split('-')[0]) > parseInt(m.score.split('-')[1])).length;
+                const draws = h2hMatches.filter(m => m.score && m.score.split('-')[0] === m.score.split('-')[1]).length;
+                const losses = h2hMatches.length - wins - draws;
+
+                result.h2h = {
+                    summary: {
+                        wins,
+                        draws,
+                        losses,
+                        total: h2hMatches.length,
+                        homeGoalsAvg: 0,
+                        awayGoalsAvg: 0
+                    },
+                    history: h2hMatches
+                };
+            }
+        } catch (error) {
+            console.error(`[Scraper] ❌ Error parsing match details page:`, error);
+        }
+
+        return result;
+    }
 }
