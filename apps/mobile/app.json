@@ -2,12 +2,12 @@
   "expo": {
     "name": "Trophy Games",
     "slug": "trophy-games",
+    "owner": "khanblair-2",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "trophy-games",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.khanblair.trophygames"
