@@ -1,0 +1,30 @@
+# EAS Ignore
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+web-build/
+build/
+
+# Expo
+.expo/
+.tamagui/
+
+# Environment
+.env*.local
+
+# Native
+ios/
+android/
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+
+# Git
+.git/

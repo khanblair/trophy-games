@@ -1,2 +1,8 @@
 node_modules
 .turbo
+dist
+build
+.expo
+.env*.local
+.DS_Store
+*.tsbuildinfo
