@@ -4,6 +4,7 @@ import { fetchLiveMatches } from '@/lib/goaloo-live';
 import { saveOddsData, saveLiveData, getSyncStatus } from '@/lib/storage';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60; // Extend for longer syncs on Vercel
 
 interface SyncTask {
   status: 'idle' | 'running' | 'completed' | 'failed';
@@ -28,13 +29,13 @@ async function syncOddsData() {
   try {
     const { matches, leagues, requestsRemaining } = await fetchAllOdds();
     console.log('[Sync] ✅ Fetched', matches.length, 'matches from Odds API');
-    
+
     await saveOddsData(matches, leagues);
     console.log('[Sync] ✅ Saved', matches.length, 'matches to Convex');
-    
+
     currentTask.oddsMatchesCount = matches.length;
     currentTask.lastOddsSync = new Date().toISOString();
-    
+
     console.log(`[Sync] ✅ Odds sync complete. API remaining: ${requestsRemaining}`);
   } catch (error) {
     console.error('[Sync] ❌ Odds sync failed:', error);
@@ -47,13 +48,13 @@ async function syncLiveData() {
   try {
     const liveMatches = await fetchLiveMatches();
     console.log('[Sync] ✅ Fetched', liveMatches.length, 'live matches from Goaloo');
-    
+
     await saveLiveData(liveMatches);
     console.log('[Sync] ✅ Saved', liveMatches.length, 'live matches to Convex');
-    
+
     currentTask.liveMatchesCount = liveMatches.length;
     currentTask.lastLiveSync = new Date().toISOString();
-    
+
     console.log('[Sync] ✅ Live sync complete');
   } catch (error) {
     console.error('[Sync] ❌ Live sync failed:', error);
@@ -64,8 +65,13 @@ async function syncLiveData() {
 export async function POST(req: Request) {
   const isProduction = process.env.NODE_ENV === 'production';
   const cronSecret = process.env.CRON_SECRET;
+  const referer = req.headers.get('referer');
+  const origin = req.headers.get('origin');
 
-  if (isProduction) {
+  // Allow if requested from same origin (web app dashboard)
+  const isSameOrigin = referer && origin && referer.startsWith(origin);
+
+  if (isProduction && !isSameOrigin) {
     const providedSecret = req.headers.get('x-cron-secret');
     if (!cronSecret || providedSecret !== cronSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -146,7 +152,7 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const syncStatus = await getSyncStatus();
-  
+
   return NextResponse.json({
     status: currentTask.status,
     oddsMatchesCount: syncStatus.oddsMatches,

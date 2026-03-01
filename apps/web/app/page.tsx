@@ -22,13 +22,13 @@ export default function DashboardPage() {
     { name: 'Last Sync', value: 'Never', icon: Clock, trend: '' },
   ]);
   const [syncing, setSyncing] = React.useState(false);
-  const [syncStatus, setSyncStatus] = React.useState<{oddsMatches: number; liveMatches: number; lastOddsSync: string | null} | null>(null);
+  const [syncStatus, setSyncStatus] = React.useState<{ oddsMatches: number; liveMatches: number; lastOddsSync: string | null } | null>(null);
 
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/stats');
       const data = await res.json();
-      
+
       const syncRes = await fetch('/api/sync');
       const syncData = await syncRes.json();
 
@@ -50,24 +50,56 @@ export default function DashboardPage() {
   };
 
   const handleSyncAll = async () => {
+    if (syncing) return;
+
     setSyncing(true);
     console.log('[Dashboard] Starting full sync...');
+
     try {
+      // 1. Kick off the sync
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'sync_all' })
       });
-      const data = await res.json();
-      console.log('[Dashboard] Sync response:', data);
-      
-      setTimeout(async () => {
-        await fetchStats();
-        setSyncing(false);
-        console.log('[Dashboard] Sync completed!');
-      }, 3000);
+
+      if (!res.ok) throw new Error('Failed to start sync');
+
+      // 2. Poll for status
+      let attempts = 0;
+      const maxAttempts = 30; // 30 * 2s = 60s max polling
+
+      const poll = async () => {
+        const statusRes = await fetch('/api/sync');
+        const data = await statusRes.json();
+        console.log('[Dashboard] Sync status:', data.status);
+
+        if (data.status === 'completed') {
+          await fetchStats();
+          setSyncing(false);
+          console.log('[Dashboard] Sync completed successfully!');
+          return;
+        }
+
+        if (data.status === 'failed') {
+          console.error('[Dashboard] Sync failed:', data.error);
+          setSyncing(false);
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(poll, 2000);
+        } else {
+          console.warn('[Dashboard] Sync polling timed out');
+          setSyncing(false);
+        }
+      };
+
+      setTimeout(poll, 1000);
+
     } catch (e) {
-      console.error('[Dashboard] Sync failed:', e);
+      console.error('[Dashboard] Sync failed to start:', e);
       setSyncing(false);
     }
   };

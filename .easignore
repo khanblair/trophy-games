@@ -1,11 +1,18 @@
-# EAS Ignore
-# Dependencies
+# Root EAS Ignore
+# Dependencies - EAS Build will install these itself
 node_modules/
+**/node_modules/
+
+# Other Apps in Monorepo
+apps/web/
+apps/docs/
 
 # Build artifacts
+.next/
+.turbo/
 dist/
-web-build/
 build/
+web-build/
 
 # Expo
 .expo/
@@ -15,8 +22,8 @@ build/
 .env*.local
 
 # Native
-ios/
-android/
+**/ios/
+**/android/
 
 # Debug
 npm-debug.*
@@ -28,7 +35,3 @@ yarn-error.*
 
 # Git
 .git/
-
-# Other Apps (Monorepo)
-apps/web/
-packages/backend/dist/
