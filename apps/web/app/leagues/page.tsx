@@ -53,6 +53,24 @@ export default function LeaguesPage() {
         fetchData();
     }, []);
 
+    const fetchMatches = async () => {
+        try {
+            const [matchesRes, syncRes] = await Promise.all([
+                fetch('/api/matches'),
+                fetch('/api/sync')
+            ]);
+            setMatches(await matchesRes.json());
+            const syncData = await syncRes.json();
+            setSyncStatus({
+                oddsMatches: syncData.oddsMatchesCount || 0,
+                liveMatches: syncData.liveMatchesCount || 0,
+                lastSync: syncData.lastOddsSync || 'Never'
+            });
+        } catch (error) {
+            console.error('Failed to fetch matches:', error);
+        }
+    };
+
     const handleSyncOdds = async () => {
         setSyncingOdds(true);
         console.log('[Leagues] Starting Odds API sync...');
@@ -312,6 +330,7 @@ export default function LeaguesPage() {
                 onClose={() => setIsModalOpen(false)}
                 league={selectedLeague}
                 matches={matches}
+                onRefreshData={fetchMatches}
             />
         </div>
     );
