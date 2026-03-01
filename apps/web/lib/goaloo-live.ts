@@ -53,7 +53,7 @@ function getStatusFromCode(status: number): string {
 
 function generateUniqueOdds(matchId: string): MatchData['detailedOdds'] {
   const hash = matchId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  
+
   return {
     isGenerated: true,
     ft: {
@@ -226,7 +226,7 @@ function parseMatches(jsContent: string): { matches: RawMatch[]; leagues: Map<nu
 
 export async function fetchLiveMatches(): Promise<MatchData[]> {
   console.log('[Goaloo Live] Fetching live matches...');
-  
+
   const jsContent = await fetchGoalooData();
   const { matches: rawMatches } = parseMatches(jsContent);
 
@@ -248,7 +248,7 @@ export async function fetchLiveMatches(): Promise<MatchData[]> {
     odds: undefined,
     detailedOdds: generateUniqueOdds(raw.id),
     isTrending: true,
-    matchType: 'free',
+    matchType: 'unassigned',
     source: 'goaloo-live',
   }));
 

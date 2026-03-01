@@ -20,7 +20,7 @@ export interface MatchData {
     awayStanding?: number;
     referee?: string;
     weather?: string;
-    matchType?: 'free' | 'paid' | 'vip';
+    matchType?: 'free' | 'paid' | 'vip' | 'unassigned';
     isTrending?: boolean;
     aiPrediction?: {
         prediction: string;

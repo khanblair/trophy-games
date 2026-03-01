@@ -65,9 +65,28 @@ export const MatchCard = ({
             'USA': 'us',
             'Turkey': 'tr',
             'Scotland': 'gb-sct',
+            'Belgium': 'be',
+            'Austria': 'at',
+            'Switzerland': 'ch',
+            'Denmark': 'dk',
+            'Norway': 'no',
+            'Sweden': 'se',
+            'Poland': 'pl',
+            'Greece': 'gr',
+            'Ukraine': 'ua',
+            'Croatia': 'hr',
+            'Serbia': 'rs',
+            'Japan': 'jp',
+            'South Korea': 'kr',
+            'Mexico': 'mx',
+            'Saudi Arabia': 'sa',
+            'Morocco': 'ma',
+            'Egypt': 'eg',
+            'Nigeria': 'ng',
+            'Senegal': 'sn',
         };
-        const code = codeMap[countryName] || countryName.toLowerCase().substring(0, 2);
-        return `https://flagcdn.com/w40/${code}.png`;
+        const code = codeMap[countryName] || countryName.toLowerCase().split(' ')[0].substring(0, 2);
+        return `https://flagcdn.com/w80/${code}.png`;
     };
 
     const handleGetInsight = () => {

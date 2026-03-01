@@ -8,12 +8,12 @@ import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 
 export default function FreeTipsScreen() {
+    const [selectedLeague, setSelectedLeague] = useState('All');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [leagues, setLeagues] = useState<any[]>([]);
-    const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
     const { themeColors } = useTheme();
 
     const loadData = useCallback(async (isRefresh = false) => {
@@ -35,9 +35,12 @@ export default function FreeTipsScreen() {
         webApi.getLeagues().then(setLeagues);
     }, [loadData, selectedDate]);
 
-    const filteredMatches = selectedLeague
-        ? matches.filter(m => m.league === selectedLeague)
-        : matches;
+    const filteredMatches = matches.filter(m => {
+        const matchDate = new Date(m.timestamp).toISOString().split('T')[0];
+        const matchesDate = matchDate === selectedDate;
+        const leagueMatch = selectedLeague === 'All' || m.league === selectedLeague;
+        return matchesDate && leagueMatch;
+    });
 
     const onRefresh = useCallback(() => {
         loadData(true);
@@ -67,11 +70,11 @@ export default function FreeTipsScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.leagueChip,
-                                !selectedLeague && { backgroundColor: themeColors.primary }
+                                selectedLeague === 'All' && { backgroundColor: themeColors.primary }
                             ]}
-                            onPress={() => setSelectedLeague(null)}
+                            onPress={() => setSelectedLeague('All')}
                         >
-                            <Text style={[styles.leagueChipText, !selectedLeague ? { color: 'black' } : { color: themeColors.text }]}>
+                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'black' } : { color: themeColors.text }]}>
                                 ALL
                             </Text>
                         </TouchableOpacity>

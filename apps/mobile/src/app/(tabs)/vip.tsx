@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
-import { Crown } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { Crown, Calendar, Filter } from 'lucide-react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
@@ -12,6 +12,32 @@ export default function VIPTipsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const { themeColors } = useTheme();
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedLeague, setSelectedLeague] = useState('All');
+
+    const dates = useMemo(() => {
+        const d = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            d.push(date.toISOString().split('T')[0]);
+        }
+        return d;
+    }, []);
+
+    const uniqueLeagues = useMemo(() => {
+        const leagues = Array.from(new Set(matches.map(m => m.league))).sort();
+        return ['All', ...leagues];
+    }, [matches]);
+
+    const filteredMatches = useMemo(() => {
+        return matches.filter(match => {
+            const matchDate = match.timestamp.split('T')[0];
+            const dateMatch = matchDate === selectedDate;
+            const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
+            return dateMatch && leagueMatch;
+        });
+    }, [matches, selectedDate, selectedLeague]);
 
     const loadData = useCallback(async (isRefresh = false) => {
         if (isRefresh) {
@@ -36,6 +62,54 @@ export default function VIPTipsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <View style={styles.calendarStrip}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datesContainer}>
+                    {dates.map((date) => {
+                        const d = new Date(date);
+                        const isSelected = date === selectedDate;
+                        return (
+                            <TouchableOpacity
+                                key={date}
+                                onPress={() => setSelectedDate(date)}
+                                style={[
+                                    styles.dateButton,
+                                    isSelected && { backgroundColor: themeColors.primary }
+                                ]}
+                            >
+                                <Text style={[styles.dayName, { color: isSelected ? 'black' : themeColors.textMuted }]}>
+                                    {d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                                </Text>
+                                <Text style={[styles.dayDate, { color: isSelected ? 'black' : themeColors.text }]}>
+                                    {d.getDate()}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+
+            <View style={styles.filterSection}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaguesScroll}>
+                    {uniqueLeagues.map(league => (
+                        <TouchableOpacity
+                            key={league}
+                            onPress={() => setSelectedLeague(league)}
+                            style={[
+                                styles.leagueChip,
+                                { backgroundColor: selectedLeague === league ? themeColors.primary : themeColors.cardBgSecondary }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.leagueChipText,
+                                { color: selectedLeague === league ? 'black' : themeColors.textMuted }
+                            ]}>
+                                {league.toUpperCase()}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
             <View style={styles.vipBanner}>
                 <View style={[styles.vipBadge, { backgroundColor: themeColors.primary }]}>
                     <Crown size={20} color="black" />
@@ -72,9 +146,9 @@ export default function VIPTipsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : matches.length > 0 ? (
+                ) : filteredMatches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {matches.map((match: any) => (
+                        {filteredMatches.map((match: any) => (
                             <MatchCard
                                 key={match.id}
                                 matchId={match.id}
@@ -169,7 +243,55 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
+        paddingTop: 16,
         paddingBottom: 40,
+    },
+    calendarStrip: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    datesContainer: {
+        gap: 12,
+    },
+    dateButton: {
+        width: 50,
+        height: 65,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    dayName: {
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 4,
+    },
+    dayDate: {
+        fontSize: 18,
+        fontWeight: '900',
+    },
+    filterSection: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    leaguesScroll: {
+        paddingVertical: 4,
+        gap: 8,
+    },
+    leagueChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    leagueChipText: {
+        fontSize: 10,
+        fontWeight: '900',
     },
     sectionHeader: {
         flexDirection: 'row',

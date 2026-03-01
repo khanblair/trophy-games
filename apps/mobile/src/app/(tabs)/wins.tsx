@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
-import { CheckCircle2, Trophy, TrendingUp } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { CheckCircle2, Trophy, TrendingUp, Filter } from 'lucide-react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
@@ -12,6 +12,19 @@ export default function WinsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const { themeColors } = useTheme();
+    const [selectedLeague, setSelectedLeague] = useState('All');
+
+    const uniqueLeagues = useMemo(() => {
+        const leagues = Array.from(new Set(matches.map(m => m.league))).sort();
+        return ['All', ...leagues];
+    }, [matches]);
+
+    const filteredMatches = useMemo(() => {
+        return matches.filter(match => {
+            const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
+            return leagueMatch;
+        });
+    }, [matches, selectedLeague]);
 
     const loadData = useCallback(async (isRefresh = false) => {
         if (isRefresh) {
@@ -36,6 +49,28 @@ export default function WinsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <View style={styles.filterSection}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaguesScroll}>
+                    {uniqueLeagues.map(league => (
+                        <TouchableOpacity
+                            key={league}
+                            onPress={() => setSelectedLeague(league)}
+                            style={[
+                                styles.leagueChip,
+                                { backgroundColor: selectedLeague === league ? themeColors.primary : themeColors.cardBgSecondary }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.leagueChipText,
+                                { color: selectedLeague === league ? 'black' : themeColors.textMuted }
+                            ]}>
+                                {league.toUpperCase()}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
             <View style={styles.promoBanner}>
                 <View style={[styles.statsRow, { borderBottomColor: themeColors.border }]}>
                     <View style={styles.statBox}>
@@ -78,9 +113,9 @@ export default function WinsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : matches.length > 0 ? (
+                ) : filteredMatches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {matches.map((match: any) => (
+                        {filteredMatches.map((match: any) => (
                             <MatchCard
                                 key={match.id}
                                 matchId={match.id}
@@ -153,7 +188,27 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
+        paddingTop: 16,
         paddingBottom: 40,
+    },
+    filterSection: {
+        paddingHorizontal: 16,
+        paddingTop: 16,
+    },
+    leaguesScroll: {
+        paddingVertical: 4,
+        gap: 8,
+    },
+    leagueChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    leagueChipText: {
+        fontSize: 10,
+        fontWeight: '900',
     },
     sectionHeader: {
         flexDirection: 'row',

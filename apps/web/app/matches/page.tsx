@@ -16,12 +16,12 @@ export default function MatchesPage() {
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [syncingOdds, setSyncingOdds] = useState(false);
     const [syncingLive, setSyncingLive] = useState(false);
-    const [syncStatus, setSyncStatus] = useState<{oddsMatches: number; liveMatches: number; lastOddsSync: string | null} | null>(null);
+    const [syncStatus, setSyncStatus] = useState<{ oddsMatches: number; liveMatches: number; lastOddsSync: string | null } | null>(null);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Live' | 'Finished' | 'Scheduled'>('All');
-    const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip'>('All');
+    const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip' | 'unassigned'>('All');
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
     const [sourceFilter, setSourceFilter] = useState<'All' | 'odds-api' | 'goaloo-live'>('All');
@@ -50,7 +50,7 @@ export default function MatchesPage() {
             const data = await res.json();
             if (Array.isArray(data)) {
                 setMatches(data);
-                
+
                 const existingAnalyses: Record<string, AIAnalysis> = {};
                 data.forEach((match: MatchData) => {
                     if (match.aiPrediction) {
@@ -87,7 +87,7 @@ export default function MatchesPage() {
             });
             const data = await res.json();
             console.log('[Matches] Odds sync response:', data);
-            
+
             setTimeout(async () => {
                 await fetchMatches();
                 await fetchSyncStatus();
@@ -111,7 +111,7 @@ export default function MatchesPage() {
             });
             const data = await res.json();
             console.log('[Matches] Live sync response:', data);
-            
+
             setTimeout(async () => {
                 await fetchMatches();
                 await fetchSyncStatus();
@@ -124,7 +124,7 @@ export default function MatchesPage() {
         }
     };
 
-    const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip') => {
+    const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip' | 'unassigned') => {
         setUpdatingId(matchId);
         try {
             await fetch('/api/mobile/update-match', {
@@ -133,7 +133,7 @@ export default function MatchesPage() {
                 body: JSON.stringify({ matchId, matchType })
             });
             // Update local state
-            setMatches(prev => prev.map(m => 
+            setMatches(prev => prev.map(m =>
                 m.id === matchId ? { ...m, matchType } : m
             ));
         } catch (e) {
@@ -149,7 +149,7 @@ export default function MatchesPage() {
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     setMatches(data);
-                    
+
                     // Load existing AI predictions into analyses state
                     const existingAnalyses: Record<string, AIAnalysis> = {};
                     data.forEach((match: MatchData) => {
@@ -173,17 +173,17 @@ export default function MatchesPage() {
         fetchMatches();
     }, []);
 
-const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
+    const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         e.stopPropagation(); // Don't open modal when analyzing
         setAnalyzingId(match.id);
         const result = await analyzeMatch(match);
         setAnalyses(prev => ({ ...prev, [match.id]: result }));
-        
+
         // Update selectedMatch if it's the same match
         if (selectedMatch?.id === match.id) {
             setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
         }
-        
+
         // Save AI prediction to Convex for mobile sync
         try {
             await fetch('/api/mobile/ai-prediction', {
@@ -198,20 +198,20 @@ const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         } catch (err) {
             console.error('[AI] Failed to save prediction:', err);
         }
-        
+
         setAnalyzingId(null);
     };
 
-const handleOpenModal = (match: MatchData) => {
+    const handleOpenModal = (match: MatchData) => {
         // Include AI prediction from analyses state if available
-        const matchWithAnalysis = analyses[match.id] 
+        const matchWithAnalysis = analyses[match.id]
             ? { ...match, aiPrediction: analyses[match.id] }
             : match;
         setSelectedMatch(matchWithAnalysis);
         setIsModalOpen(true);
     };
 
-// Filter Logic
+    // Filter Logic
     const filteredMatches = matches.filter(match => {
         const matchesSearch =
             match.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -227,18 +227,20 @@ const handleOpenModal = (match: MatchData) => {
 
         const matchesLeague = selectedLeague === 'All' || match.league === selectedLeague;
         const matchesDate = !dateFilter || match.timestamp.includes(dateFilter);
-        
-        const matchesType = typeFilter === 'All' || match.matchType === typeFilter;
-        
+
+        const matchesType = typeFilter === 'All' ||
+            (typeFilter === 'unassigned' ? (!match.matchType || match.matchType === 'unassigned') : match.matchType === typeFilter);
+
         const matchesSource = sourceFilter === 'All' || match.source === sourceFilter;
 
         return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType && matchesSource;
     });
 
     const uniqueLeagues = Array.from(new Set(matches.map(m => m.league))).sort();
-    
+
     const matchTypeCounts = {
-        free: matches.filter(m => !m.matchType || m.matchType === 'free').length,
+        unassigned: matches.filter(m => !m.matchType || m.matchType === 'unassigned').length,
+        free: matches.filter(m => m.matchType === 'free').length,
         paid: matches.filter(m => m.matchType === 'paid').length,
         vip: matches.filter(m => m.matchType === 'vip').length,
     };
@@ -347,17 +349,18 @@ const handleOpenModal = (match: MatchData) => {
             <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-sm font-medium text-zinc-500">Match Type:</span>
                 <div className="flex gap-2">
-                    {(['All', 'free', 'paid', 'vip'] as const).map((type) => (
+                    {(['All', 'unassigned', 'free', 'paid', 'vip'] as const).map((type) => (
                         <button
                             key={type}
                             onClick={() => setTypeFilter(type)}
                             className={cn(
                                 "px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize flex items-center gap-1",
                                 typeFilter === type
-                                    ? type === 'vip' ? 'bg-purple-500 text-white' : type === 'paid' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                                    ? type === 'vip' ? 'bg-purple-500 text-white' : type === 'paid' ? 'bg-orange-500 text-white' : type === 'unassigned' ? 'bg-zinc-500 text-white' : 'bg-blue-500 text-white'
                                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                             )}
                         >
+                            {type === 'unassigned' && 'Unassigned'}
                             {type === 'free' && 'Free'}
                             {type === 'paid' && '$ Paid'}
                             {type === 'vip' && '★ VIP'}
@@ -440,7 +443,7 @@ const handleOpenModal = (match: MatchData) => {
 
                                     {/* Match Info */}
                                     <div className="p-6 md:w-1/3 space-y-4">
-<div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-500">
+                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-500">
                                             <span className="flex items-center gap-1.5">
                                                 <Timer size={14} />
                                                 {match.status}
@@ -449,12 +452,13 @@ const handleOpenModal = (match: MatchData) => {
                                                 <span>{match.league}</span>
                                                 {/* Match Type Badge */}
                                                 <span className={cn(
-                                                    "px-2 py-0.5 rounded text-[10px] font-bold",
+                                                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
                                                     match.matchType === 'vip' ? "bg-purple-500 text-white" :
-                                                    match.matchType === 'paid' ? "bg-orange-500 text-white" :
-                                                    "bg-blue-500 text-white"
+                                                        match.matchType === 'paid' ? "bg-orange-500 text-white" :
+                                                            match.matchType === 'unassigned' || !match.matchType ? "bg-zinc-500 text-white" :
+                                                                "bg-blue-500 text-white"
                                                 )}>
-                                                    {match.matchType || 'free'}
+                                                    {match.matchType || 'unassigned'}
                                                 </span>
                                             </div>
                                         </div>
@@ -470,8 +474,24 @@ const handleOpenModal = (match: MatchData) => {
                                             </div>
                                         </div>
 
-<div className="pt-2">
-                                            <div className="flex gap-2">
+                                        <div className="pt-2">
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateMatchType(match.id, 'unassigned');
+                                                    }}
+                                                    disabled={updatingId === match.id}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-semibold transition",
+                                                        !match.matchType || match.matchType === 'unassigned'
+                                                            ? "bg-zinc-600 text-white"
+                                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                                    )}
+                                                >
+                                                    <Filter size={10} />
+                                                    None
+                                                </button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -479,13 +499,13 @@ const handleOpenModal = (match: MatchData) => {
                                                     }}
                                                     disabled={updatingId === match.id}
                                                     className={cn(
-                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
-                                                        !match.matchType || match.matchType === 'free'
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-semibold transition",
+                                                        match.matchType === 'free'
                                                             ? "bg-blue-600 text-white"
                                                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-blue-100 dark:hover:bg-blue-900"
                                                     )}
                                                 >
-                                                    <Star size={12} />
+                                                    <Star size={10} />
                                                     Free
                                                 </button>
                                                 <button
@@ -495,13 +515,13 @@ const handleOpenModal = (match: MatchData) => {
                                                     }}
                                                     disabled={updatingId === match.id}
                                                     className={cn(
-                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-semibold transition",
                                                         match.matchType === 'paid'
                                                             ? "bg-orange-500 text-white"
                                                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-orange-100 dark:hover:bg-orange-900"
                                                     )}
                                                 >
-                                                    <DollarSign size={12} />
+                                                    <DollarSign size={10} />
                                                     Paid
                                                 </button>
                                                 <button
@@ -511,18 +531,18 @@ const handleOpenModal = (match: MatchData) => {
                                                     }}
                                                     disabled={updatingId === match.id}
                                                     className={cn(
-                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition",
+                                                        "flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-semibold transition",
                                                         match.matchType === 'vip'
                                                             ? "bg-purple-500 text-white"
                                                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-purple-100 dark:hover:bg-purple-900"
                                                     )}
                                                 >
-                                                    <Crown size={12} />
+                                                    <Crown size={10} />
                                                     VIP
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="pt-2">
                                             <button
                                                 onClick={(e) => handleAnalyze(e, match)}

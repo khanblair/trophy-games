@@ -20,19 +20,19 @@ export const getAllLeagues = query({
 
 export const get = query({
     args: {
-        matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'))),
+        matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
         status: v.optional(v.string()),
         limit: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         let q = ctx.db.query("matches").order("desc");
-        
+
         if (args.matchType) {
             q = ctx.db.query("matches")
                 .withIndex("by_match_type", (q) => q.eq("matchType", args.matchType))
                 .order("desc");
         }
-        
+
         const limit = args.limit || 100;
         return await q.take(limit);
     },
@@ -75,7 +75,7 @@ export const getHistory = query({
 export const updateMatchType = mutation({
     args: {
         matchId: v.string(),
-        matchType: v.union(v.literal('free'), v.literal('paid'), v.literal('vip')),
+        matchType: v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned')),
     },
     handler: async (ctx, args) => {
         const existing = await ctx.db
@@ -106,7 +106,7 @@ export const saveAIPrediction = mutation({
             .unique();
 
         if (existing) {
-            await ctx.db.patch(existing._id, { 
+            await ctx.db.patch(existing._id, {
                 aiPrediction: {
                     ...args.aiPrediction,
                     generatedAt: new Date().toISOString()

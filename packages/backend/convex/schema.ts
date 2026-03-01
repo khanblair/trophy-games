@@ -24,7 +24,7 @@ export default defineSchema({
         awayStanding: v.optional(v.number()),
         referee: v.optional(v.string()),
         weather: v.optional(v.string()),
-        matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'))),
+        matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
         isTrending: v.optional(v.boolean()),
         aiPrediction: v.optional(v.object({
             prediction: v.string(),
@@ -42,10 +42,10 @@ export default defineSchema({
         h2h: v.optional(v.any()),
         source: v.optional(v.union(v.literal('odds-api'), v.literal('goaloo-live'))),
     })
-    .index("by_match_id", ["id"])
-    .index("by_match_type", ["matchType"])
-    .index("by_trending", ["isTrending"])
-    .index("by_source", ["source"]),
+        .index("by_match_id", ["id"])
+        .index("by_match_type", ["matchType"])
+        .index("by_trending", ["isTrending"])
+        .index("by_source", ["source"]),
 
     leagues: defineTable({
         id: v.number(),

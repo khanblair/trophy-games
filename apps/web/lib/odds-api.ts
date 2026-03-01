@@ -47,9 +47,9 @@ async function fetchOdds(sportKey: string): Promise<ApiResponse> {
   }
 
   const url = `${BASE_URL}/sports/${sportKey}/odds/?apiKey=${API_KEY}&regions=us,uk,eu`;
-  
+
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     throw new Error(`Odds API error: ${response.status} ${response.statusText}`);
   }
@@ -62,16 +62,16 @@ async function fetchOdds(sportKey: string): Promise<ApiResponse> {
 
 function extractBestOdds(event: OddsApiEvent) {
   const { bookmakers, home_team, away_team } = event;
-  
-  const h2hMarkets = bookmakers.flatMap(bm => 
+
+  const h2hMarkets = bookmakers.flatMap(bm =>
     bm.markets.filter(m => m.key === 'h2h')
   );
-  
-  const totalsMarkets = bookmakers.flatMap(bm => 
+
+  const totalsMarkets = bookmakers.flatMap(bm =>
     bm.markets.filter(m => m.key === 'totals')
   );
 
-  const spreadsMarkets = bookmakers.flatMap(bm => 
+  const spreadsMarkets = bookmakers.flatMap(bm =>
     bm.markets.filter(m => m.key === 'spreads')
   );
 
@@ -161,7 +161,7 @@ export async function fetchAllOdds(): Promise<{ matches: MatchData[]; leagues: L
           odds,
           detailedOdds,
           isTrending: true,
-          matchType: 'free',
+          matchType: 'unassigned',
           source: 'odds-api',
         };
 

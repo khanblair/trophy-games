@@ -31,7 +31,12 @@ export async function GET(request: Request) {
         // Filter by match type
         if (type) {
             console.log(`[API /mobile/matches] Filtering by type: ${type}`);
-            matches = matches.filter((m: any) => m.matchType === type);
+            matches = matches.filter((m: any) => {
+                if (type === 'free') {
+                    return m.matchType === 'free' || m.matchType === 'unassigned' || !m.matchType;
+                }
+                return m.matchType === type;
+            });
             console.log(`[API /mobile/matches] After type filter: ${matches.length} matches`);
         }
 
