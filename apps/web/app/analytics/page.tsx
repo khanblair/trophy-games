@@ -38,18 +38,18 @@ export default async function AnalyticsPage() {
     const drawRate = finishedMatches > 0 ? ((draws / finishedMatches) * 100).toFixed(1) : '0';
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
-                    Analytics Overview
+                <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                    Analytics
                 </h1>
-                <p className="text-zinc-500 dark:text-zinc-400 max-w-2xl">
-                    Performance insights and statistical breakdown of scanned matches.
+                <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
+                    Performance insights and statistical breakdown.
                 </p>
             </div>
 
             {/* Key Metrics Grid */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 <StatCard
                     title="Total Scanned"
                     value={totalMatches.toString()}

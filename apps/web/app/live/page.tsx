@@ -132,97 +132,93 @@ export default function LivePage() {
     const halftimeCount = matches.filter(m => m.status === 'Halftime').length;
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Live Matches</h1>
-                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
-                            <span className="h-2 w-2 rounded-full bg-white"></span>
-                            LIVE
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <h1 className="text-xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Live</h1>
+                        <span className="flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
+                            <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-white"></span>
+                            <span className="hidden sm:inline">LIVE</span>
+                            <span className="sm:hidden">●</span>
                         </span>
                     </div>
-                    <p className="text-zinc-500 dark:text-zinc-400">Real-time live matches from Goaloo with live scores.</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 hidden sm:block">Real-time live matches from Goaloo with live scores.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        <Zap size={16} className={refreshing ? 'animate-spin' : ''} />
-                        {refreshing ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 w-full sm:w-auto justify-center"
+                >
+                    <Zap size={16} className={refreshing ? 'animate-spin' : ''} />
+                    <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    <span className="sm:hidden">{refreshing ? '...' : 'Refresh'}</span>
+                </button>
             </div>
 
-            <div className="flex items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setAutoRefresh(!autoRefresh)}
-                            className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                                autoRefresh 
-                                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" 
-                                    : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                            )}
-                        >
-                            {autoRefresh ? <Play size={14} /> : <Pause size={14} />}
-                            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
-                        </button>
-                        {autoRefresh && (
-                            <select
-                                value={refreshInterval}
-                                onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                                className="px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 text-sm"
-                            >
-                                <option value={15}>15s</option>
-                                <option value={30}>30s</option>
-                                <option value={60}>60s</option>
-                            </select>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/50 p-3 md:p-4 rounded-xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <button
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                        className={cn(
+                            "flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors",
+                            autoRefresh 
+                                ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" 
+                                : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                         )}
-                    </div>
+                    >
+                        {autoRefresh ? <Play size={14} /> : <Pause size={14} />}
+                        <span className="hidden md:inline">{autoRefresh ? 'Auto' : 'Auto'}</span>
+                    </button>
+                    {autoRefresh && (
+                        <select
+                            value={refreshInterval}
+                            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                            className="px-2 md:px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 text-xs md:text-sm"
+                        >
+                            <option value={15}>15s</option>
+                            <option value={30}>30s</option>
+                            <option value={60}>60s</option>
+                        </select>
+                    )}
                 </div>
-                <div className="flex items-center gap-4 text-sm">
-                    <span className="flex items-center gap-2">
+                <div className="flex items-center gap-3 text-xs md:text-sm w-full sm:w-auto justify-between sm:justify-end">
+                    <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                         <span className="font-medium text-zinc-600 dark:text-zinc-300">{liveCount} Live</span>
                     </span>
                     {halftimeCount > 0 && (
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                            <span className="font-medium text-zinc-600 dark:text-zinc-300">{halftimeCount} Halftime</span>
+                            <span className="font-medium text-zinc-600 dark:text-zinc-300">{halftimeCount} HT</span>
                         </span>
                     )}
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto flex-1">
-                    <div className="relative flex-1 sm:max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search teams..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-                        />
-                    </div>
-
-                    <select
-                        value={selectedLeague}
-                        onChange={(e) => setSelectedLeague(e.target.value)}
-                        className="px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm font-medium"
-                    >
-                        <option value="All">All Leagues</option>
-                        {uniqueLeagues.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-zinc-900/50 p-3 md:p-4 rounded-xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <div className="relative w-full sm:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search teams..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
+                    />
                 </div>
 
-                <div className="text-sm text-zinc-500">
-                    {filteredMatches.length} live matches
+                <select
+                    value={selectedLeague}
+                    onChange={(e) => setSelectedLeague(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
+                >
+                    <option value="All">All Leagues</option>
+                    {uniqueLeagues.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+
+                <div className="text-xs text-zinc-500 w-full sm:w-auto text-left sm:text-right">
+                    {filteredMatches.length} matches
                 </div>
             </div>
 

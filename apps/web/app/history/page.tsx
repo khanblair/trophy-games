@@ -21,19 +21,19 @@ export default async function HistoryPage() {
     ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-6 lg:p-8 space-y-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
-                    Match History
+                <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                    History
                 </h1>
-                <p className="text-zinc-500 dark:text-zinc-400 max-w-2xl">
-                    Archive of past match results and outcomes.
+                <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
+                    Past match results and outcomes.
                 </p>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50 overflow-hidden">
-                <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-50 font-medium">
+            <div className="rounded-xl md:rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50 overflow-hidden">
+                <div className="p-4 md:p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-50 font-medium text-sm md:text-base">
                         <Calendar size={18} className="text-blue-600" />
                         Recent Results
                     </div>

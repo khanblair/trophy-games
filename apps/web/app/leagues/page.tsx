@@ -153,64 +153,64 @@ export default function LeaguesPage() {
     };
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Leagues</h1>
-                    <p className="text-zinc-500 dark:text-zinc-400">Manage and explore tracked competitions from The Odds API and Goaloo.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Leagues</h1>
+                    <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">Manage tracked competitions.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                     <button
                         onClick={handleSyncOdds}
                         disabled={syncingOdds}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
                     >
-                        {syncingOdds ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        {syncingOdds ? 'Syncing Odds...' : 'Sync Odds API'}
+                        {syncingOdds ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                        <span className="hidden sm:inline">{syncingOdds ? 'Syncing...' : 'Odds'}</span>
                     </button>
                     <button
                         onClick={handleSyncLive}
                         disabled={syncingLive}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
                     >
-                        {syncingLive ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}
-                        {syncingLive ? 'Syncing Live...' : 'Sync Live'}
+                        {syncingLive ? <Loader2 size={14} className="animate-spin" /> : <Radio size={14} />}
+                        <span className="hidden sm:inline">{syncingLive ? 'Syncing...' : 'Live'}</span>
                     </button>
                 </div>
             </div>
 
             {/* Sync Status */}
             {syncStatus && (
-                <div className="bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-2xl p-4 border border-green-400/20">
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-4">
-                            <span className="text-green-600 font-medium">Odds API: {syncStatus.oddsMatches} matches</span>
-                            <span className="text-red-600 font-medium">Live: {syncStatus.liveMatches} matches</span>
+                <div className="bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-xl p-3 md:p-4 border border-green-400/20">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
+                        <div className="flex flex-wrap gap-3">
+                            <span className="text-green-600 font-medium text-sm">📊 {syncStatus.oddsMatches}</span>
+                            <span className="text-red-600 font-medium text-sm">⚽ {syncStatus.liveMatches}</span>
                         </div>
-                        <span className="text-zinc-500">Last sync: {syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleString() : 'Never'}</span>
+                        <span className="text-zinc-500 text-xs">{syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleString() : 'Never'}</span>
                     </div>
                 </div>
             )}
 
             {/* Filters */}
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto flex-1">
-                    <div className="relative flex-1 sm:max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search league or country..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-                        />
-                    </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-zinc-900/50 p-3 md:p-4 rounded-xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <div className="relative w-full sm:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
+                    />
+                </div>
 
+                <div className="flex gap-2 w-full sm:w-auto">
                     <select
                         value={countryFilter}
                         onChange={(e) => setCountryFilter(e.target.value)}
-                        className="px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm font-medium"
+                        className="flex-1 sm:flex-none px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                     >
                         <option value="All">All Countries</option>
                         {uniqueCountries.map(c => <option key={c} value={c!}>{c!}</option>)}
@@ -219,28 +219,11 @@ export default function LeaguesPage() {
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as 'name' | 'matchCount')}
-                        className="px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm font-medium"
+                        className="flex-1 sm:flex-none px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                     >
-                        <option value="name">Sort by Name</option>
-                        <option value="matchCount">Sort by Match Count</option>
+                        <option value="name">Name</option>
+                        <option value="matchCount">Matches</option>
                     </select>
-                </div>
-
-                <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
-                    {(['All', 'league', 'cup'] as const).map((t) => (
-                        <button
-                            key={t}
-                            onClick={() => setTypeFilter(t)}
-                            className={cn(
-                                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize",
-                                typeFilter === t
-                                    ? "bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                            )}
-                        >
-                            {t}
-                        </button>
-                    ))}
                 </div>
             </div>
 

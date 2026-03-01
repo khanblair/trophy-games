@@ -254,87 +254,87 @@ const handleOpenModal = (match: MatchData) => {
                 <div className="flex gap-2">
                     <button
                         onClick={handleRefresh}
-                        className="flex items-center gap-2 px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"
                     >
-                        <RefreshCw size={16} />
-                        Refresh
+                        <RefreshCw size={14} />
+                        <span className="hidden sm:inline">Refresh</span>
                     </button>
                     <button
                         onClick={handleSyncOdds}
                         disabled={syncingOdds}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
                     >
-                        {syncingOdds ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        {syncingOdds ? 'Syncing...' : 'Sync Odds API'}
+                        {syncingOdds ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                        <span className="hidden sm:inline">{syncingOdds ? '...' : 'Odds'}</span>
                     </button>
                     <button
                         onClick={handleSyncLive}
                         disabled={syncingLive}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
                     >
-                        {syncingLive ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}
-                        {syncingLive ? 'Syncing...' : 'Sync Live'}
+                        {syncingLive ? <Loader2 size={14} className="animate-spin" /> : <Radio size={14} />}
+                        <span className="hidden sm:inline">{syncingLive ? '...' : 'Live'}</span>
                     </button>
                 </div>
             </div>
 
             {/* Sync Status */}
             {syncStatus && (
-                <div className="bg-gradient-to-r from-green-400/10 to-red-500/10 rounded-2xl p-4 border border-green-400/20">
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-4">
-                            <span className="text-green-600 font-medium">📊 Odds API: {syncStatus.oddsMatches} matches</span>
-                            <span className="text-red-600 font-medium">⚽ Live: {syncStatus.liveMatches} matches</span>
+                <div className="bg-gradient-to-r from-green-400/10 to-red-500/10 rounded-xl p-3 md:p-4 border border-green-400/20">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
+                        <div className="flex flex-wrap gap-3">
+                            <span className="text-green-600 font-medium text-sm">📊 {syncStatus.oddsMatches}</span>
+                            <span className="text-red-600 font-medium text-sm">⚽ {syncStatus.liveMatches}</span>
                         </div>
-                        <span className="text-zinc-500">Last sync: {syncStatus.lastOddsSync ? new Date(syncStatus.lastOddsSync).toLocaleString() : 'Never'}</span>
+                        <span className="text-zinc-500 text-xs">{syncStatus.lastOddsSync ? new Date(syncStatus.lastOddsSync).toLocaleString() : 'Never'}</span>
                     </div>
                 </div>
             )}
 
             {/* Filter Bar */}
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto flex-1">
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+            <div className="flex flex-col gap-3 bg-white dark:bg-zinc-900/50 p-3 md:p-4 rounded-xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative w-full sm:w-auto">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                         <input
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="w-full sm:w-auto pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
+                            className="w-full sm:w-36 pl-9 pr-2 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                         />
                     </div>
 
-                    <div className="relative flex-1 sm:max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                         <input
                             type="text"
-                            placeholder="Enter team or league..."
+                            placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
+                            className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                         />
                     </div>
 
                     <select
                         value={selectedLeague}
                         onChange={(e) => setSelectedLeague(e.target.value)}
-                        className="px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm font-medium"
+                        className="w-full sm:w-auto px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                     >
-                        <option value="All">All Leagues</option>
+                        <option value="All">All</option>
                         {uniqueLeagues.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                 </div>
 
-<div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-full sm:w-auto">
+                <div className="flex gap-1 overflow-x-auto pb-1">
                     {(['All', 'Live', 'Finished', 'Scheduled'] as const).map((s) => (
                         <button
                             key={s}
                             onClick={() => setStatusFilter(s)}
                             className={cn(
-                                "flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                "flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
                                 statusFilter === s
-                                    ? "bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                             )}
                         >
                             {s}
