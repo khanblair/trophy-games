@@ -67,14 +67,9 @@ EXPO_PUBLIC_SPORTMONKS_API_TOKEN=your_api_token_here
 -   `bun web`: Run on web.
 
 
-in my project, i have the web and mobile. analyze and understand how each of them works. in the web i fetch matches and match data byt scrapping them from a website. then in the mobile app i want to have web APIs that push this data in the mobile app. i want to use this groq api 'EXPO_PUBLIC_GROQ_API_KEY' for AI predictions in the app as well. i want you to align the app with the data from the web, in the app: 
-- display the matches and their details, 
-- match predictions and AI insights as well
-- show the paid, vip, etc... matches in the respective screens
-- in the wins screen, show the history for given matches
-
-in the web:
-- add a live scrap button in the leagues page
-- add a section to mark matches as paid, free, vip or all; this will be used in the app
-- fecth the most trending leagues for example English Premier League  at 'https://football.goaloo.com/league/36',  German Bundesliga  at 'https://football.goaloo.com/league/8' among others...
-
+fix the theme switching in my app, why is it only working on the header and not other screens and sections? find and fix this.
+-also fix the navigation in the drawer menu in my app to link properly to the proper screens
+-also in my apps, we and mobile, how bets can we fetch the flags and display them fot eh leagues and matches?
+-in my mobile app add a filter for leagues
+-in mobile app, remove the AI insights button and instead use the ones fetched from convex, generated from web, add this API if its missing.
+-in mobile app, link paid, vip, wins screens to the macth detail screen

@@ -1,8 +1,10 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { Zap } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
+import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 
 export default function FreeTipsScreen() {
@@ -10,8 +12,9 @@ export default function FreeTipsScreen() {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const colorScheme = useColorScheme();
-    const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
+    const [leagues, setLeagues] = useState<any[]>([]);
+    const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
+    const { themeColors } = useTheme();
 
     const loadData = useCallback(async (isRefresh = false) => {
         if (isRefresh) {
@@ -19,7 +22,6 @@ export default function FreeTipsScreen() {
         } else {
             setLoading(true);
         }
-        // Clear cache and fetch fresh data
         await webApi.clearCache();
         const data = await webApi.getMatches('free');
         setMatches(data || []);
@@ -29,7 +31,13 @@ export default function FreeTipsScreen() {
 
     useEffect(() => {
         loadData();
+        // Fetch leagues for filter
+        webApi.getLeagues().then(setLeagues);
     }, [loadData, selectedDate]);
+
+    const filteredMatches = selectedLeague
+        ? matches.filter(m => m.league === selectedLeague)
+        : matches;
 
     const onRefresh = useCallback(() => {
         loadData(true);
@@ -48,40 +56,79 @@ export default function FreeTipsScreen() {
     const dates = generateDates();
 
     return (
-        <View style={[styles.container, { backgroundColor: themeColors.background, padding: 16 }]}>
-            <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                style={styles.datePicker}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={themeColors.primary}
-                        colors={[themeColors.primary]}
-                    />
-                }
-            >
-                {dates.map((date) => {
-                    const dateStr = date.toISOString().split('T')[0];
-                    const isSelected = dateStr === selectedDate;
-                    return (
+        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <View style={[styles.subHeader, { borderBottomColor: themeColors.border }]}>
+                <View style={styles.filterSection}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.leagueFilterContent}
+                    >
                         <TouchableOpacity
-                            key={dateStr}
-                            style={[styles.dateButton, isSelected && { backgroundColor: themeColors.primary }]}
-                            onPress={() => setSelectedDate(dateStr)}
+                            style={[
+                                styles.leagueChip,
+                                !selectedLeague && { backgroundColor: themeColors.primary }
+                            ]}
+                            onPress={() => setSelectedLeague(null)}
                         >
-                            <Text style={[styles.dateText, isSelected && { color: 'black' }]}>
-                                {date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
+                            <Text style={[styles.leagueChipText, !selectedLeague ? { color: 'black' } : { color: themeColors.text }]}>
+                                ALL
                             </Text>
                         </TouchableOpacity>
-                    );
-                })}
-            </ScrollView>
+                        {leagues.map((league) => (
+                            <TouchableOpacity
+                                key={league.id}
+                                style={[
+                                    styles.leagueChip,
+                                    selectedLeague === league.name && { backgroundColor: themeColors.primary }
+                                ]}
+                                onPress={() => setSelectedLeague(league.name)}
+                            >
+                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'black' } : { color: themeColors.text }]}>
+                                    {league.name.toUpperCase()}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
 
-            <ScrollView 
-                style={styles.fixtureList} 
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.datePickerContent}
+                    style={styles.datePicker}
+                >
+                    {dates.map((date) => {
+                        const dateStr = date.toISOString().split('T')[0];
+                        const isSelected = dateStr === selectedDate;
+                        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                        const dayNum = date.getDate();
+
+                        return (
+                            <TouchableOpacity
+                                key={dateStr}
+                                style={[
+                                    styles.dateButton,
+                                    isSelected && { backgroundColor: themeColors.primary }
+                                ]}
+                                onPress={() => setSelectedDate(dateStr)}
+                            >
+                                <Text style={[styles.dayText, isSelected ? { color: 'black' } : { color: themeColors.textMuted }]}>
+                                    {dayName}
+                                </Text>
+                                <Text style={[styles.numText, isSelected ? { color: 'black' } : { color: themeColors.text }]}>
+                                    {dayNum}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+
+            <ScrollView
+                style={styles.fixtureList}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -95,9 +142,9 @@ export default function FreeTipsScreen() {
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
                     </View>
-                ) : matches.length > 0 ? (
+                ) : filteredMatches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
-                        {matches.map((match: any) => (
+                        {filteredMatches.map((match: any) => (
                             <MatchCard
                                 key={match.id}
                                 matchId={match.id}
@@ -119,9 +166,12 @@ export default function FreeTipsScreen() {
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
-                        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No Free Tips Found</Text>
-                        <Text style={[styles.emptySubtitle, { color: themeColors.text }]}>
-                            Pull to refresh or run live scrape on web.
+                        <View style={[styles.emptyIconWrapper, { backgroundColor: themeColors.cardBgSecondary }]}>
+                            <Zap size={40} color={themeColors.textMuted} />
+                        </View>
+                        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>NO FREE TIPS TODAY</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.textMuted }]}>
+                            Our AI is still processing the matches. Pull to check for updates.
                         </Text>
                     </View>
                 )}
@@ -134,44 +184,89 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    datePicker: {
-        maxHeight: 50,
+    subHeader: {
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        gap: 12,
     },
-    dateButton: {
+    filterSection: {
+        marginBottom: 4,
+    },
+    leagueFilterContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    leagueChip: {
         paddingHorizontal: 16,
         paddingVertical: 8,
-        marginHorizontal: 4,
-        borderRadius: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
     },
-    dateText: {
-        fontSize: 14,
+    leagueChipText: {
+        fontSize: 11,
+        fontWeight: '900',
+    },
+    datePicker: {
+        flexGrow: 0,
+    },
+    datePickerContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    dateButton: {
+        width: 60,
+        height: 60,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+    },
+    dayText: {
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 2,
+    },
+    numText: {
+        fontSize: 18,
+        fontWeight: '900',
     },
     fixtureList: {
         flex: 1,
     },
+    scrollContent: {
+        padding: 16,
+        paddingBottom: 40,
+    },
     loadingContainer: {
-        flex: 1,
+        paddingVertical: 60,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 40,
     },
     fixtureGrid: {
-        gap: 16,
+        gap: 8,
     },
     emptyContainer: {
-        flex: 1,
+        paddingVertical: 80,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 40,
         gap: 16,
     },
+    emptyIconWrapper: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     emptyTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        opacity: 0.5,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     emptySubtitle: {
         textAlign: 'center',
-        opacity: 0.3,
+        fontSize: 14,
+        paddingHorizontal: 40,
+        lineHeight: 20,
     },
 });

@@ -5,10 +5,10 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type') as 'free' | 'paid' | 'vip' | null;
-        const source = searchParams.get('source') as 'odds-api' | 'goaloo-live' | null;
+        const source = (searchParams.get('source') as 'odds-api' | 'goaloo-live' | null) || 'odds-api';
         const status = searchParams.get('status') as 'live' | 'scheduled' | 'finished' | null;
         const limit = parseInt(searchParams.get('limit') || '50');
-        
+
         let data;
         try {
             data = await loadData();
@@ -16,9 +16,9 @@ export async function GET(request: Request) {
             console.error('[API] Load data failed:', loadError);
             return NextResponse.json({ error: 'Data service unavailable', matches: [] }, { status: 503 });
         }
-        
+
         console.log(`[API /mobile/matches] Loaded ${data.matches?.length || 0} matches from storage`);
-        
+
         let matches = data.matches || [];
 
         // Filter by source (odds-api or goaloo-live)

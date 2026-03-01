@@ -1,60 +1,63 @@
 import { Tabs } from 'expo-router';
 import { Home, DollarSign, Crown, CheckCircle, ShoppingCart } from 'lucide-react-native';
-import { useColorScheme } from 'react-native';
 import { colors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
-    const colorScheme = useColorScheme();
-    const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
+    const { themeColors } = useTheme();
 
     return (
         <Tabs
             screenOptions={{
-                headerShown: true,
+                headerShown: false,
                 tabBarActiveTintColor: themeColors.primary,
+                tabBarInactiveTintColor: themeColors.textMuted,
+                tabBarLabelStyle: {
+                    fontSize: 10,
+                    fontWeight: '900',
+                    marginBottom: 5,
+                },
                 tabBarStyle: {
                     backgroundColor: themeColors.background,
                     borderTopColor: themeColors.border,
+                    height: 60,
+                    paddingTop: 5,
                 },
-                headerStyle: {
-                    backgroundColor: themeColors.background,
-                },
-                headerTintColor: themeColors.text,
             }}
         >
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: 'Free',
-                    tabBarIcon: ({ color }) => <Home color={color} />,
+                    title: 'FREE',
+                    tabBarIcon: ({ color }) => <Home color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="paid"
                 options={{
-                    title: 'Paid',
-                    tabBarIcon: ({ color }) => <DollarSign color={color} />,
+                    title: 'PAID',
+                    tabBarIcon: ({ color }) => <DollarSign color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="vip"
                 options={{
                     title: 'VIP',
-                    tabBarIcon: ({ color }) => <Crown color={color} />,
+                    tabBarIcon: ({ color }) => <Crown color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="wins"
                 options={{
-                    title: 'Wins',
-                    tabBarIcon: ({ color }) => <CheckCircle color={color} />,
+                    title: 'WINS',
+                    tabBarIcon: ({ color }) => <CheckCircle color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="market"
                 options={{
-                    title: 'Market',
-                    tabBarIcon: ({ color }) => <ShoppingCart color={color} />,
+                    title: 'STORE',
+                    tabBarIcon: ({ color }) => <ShoppingCart color={color} size={22} />,
                 }}
             />
         </Tabs>

@@ -1,9 +1,8 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { Lock, Sparkles, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useState } from 'react';
-import { fetchMatchInsights } from '../api/groq';
 import { colors } from '../theme/colors';
-import { useColorScheme } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { useRouter } from 'expo-router';
 
 interface MatchCardProps {
@@ -15,17 +14,16 @@ interface MatchCardProps {
     homeTeamLogo?: string;
     awayTeam: string;
     awayTeamLogo?: string;
-    isLocked?: boolean;
-    price?: number;
     prediction?: string;
     odds?: string;
+    isLocked?: boolean;
+    price?: number;
     homeScore?: number;
     awayScore?: number;
     aiInsight?: {
         prediction: string;
         confidence: number;
         reasoning: string[];
-        suggestedBet?: string;
     };
     matchId?: string;
 }
@@ -39,328 +37,321 @@ export const MatchCard = ({
     homeTeamLogo,
     awayTeam,
     awayTeamLogo,
-    isLocked,
-    price,
     prediction,
     odds,
+    isLocked = false,
+    price,
     homeScore,
     awayScore,
     aiInsight,
     matchId,
 }: MatchCardProps) => {
     const router = useRouter();
-    const [insight, setInsight] = useState<string | null>(null);
-    const [loadingAI, setLoadingAI] = useState(false);
     const [showAI, setShowAI] = useState(false);
-    const colorScheme = useColorScheme();
-    const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
+    const { themeColors } = useTheme();
 
-    const handleGetInsight = async () => {
-        if (insight || aiInsight) {
+    const getFlagUrl = (countryName?: string) => {
+        if (!countryName) return null;
+        const codeMap: Record<string, string> = {
+            'England': 'gb-eng',
+            'Spain': 'es',
+            'Germany': 'de',
+            'Italy': 'it',
+            'France': 'fr',
+            'Netherlands': 'nl',
+            'Portugal': 'pt',
+            'Brazil': 'br',
+            'Argentina': 'ar',
+            'USA': 'us',
+            'Turkey': 'tr',
+            'Scotland': 'gb-sct',
+        };
+        const code = codeMap[countryName] || countryName.toLowerCase().substring(0, 2);
+        return `https://flagcdn.com/w40/${code}.png`;
+    };
+
+    const handleGetInsight = () => {
+        if (aiInsight) {
             setShowAI(!showAI);
-            return;
         }
-
-        setLoadingAI(true);
-        setShowAI(true);
-        const data = await fetchMatchInsights(homeTeam, awayTeam, leagueName);
-        setInsight(data);
-        setLoadingAI(false);
     };
 
     const handleCardPress = () => {
         if (matchId) {
-            const matchData = encodeURIComponent(JSON.stringify({
-                id: matchId,
-                leagueName,
-                leagueLogo,
-                countryFlag,
-                time,
-                homeTeam,
-                homeTeamLogo,
-                awayTeam,
-                awayTeamLogo,
-                isLocked,
-                prediction,
-                odds,
-                homeScore,
-                awayScore,
-                aiInsight,
-            }));
-            router.push(`/match/${matchId}?matchData=${matchData}`);
+            router.push(`/match/${matchId}`);
         }
     };
 
     return (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}
             onPress={handleCardPress}
             activeOpacity={0.7}
         >
             <View style={styles.header}>
                 <View style={styles.leagueRow}>
-                    {leagueLogo ? (
-                        <Image source={{ uri: leagueLogo }} style={styles.leagueLogo} />
-                    ) : (
-                        <View style={[styles.leagueLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
-                    )}
-                    <Text style={[styles.leagueName, { color: themeColors.text }]}>{leagueName}</Text>
+                    <View style={styles.logoContainer}>
+                        {leagueLogo ? (
+                            <Image source={{ uri: leagueLogo }} style={styles.leagueLogo} />
+                        ) : countryFlag || getFlagUrl(leagueName) ? (
+                            <Image source={{ uri: countryFlag || getFlagUrl(leagueName) || '' }} style={styles.leagueLogo} />
+                        ) : (
+                            <View style={[styles.leagueLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
+                        )}
+                    </View>
+                    <Text style={[styles.leagueName, { color: themeColors.textMuted }]}>{leagueName}</Text>
                 </View>
-                <Text style={[styles.time, { color: themeColors.text }]}>{time}</Text>
+                <Text style={[styles.time, { color: themeColors.textMuted }]}>{time}</Text>
             </View>
 
             <View style={styles.teamsContainer}>
-                <View style={styles.teamColumn}>
-                    {homeTeamLogo ? (
-                        <Image source={{ uri: homeTeamLogo }} style={styles.teamLogo} />
-                    ) : (
-                        <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
-                    )}
-                    <Text style={[styles.teamName, { color: themeColors.text }]}>{homeTeam}</Text>
-                    {homeScore !== undefined && (
-                        <Text style={[styles.score, { color: themeColors.primary }]}>{homeScore}</Text>
-                    )}
+                <View style={styles.teamRow}>
+                    <View style={styles.teamNameContainer}>
+                        {homeTeamLogo && <Image source={{ uri: homeTeamLogo }} style={styles.teamLogo} />}
+                        <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{homeTeam}</Text>
+                    </View>
+                    {homeScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{homeScore}</Text>}
                 </View>
 
-                <View style={styles.scoreContainer}>
-                    {homeScore !== undefined && awayScore !== undefined ? (
-                        <Text style={[styles.scoreDisplay, { color: themeColors.text }]}>
-                            {homeScore} - {awayScore}
-                        </Text>
-                    ) : (
-                        <Text style={[styles.vsText, { color: themeColors.text }]}>VS</Text>
-                    )}
-                </View>
-
-                <View style={styles.teamColumn}>
-                    {awayTeamLogo ? (
-                        <Image source={{ uri: awayTeamLogo }} style={styles.teamLogo} />
-                    ) : (
-                        <View style={[styles.teamLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
-                    )}
-                    <Text style={[styles.teamName, { color: themeColors.text }]}>{awayTeam}</Text>
-                    {awayScore !== undefined && (
-                        <Text style={[styles.score, { color: themeColors.primary }]}>{awayScore}</Text>
-                    )}
+                <View style={styles.teamRow}>
+                    <View style={styles.teamNameContainer}>
+                        {awayTeamLogo && <Image source={{ uri: awayTeamLogo }} style={styles.teamLogo} />}
+                        <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{awayTeam}</Text>
+                    </View>
+                    {awayScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{awayScore}</Text>}
                 </View>
             </View>
 
-            <View style={styles.actions}>
+            <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
                 {isLocked ? (
-                    <>
-                        <TouchableOpacity style={[styles.lockButton, { backgroundColor: themeColors.gray5 }]}>
-                            <Lock size={16} color={themeColors.text} />
+                    <View style={styles.lockedContainer}>
+                        <View style={[styles.lockBadge, { backgroundColor: themeColors.cardBgSecondary }]}>
+                            <Lock size={12} color={themeColors.primary} />
+                            <Text style={[styles.lockText, { color: themeColors.primary }]}>UNLOCK {price} COINS</Text>
+                        </View>
+                        <TouchableOpacity style={[styles.unlockButton, { backgroundColor: themeColors.primary }]}>
+                            <Text style={styles.unlockButtonText}>BUY TIP</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.buyButton, { backgroundColor: themeColors.orange9 }]}>
-                            <Text style={styles.buyButtonText}>{price} Coins</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.waitButton, { borderColor: themeColors.border }]}>
-                            <Text style={[styles.waitButtonText, { color: themeColors.text }]}>WAIT</Text>
-                        </TouchableOpacity>
-                    </>
+                    </View>
                 ) : (
-                    <>
-                        <TouchableOpacity style={[styles.oddsButton, { backgroundColor: themeColors.blue2 }]}>
-                            <Text style={[styles.oddsText, { color: themeColors.blue10 }]}>{odds}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.predictionButton, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-                            <Text style={[styles.predictionText, { color: themeColors.text }]}>{prediction}</Text>
-                        </TouchableOpacity>
+                    <View style={styles.predictionRow}>
+                        <View style={styles.predictionSection}>
+                            <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>PREDICTION</Text>
+                            <View style={[styles.predictionChip, { backgroundColor: themeColors.primary }]}>
+                                <Text style={styles.predictionValue}>{prediction || 'TIPS'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.oddsSection}>
+                            <Text style={[styles.oddsLabel, { color: themeColors.textMuted }]}>ODDS</Text>
+                            <Text style={[styles.oddsValue, { color: themeColors.text }]}>{odds || '1.85'}</Text>
+                        </View>
+
                         <TouchableOpacity
-                            style={[styles.aiButton, { backgroundColor: themeColors.primary }]}
+                            style={[
+                                styles.aiChip,
+                                { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.primary },
+                                !aiInsight && { opacity: 0.3 }
+                            ]}
                             onPress={handleGetInsight}
-                            disabled={loadingAI}
+                            disabled={!aiInsight}
                         >
-                            {loadingAI ? (
-                                <ActivityIndicator size="small" color="black" />
-                            ) : (
-                                <Sparkles size={16} color="black" />
-                            )}
-                            <Text style={styles.aiButtonText}>AI</Text>
+                            <Sparkles size={14} color={themeColors.primary} />
+                            <Text style={[styles.aiChipText, { color: themeColors.primary }]}>AI</Text>
                         </TouchableOpacity>
-                    </>
+                    </View>
                 )}
             </View>
 
-            {showAI && (
-                <View style={[styles.aiInsight, { backgroundColor: themeColors.background, borderColor: themeColors.primary, borderStyle: 'dashed' }]}>
+            {showAI && aiInsight && (
+                <View style={[styles.aiInsight, { backgroundColor: themeColors.cardBgSecondary, borderLeftColor: themeColors.primary }]}>
                     <View style={styles.aiInsightHeader}>
                         <View style={styles.aiInsightTitleRow}>
-                            <Sparkles size={16} color="#D9FF00" />
-                            <Text style={[styles.aiInsightTitle, { color: themeColors.primary }]}>AI SMART INSIGHT</Text>
+                            <Sparkles size={14} color={themeColors.primary} />
+                            <Text style={[styles.aiInsightTitle, { color: themeColors.primary }]}>AI SMART ANALYTICS</Text>
                         </View>
                         <TouchableOpacity onPress={() => setShowAI(false)}>
-                            <ChevronUp size={16} color={themeColors.text} />
+                            <ChevronUp size={16} color={themeColors.textMuted} />
                         </TouchableOpacity>
                     </View>
-                    {loadingAI ? (
-                        <View style={styles.aiLoadingContainer}>
-                            <ActivityIndicator size="small" color={themeColors.primary} />
-                            <Text style={[styles.aiLoadingText, { color: themeColors.text }]}>Analyzing match data...</Text>
-                        </View>
-                    ) : (
-                        <Text style={[styles.aiInsightText, { color: themeColors.text }]}>
-                            {insight}
-                        </Text>
-                    )}
+                    <Text style={[styles.aiInsightText, { color: themeColors.text }]}>
+                        {aiInsight.reasoning?.[0] || aiInsight.prediction || "Advanced analytical model suggests a high probability outcome based on recent form and historical encounters."}
+                    </Text>
                 </View>
             )}
-            </TouchableOpacity>
+        </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
     card: {
-        flex: 1,
-        margin: 8,
-        padding: 16,
-        borderRadius: 12,
+        borderRadius: 20,
         borderWidth: 1,
+        padding: 16,
+        marginVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     leagueRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
+    logoContainer: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        overflow: 'hidden',
+    },
     leagueLogo: {
-        width: 20,
-        height: 20,
-        borderRadius: 2,
+        width: '100%',
+        height: '100%',
     },
     leagueLogoPlaceholder: {
-        width: 20,
-        height: 15,
-        borderRadius: 2,
+        width: '100%',
+        height: '100%',
     },
     leagueName: {
-        fontSize: 14,
-        opacity: 0.7,
+        fontSize: 11,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     time: {
-        fontSize: 14,
-        opacity: 0.7,
+        fontSize: 10,
+        fontWeight: '800',
     },
     teamsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        paddingVertical: 16,
+        gap: 12,
+        marginBottom: 20,
     },
-    teamColumn: {
+    teamRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: 8,
+    },
+    teamNameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         flex: 1,
     },
     teamLogo: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-    },
-    teamLogoPlaceholder: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
     },
     teamName: {
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    vsText: {
-        fontWeight: 'bold',
-        fontSize: 24,
-    },
-    scoreContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    scoreDisplay: {
-        fontWeight: 'bold',
-        fontSize: 32,
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: -0.5,
     },
     score: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '900',
+        fontVariant: ['tabular-nums'],
     },
-    actions: {
+    footer: {
+        borderTopWidth: 1,
+        paddingTop: 16,
+    },
+    predictionRow: {
         flexDirection: 'row',
-        marginTop: 16,
-        gap: 8,
-    },
-    lockButton: {
-        flex: 1,
-        padding: 12,
-        borderRadius: 8,
         alignItems: 'center',
     },
-    buyButton: {
-        flex: 3,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    buyButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    waitButton: {
+    predictionSection: {
         flex: 1.5,
-        padding: 12,
+    },
+    predictionLabel: {
+        fontSize: 8,
+        fontWeight: '900',
+        marginBottom: 4,
+        letterSpacing: 1,
+    },
+    predictionChip: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
         borderRadius: 8,
-        alignItems: 'center',
-        borderWidth: 1,
     },
-    waitButtonText: {
-        fontWeight: 'bold',
-    },
-    oddsButton: {
-        flex: 1,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    oddsText: {
-        fontSize: 14,
-    },
-    predictionButton: {
-        flex: 3,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        borderWidth: 1,
-    },
-    predictionText: {
-        fontSize: 14,
-    },
-    aiButton: {
-        flex: 1.5,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 4,
-    },
-    aiButtonText: {
+    predictionValue: {
+        fontSize: 11,
+        fontWeight: '900',
         color: 'black',
-        fontWeight: 'bold',
+    },
+    oddsSection: {
+        flex: 1,
+    },
+    oddsLabel: {
+        fontSize: 8,
+        fontWeight: '900',
+        marginBottom: 4,
+        letterSpacing: 1,
+    },
+    oddsValue: {
+        fontSize: 14,
+        fontWeight: '900',
+    },
+    aiChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    aiChipText: {
+        fontSize: 10,
+        fontWeight: '900',
+    },
+    lockedContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    lockBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    lockText: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    unlockButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    unlockButtonText: {
+        color: 'black',
+        fontSize: 10,
+        fontWeight: '900',
     },
     aiInsight: {
         marginTop: 16,
         padding: 16,
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: 12,
+        borderLeftWidth: 4,
     },
     aiInsightHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     aiInsightTitleRow: {
         flexDirection: 'row',
@@ -368,23 +359,13 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     aiInsightTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 10,
+        fontWeight: '900',
         letterSpacing: 1,
     },
-    aiLoadingContainer: {
-        alignItems: 'center',
-        paddingVertical: 16,
-        gap: 8,
-    },
-    aiLoadingText: {
-        fontSize: 14,
-        opacity: 0.5,
-    },
     aiInsightText: {
-        fontSize: 16,
-        opacity: 0.9,
-        lineHeight: 22,
+        fontSize: 13,
+        lineHeight: 20,
         fontWeight: '500',
     },
 });

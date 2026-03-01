@@ -4,8 +4,8 @@ import { loadData } from '@/lib/storage';
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const source = searchParams.get('source') as 'odds-api' | 'goaloo-live' | null;
-        
+        const source = (searchParams.get('source') as 'odds-api' | 'goaloo-live' | null) || 'odds-api';
+
         const data = await loadData();
         let matches = (data.matches || []).filter((m: any) => m.isTrending === true);
 

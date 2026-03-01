@@ -9,7 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { Sun, Moon, Menu, Home, DollarSign, Crown, CheckCircle, ShoppingCart, Zap, TrendingUp } from 'lucide-react-native';
 import { colors } from '../theme/colors';
-import { DrawerActions } from '@react-navigation/native';
+import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -17,7 +17,7 @@ const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 SplashScreen.preventAutoHideAsync();
 
 const menuItems = [
-    { name: 'Free Tips', href: '/(tabs)/', icon: Home, type: 'free' },
+    { name: 'Free Tips', href: '/(tabs)', icon: Home, type: 'free' },
     { name: 'Paid Tips', href: '/(tabs)/paid', icon: DollarSign, type: 'paid' },
     { name: 'VIP Tips', href: '/(tabs)/vip', icon: Crown, type: 'vip' },
     { name: 'Wins', href: '/(tabs)/wins', icon: CheckCircle },
@@ -25,10 +25,6 @@ const menuItems = [
 ];
 
 export default function RootLayout() {
-    const systemColorScheme = useColorScheme();
-    const [themeName, setThemeName] = useState(systemColorScheme || 'dark');
-    const [drawerOpen, setDrawerOpen] = useState(false);
-
     const [loaded] = useFonts({});
 
     useEffect(() => {
@@ -37,90 +33,14 @@ export default function RootLayout() {
         }
     }, [loaded]);
 
-    const toggleTheme = () => {
-        setThemeName(themeName === 'dark' ? 'light' : 'dark');
-    };
-
-    const toggleDrawer = () => {
-        setDrawerOpen(!drawerOpen);
-    };
-
     if (!loaded) {
         return null;
     }
 
-    const isDark = themeName === 'dark';
-    const themeColors = isDark ? colors.dark : colors.light;
-
     const content = (
-        <ThemeProvider value={themeName === 'dark' ? DarkTheme : DefaultTheme}>
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <Stack screenOptions={{
-                    headerStyle: { backgroundColor: themeColors.background },
-                    headerTintColor: themeColors.text,
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-                            <Menu size={24} color={themeColors.text} />
-                        </TouchableOpacity>
-                    ),
-                    headerRight: () => (
-                        <ThemeToggle onToggle={toggleTheme} currentTheme={themeName} themeColors={themeColors} />
-                    )
-                }}>
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
-                    <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-                </Stack>
-                
-                {/* Drawer Overlay */}
-                {drawerOpen && (
-                    <TouchableOpacity 
-                        style={styles.drawerOverlay} 
-                        activeOpacity={1} 
-                        onPress={toggleDrawer}
-                    >
-                        <View style={[styles.drawer, { backgroundColor: themeColors.cardBg }]}>
-                            <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-                                <Text style={[styles.drawerTitle, { color: themeColors.text }]}>Trophy Games</Text>
-                                <TouchableOpacity onPress={toggleTheme}>
-                                    {themeName === 'dark' ? (
-                                        <Sun size={20} color="#D9FF00" />
-                                    ) : (
-                                        <Moon size={20} color="#3182CE" />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                            
-                            <View style={styles.drawerContent}>
-                                {menuItems.map((item, index) => (
-                                    <TouchableOpacity 
-                                        key={index} 
-                                        style={[styles.drawerItem, { borderBottomColor: themeColors.border }]}
-                                        onPress={() => {
-                                            toggleDrawer();
-                                        }}
-                                    >
-                                        <item.icon size={20} color={themeColors.primary} />
-                                        <Text style={[styles.drawerItemText, { color: themeColors.text }]}>{item.name}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            
-                            <View style={[styles.drawerFooter, { borderTopColor: themeColors.border }]}>
-                                <View style={styles.drawerFooterRow}>
-                                    <Zap size={16} color={themeColors.orange9} />
-                                    <Text style={[styles.drawerFooterText, { color: themeColors.text }]}>Live Updates</Text>
-                                </View>
-                                <View style={styles.drawerFooterRow}>
-                                    <TrendingUp size={16} color={themeColors.primary} />
-                                    <Text style={[styles.drawerFooterText, { color: themeColors.text }]}>AI Predictions</Text>
-                                </View>
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </ThemeProvider>
+        <AppThemeProvider>
+            <RootLayoutContent />
+        </AppThemeProvider>
     );
 
     if (convex) {
@@ -134,6 +54,102 @@ export default function RootLayout() {
     return content;
 }
 
+function RootLayoutContent() {
+    const router = useRouter();
+    const { theme, isDark, themeColors, toggleTheme } = useTheme();
+    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    const toggleDrawer = () => {
+        setDrawerOpen(!drawerOpen);
+    };
+
+    return (
+        <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <Stack screenOptions={{
+                    headerStyle: { backgroundColor: themeColors.background },
+                    headerShadowVisible: false,
+                    headerTintColor: themeColors.text,
+                    headerTitleStyle: {
+                        fontWeight: '900',
+                        fontSize: 18,
+                    },
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+                            <Menu size={22} color={themeColors.text} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                    ),
+                    headerRight: () => (
+                        <ThemeToggle onToggle={toggleTheme} currentTheme={theme} themeColors={themeColors} />
+                    )
+                }}>
+                    <Stack.Screen name="(tabs)" options={{
+                        headerShown: true,
+                        title: 'TROPHY GAMES'
+                    }} />
+                    <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+                    <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                </Stack>
+
+                {/* Drawer Overlay */}
+                {drawerOpen && (
+                    <TouchableOpacity
+                        style={styles.drawerOverlay}
+                        activeOpacity={1}
+                        onPress={toggleDrawer}
+                    >
+                        <View style={[styles.drawer, { backgroundColor: themeColors.cardBg, borderRightColor: themeColors.border }]}>
+                            <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
+                                <View style={styles.logoRow}>
+                                    <View style={[styles.logoDot, { backgroundColor: themeColors.primary }]} />
+                                    <View>
+                                        <Text style={[styles.drawerTitle, { color: themeColors.text }]}>TROPHY</Text>
+                                        <Text style={[styles.drawerSubtitle, { color: themeColors.primary }]}>GAMES ELITE</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            <View style={styles.drawerContent}>
+                                {menuItems.map((item, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={styles.drawerItem}
+                                        onPress={() => {
+                                            router.push(item.href as any);
+                                            toggleDrawer();
+                                        }}
+                                    >
+                                        <View style={[styles.drawerItemIcon, { backgroundColor: themeColors.cardBgSecondary }]}>
+                                            <item.icon size={18} color={themeColors.text} />
+                                        </View>
+                                        <Text style={[styles.drawerItemText, { color: themeColors.text }]}>{item.name}</Text>
+                                        {item.type === 'vip' && (
+                                            <View style={[styles.vipLabel, { backgroundColor: themeColors.primary }]}>
+                                                <Text style={styles.vipLabelText}>PRO</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={[styles.drawerFooter, { backgroundColor: themeColors.cardBgSecondary }]}>
+                                <View style={styles.drawerFooterRow}>
+                                    <Zap size={14} color={themeColors.orange9} />
+                                    <Text style={[styles.drawerFooterText, { color: themeColors.textMuted }]}>LIVE CLOUD SYNC</Text>
+                                </View>
+                                <View style={styles.drawerFooterRow}>
+                                    <TrendingUp size={14} color={themeColors.primary} />
+                                    <Text style={[styles.drawerFooterText, { color: themeColors.textMuted }]}>AI VETTING ACTIVE</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </View>
+        </ThemeProvider>
+    );
+}
+
 const ThemeToggle = ({ onToggle, currentTheme, themeColors }: { onToggle: () => void; currentTheme: string; themeColors: any }) => {
     return (
         <TouchableOpacity
@@ -141,9 +157,9 @@ const ThemeToggle = ({ onToggle, currentTheme, themeColors }: { onToggle: () => 
             style={styles.themeToggle}
         >
             {currentTheme === 'dark' ? (
-                <Sun size={20} color="#D9FF00" />
+                <Sun size={20} color={themeColors.primary} />
             ) : (
-                <Moon size={20} color="#3182CE" />
+                <Moon size={20} color={themeColors.blue10} />
             )}
         </TouchableOpacity>
     );
@@ -154,10 +170,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     menuButton: {
-        padding: 8,
+        padding: 12,
+        marginLeft: 4,
     },
     themeToggle: {
-        padding: 8,
+        padding: 12,
+        marginRight: 4,
     },
     drawerOverlay: {
         position: 'absolute',
@@ -165,7 +183,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.7)',
         zIndex: 100,
     },
     drawer: {
@@ -173,52 +191,86 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         bottom: 0,
-        width: '75%',
-        maxWidth: 300,
+        width: '80%',
+        maxWidth: 320,
         zIndex: 101,
-        paddingTop: 60,
+        borderRightWidth: 1,
     },
     drawerHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 20,
+        paddingHorizontal: 24,
+        paddingTop: 60,
+        paddingBottom: 30,
         borderBottomWidth: 1,
     },
+    logoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    logoDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+    },
     drawerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -1,
+    },
+    drawerSubtitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 2,
     },
     drawerContent: {
         flex: 1,
-        paddingTop: 10,
+        paddingTop: 20,
+        paddingHorizontal: 12,
     },
     drawerItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 15,
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        marginBottom: 4,
+        gap: 16,
+    },
+    drawerItemIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     drawerItemText: {
-        fontSize: 16,
-        fontWeight: '500',
+        fontSize: 15,
+        fontWeight: '700',
+        flex: 1,
+    },
+    vipLabel: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    vipLabelText: {
+        fontSize: 9,
+        fontWeight: '900',
+        color: 'black',
     },
     drawerFooter: {
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-        borderTopWidth: 1,
+        paddingHorizontal: 24,
+        paddingVertical: 30,
     },
     drawerFooterRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        marginBottom: 10,
+        marginBottom: 12,
     },
     drawerFooterText: {
-        fontSize: 14,
-        opacity: 0.7,
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });

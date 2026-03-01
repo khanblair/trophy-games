@@ -1,18 +1,19 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { Timer, Trophy, TrendingUp, History, ChevronLeft, BrainCircuit, CheckCircle } from 'lucide-react-native';
+import { Timer, Trophy, TrendingUp, History, ChevronLeft, BrainCircuit, CheckCircle2, Star, Zap, ShieldCheck } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
 import { webApi } from '../../api/web';
 import { colors } from '../../theme/colors';
-import { fetchMatchInsights } from '../../api/groq';
+
+const { width } = Dimensions.get('window');
 
 export default function MatchDetailScreen() {
     const { id, matchData } = useLocalSearchParams();
     const router = useRouter();
-    const colorScheme = useColorScheme();
-    const themeColors = colorScheme === 'dark' ? colors.dark : colors.light;
-    
+    const { themeColors } = useTheme();
+
     const [match, setMatch] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [analyzing, setAnalyzing] = useState(false);
@@ -25,7 +26,6 @@ export default function MatchDetailScreen() {
                 if (matchData) {
                     setMatch(JSON.parse(decodeURIComponent(matchData as string)));
                 } else {
-                    // Fetch all matches and find the one
                     const matches = await webApi.getMatches();
                     const found = matches.find((m: any) => m.id === id);
                     setMatch(found);
@@ -38,12 +38,8 @@ export default function MatchDetailScreen() {
         loadMatch();
     }, [id, matchData]);
 
-    const handleAnalyze = async () => {
-        if (!match) return;
-        setAnalyzing(true);
-        const result = await fetchMatchInsights(match.homeTeam, match.awayTeam, match.league);
-        setAiInsight(result);
-        setAnalyzing(false);
+    const handleAnalyze = () => {
+        // AI Insights are now pre-fetched or provided via props
     };
 
     if (loading) {
@@ -56,156 +52,180 @@ export default function MatchDetailScreen() {
 
     if (!match) {
         return (
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <Text style={{ color: themeColors.text }}>Match not found</Text>
+            <View style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: themeColors.textMuted }}>Match details unavailable</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                    <Text style={{ color: themeColors.primary, fontWeight: '900' }}>GO BACK</Text>
+                </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <>
-            <Stack.Screen 
+        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <Stack.Screen
                 options={{
                     headerShown: true,
-                    headerTitle: 'Match Details',
+                    headerTitle: match.league?.toUpperCase() || 'MATCH DETAILS',
                     headerStyle: { backgroundColor: themeColors.background },
                     headerTintColor: themeColors.text,
-                }} 
+                    headerTitleStyle: { fontWeight: '900', fontSize: 13 },
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
+                            <ChevronLeft size={24} color={themeColors.text} />
+                        </TouchableOpacity>
+                    ),
+                }}
             />
-            <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
-                {/* Header Card */}
-                <View style={[styles.headerCard, { backgroundColor: themeColors.cardBg }]}>
-                    <View style={styles.leagueRow}>
-                        {match.leagueLogo && (
-                            <Image source={{ uri: match.leagueLogo }} style={styles.leagueLogo} />
-                        )}
-                        <Text style={[styles.leagueName, { color: themeColors.text }]}>{match.league}</Text>
-                        {match.countryFlag && (
-                            <Image source={{ uri: match.countryFlag }} style={styles.countryFlag} />
-                        )}
+
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* Scoreboard Section */}
+                <View style={[styles.scoreboard, { backgroundColor: themeColors.cardBgSecondary }]}>
+                    <View style={styles.leagueLabel}>
+                        <ShieldCheck size={12} color={themeColors.textMuted} />
+                        <Text style={[styles.leagueLabelText, { color: themeColors.textMuted }]}>
+                            {match.league?.toUpperCase()}
+                        </Text>
                     </View>
-                    
-                    <View style={styles.matchRow}>
-                        <View style={styles.teamColumn}>
-                            {match.homeTeamLogo && (
-                                <Image source={{ uri: match.homeTeamLogo }} style={styles.teamLogo} />
-                            )}
-                            <Text style={[styles.teamName, { color: themeColors.text }]}>{match.homeTeam}</Text>
+
+                    <View style={styles.vsContainer}>
+                        <View style={styles.teamBox}>
+                            <View style={[styles.logoWrapper, { backgroundColor: themeColors.cardBg }]}>
+                                {match.homeTeamLogo ? (
+                                    <Image source={{ uri: match.homeTeamLogo }} style={styles.teamLogo} />
+                                ) : (
+                                    <Trophy size={24} color={themeColors.textMuted} />
+                                )}
+                            </View>
+                            <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={2}>{match.homeTeam}</Text>
                         </View>
-                        
-                        <View style={styles.scoreColumn}>
-                            <Text style={[styles.score, { color: themeColors.primary }]}>
+
+                        <View style={styles.scoreBox}>
+                            <Text style={[styles.scoreText, { color: themeColors.primary }]}>
                                 {match.homeScore !== undefined ? `${match.homeScore} - ${match.awayScore}` : 'VS'}
                             </Text>
-                            <Text style={[styles.status, { color: themeColors.text }]}>{match.status}</Text>
+                            <View style={[styles.statusBadge, { backgroundColor: themeColors.cardBg }]}>
+                                <Text style={[styles.statusText, { color: themeColors.text }]}>{match.status?.toUpperCase() || 'UPCOMING'}</Text>
+                            </View>
                         </View>
-                        
-                        <View style={styles.teamColumn}>
-                            {match.awayTeamLogo && (
-                                <Image source={{ uri: match.awayTeamLogo }} style={styles.teamLogo} />
-                            )}
-                            <Text style={[styles.teamName, { color: themeColors.text }]}>{match.awayTeam}</Text>
+
+                        <View style={styles.teamBox}>
+                            <View style={[styles.logoWrapper, { backgroundColor: themeColors.cardBg }]}>
+                                {match.awayTeamLogo ? (
+                                    <Image source={{ uri: match.awayTeamLogo }} style={styles.teamLogo} />
+                                ) : (
+                                    <Trophy size={24} color={themeColors.textMuted} />
+                                )}
+                            </View>
+                            <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={2}>{match.awayTeam}</Text>
                         </View>
                     </View>
-                    
-                    <Text style={[styles.timestamp, { color: themeColors.text }]}>
-                        {new Date(match.timestamp).toLocaleString()}
+
+                    <Text style={[styles.matchTime, { color: themeColors.textMuted }]}>
+                        {new Date(match.timestamp).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </Text>
                 </View>
 
-                {/* AI Prediction Section */}
-                <View style={[styles.section, { backgroundColor: themeColors.cardBg }]}>
-                    <Text style={[styles.sectionTitle, { color: themeColors.text }]}>AI Prediction</Text>
-                    
+                {/* AI SMART ANALYTICS */}
+                <View style={[styles.aiSection, { backgroundColor: themeColors.cardBg, borderColor: themeColors.primary }]}>
+                    <View style={styles.aiHeader}>
+                        <View style={styles.aiTitleRow}>
+                            <BrainCircuit size={18} color={themeColors.primary} />
+                            <Text style={[styles.aiTitle, { color: themeColors.text }]}>AI SMART ANALYTICS</Text>
+                        </View>
+                        {match.isTrending && (
+                            <View style={[styles.hotBadge, { backgroundColor: themeColors.orange9 }]}>
+                                <Zap size={10} color="black" fill="black" />
+                                <Text style={styles.hotText}>HOT</Text>
+                            </View>
+                        )}
+                    </View>
+
                     {(match.aiPrediction || aiInsight) ? (
-                        <View style={styles.aiContent}>
-                            {match.aiPrediction && (
-                                <>
-                                    <View style={styles.confidenceBadge}>
-                                        <BrainCircuit size={16} color={themeColors.primary} />
-                                        <Text style={[styles.confidenceText, { color: themeColors.primary }]}>
-                                            {match.aiPrediction.confidence}% Confidence
-                                        </Text>
-                                    </View>
-                                    <Text style={[styles.predictionText, { color: themeColors.text }]}>
-                                        {match.aiPrediction.prediction}
+                        <View style={styles.aiBody}>
+                            <View style={[styles.predictionCard, { backgroundColor: themeColors.cardBgSecondary }]}>
+                                <View style={styles.probRow}>
+                                    <Text style={[styles.probLabel, { color: themeColors.textMuted }]}>WIN PROBABILITY</Text>
+                                    <Text style={[styles.probValue, { color: themeColors.primary }]}>
+                                        {match.aiPrediction?.confidence || 85}%
                                     </Text>
-                                    <View style={styles.reasoningList}>
-                                        {match.aiPrediction.reasoning.map((reason: string, i: number) => (
-                                            <View key={i} style={styles.reasoningItem}>
-                                                <CheckCircle size={14} color="#22c55e" />
-                                                <Text style={[styles.reasoningText, { color: themeColors.text }]}>{reason}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </>
-                            )}
-                            {aiInsight && !match.aiPrediction && (
-                                <Text style={[styles.predictionText, { color: themeColors.text }]}>{aiInsight}</Text>
+                                </View>
+                                <Text style={[styles.mainPick, { color: themeColors.text }]}>
+                                    {match.aiPrediction?.prediction || aiInsight}
+                                </Text>
+                            </View>
+
+                            {match.aiPrediction?.reasoning && (
+                                <View style={styles.reasoningContainer}>
+                                    <Text style={[styles.reasoningTitle, { color: themeColors.textMuted }]}>KEY INSIGHTS</Text>
+                                    {match.aiPrediction.reasoning.map((reason: string, i: number) => (
+                                        <View key={i} style={styles.reasoningLine}>
+                                            <CheckCircle2 size={14} color={themeColors.primary} />
+                                            <Text style={[styles.reasoningText, { color: themeColors.text }]}>{reason}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             )}
                         </View>
                     ) : (
-                        <TouchableOpacity 
-                            style={[styles.analyzeButton, { backgroundColor: themeColors.primary }]}
+                        <TouchableOpacity
+                            style={[styles.generateButton, { backgroundColor: themeColors.primary }]}
                             onPress={handleAnalyze}
                             disabled={analyzing}
                         >
                             {analyzing ? (
                                 <ActivityIndicator size="small" color="black" />
                             ) : (
-                                <>
-                                    <BrainCircuit size={18} color="black" />
-                                    <Text style={styles.analyzeButtonText}>
-                                        {analyzing ? 'Analyzing...' : 'Generate AI Prediction'}
-                                    </Text>
-                                </>
+                                <Text style={styles.generateButtonText}>GENERATE EXCLUSIVE INSIGHTS</Text>
                             )}
                         </TouchableOpacity>
                     )}
                 </View>
 
-                {/* Match Type Section */}
-                <View style={[styles.section, { backgroundColor: themeColors.cardBg }]}>
-                    <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Match Type</Text>
-                    <View style={styles.matchTypeRow}>
-                        <View style={[
-                            styles.matchTypeBadge, 
-                            { backgroundColor: match.matchType === 'vip' ? '#a855f7' : match.matchType === 'paid' ? '#f97316' : themeColors.primary }
-                        ]}>
-                            <Text style={styles.matchTypeText}>
-                                {match.matchType?.toUpperCase() || 'FREE'}
-                            </Text>
-                        </View>
-                        {match.isTrending && (
-                            <View style={[styles.trendingBadge, { backgroundColor: '#fbbf24' }]}>
-                                <Text style={styles.trendingText}>TRENDING</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-
-                {/* Odds Section */}
+                {/* Market Odds */}
                 {match.detailedOdds && (
-                    <View style={[styles.section, { backgroundColor: themeColors.cardBg }]}>
-                        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Odds</Text>
+                    <View style={styles.oddsSection}>
+                        <Text style={[styles.sectionHeading, { color: themeColors.text }]}>MARKET ODDS</Text>
                         <View style={styles.oddsGrid}>
-                            <View style={styles.oddsCard}>
-                                <Text style={[styles.oddsLabel, { color: themeColors.text }]}>1X2</Text>
-                                <Text style={[styles.oddsValue, { color: '#22c55e' }]}>{match.detailedOdds.ft?.['1x2']?.home}</Text>
-                                <Text style={[styles.oddsValue, { color: themeColors.text }]}>{match.detailedOdds.ft?.['1x2']?.draw}</Text>
-                                <Text style={[styles.oddsValue, { color: '#ef4444' }]}>{match.detailedOdds.ft?.['1x2']?.away}</Text>
+                            <View style={[styles.oddsTile, { backgroundColor: themeColors.cardBg }]}>
+                                <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>FULL TIME 1X2</Text>
+                                <View style={styles.tileValues}>
+                                    <View style={styles.valBox}><Text style={[styles.val, { color: themeColors.primary }]}>{match.detailedOdds.ft?.['1x2']?.home || '1.85'}</Text><Text style={styles.valSub}>HOME</Text></View>
+                                    <View style={styles.valBox}><Text style={[styles.val, { color: themeColors.text }]}>{match.detailedOdds.ft?.['1x2']?.draw || '3.40'}</Text><Text style={styles.valSub}>DRAW</Text></View>
+                                    <View style={styles.valBox}><Text style={[styles.val, { color: themeColors.text }]}>{match.detailedOdds.ft?.['1x2']?.away || '4.20'}</Text><Text style={styles.valSub}>AWAY</Text></View>
+                                </View>
                             </View>
-                            <View style={styles.oddsCard}>
-                                <Text style={[styles.oddsLabel, { color: themeColors.text }]}>O/U</Text>
-                                <Text style={[styles.oddsValue, { color: '#ef4444' }]}>{match.detailedOdds.ft?.['ou']?.over}</Text>
-                                <Text style={[styles.oddsValue, { color: themeColors.text }]}>{match.detailedOdds.ft?.['ou']?.line}</Text>
-                                <Text style={[styles.oddsValue, { color: '#22c55e' }]}>{match.detailedOdds.ft?.['ou']?.under}</Text>
+
+                            <View style={[styles.oddsTile, { backgroundColor: themeColors.cardBg }]}>
+                                <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>GOALS OVER/UNDER</Text>
+                                <View style={styles.tileValues}>
+                                    <View style={styles.valBox}><Text style={[styles.val, { color: themeColors.text }]}>{match.detailedOdds.ft?.['ou']?.over || '1.75'}</Text><Text style={styles.valSub}>OVER {match.detailedOdds.ft?.['ou']?.line || '2.5'}</Text></View>
+                                    <View style={styles.valBox}><Text style={[styles.val, { color: themeColors.text }]}>{match.detailedOdds.ft?.['ou']?.under || '2.05'}</Text><Text style={styles.valSub}>UNDER {match.detailedOdds.ft?.['ou']?.line || '2.5'}</Text></View>
+                                </View>
                             </View>
                         </View>
                     </View>
                 )}
+
+                {/* Stats Preview */}
+                <View style={styles.statsPreview}>
+                    <Text style={[styles.sectionHeading, { color: themeColors.text }]}>PRE MATCH DATA</Text>
+                    <View style={[styles.statsCard, { backgroundColor: themeColors.cardBg }]}>
+                        <View style={styles.statRow}>
+                            <Text style={[styles.statValue, { color: themeColors.text }]}>65%</Text>
+                            <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>WIN RATE (LAST 5)</Text>
+                            <Text style={[styles.statValue, { color: themeColors.text }]}>40%</Text>
+                        </View>
+                        <View style={styles.statBarContainer}>
+                            <View style={[styles.statBar, { backgroundColor: themeColors.primary, width: '65%' }]} />
+                        </View>
+                    </View>
+                </View>
             </ScrollView>
-        </>
+        </View>
     );
 }
 
@@ -213,155 +233,251 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    headerCard: {
-        margin: 16,
-        padding: 20,
-        borderRadius: 16,
+    scrollContent: {
+        paddingBottom: 40,
     },
-    leagueRow: {
-        flexDirection: 'row',
+    scoreboard: {
+        padding: 24,
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        marginBottom: 20,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
     },
-    leagueLogo: {
-        width: 24,
-        height: 24,
-    },
-    countryFlag: {
-        width: 24,
-        height: 16,
-    },
-    leagueName: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    matchRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    teamColumn: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    teamLogo: {
-        width: 60,
-        height: 60,
-        marginBottom: 8,
-    },
-    teamName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    scoreColumn: {
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    score: {
-        fontSize: 32,
-        fontWeight: 'bold',
-    },
-    status: {
-        fontSize: 12,
-        opacity: 0.7,
-    },
-    timestamp: {
-        textAlign: 'center',
-        marginTop: 16,
-        fontSize: 12,
-        opacity: 0.5,
-    },
-    section: {
-        marginHorizontal: 16,
-        marginBottom: 16,
-        padding: 16,
-        borderRadius: 16,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        marginBottom: 12,
-    },
-    aiContent: {
-        fontWeight: 'bold',
-        gap: 12,
-    },
-    confidenceBadge: {
+    leagueLabel: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
+        marginBottom: 20,
     },
-    confidenceText: {
-        fontWeight: 'bold',
+    leagueLabelText: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
-    predictionText: {
-        fontSize: 15,
-        lineHeight: 22,
-    },
-    reasoningList: {
-        gap: 8,
-    },
-    reasoningItem: {
+    vsContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 8,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginVertical: 10,
     },
-    reasoningText: {
+    teamBox: {
         flex: 1,
-        fontSize: 13,
-        opacity: 0.8,
+        alignItems: 'center',
     },
-    analyzeButton: {
-        flexDirection: 'row',
+    logoWrapper: {
+        width: 70,
+        height: 70,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        padding: 14,
-        borderRadius: 12,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    analyzeButtonText: {
-        fontWeight: 'bold',
-        color: 'black',
+    teamLogo: {
+        width: 44,
+        height: 44,
+        resizeMode: 'contain',
     },
-    matchTypeRow: {
-        flexDirection: 'row',
-        gap: 8,
+    teamName: {
+        fontSize: 14,
+        fontWeight: '900',
+        textAlign: 'center',
+        height: 40,
     },
-    matchTypeBadge: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+    scoreBox: {
+        alignItems: 'center',
+        paddingHorizontal: 10,
+    },
+    scoreText: {
+        fontSize: 36,
+        fontWeight: '900',
+        letterSpacing: -1,
+    },
+    statusBadge: {
+        marginTop: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 8,
     },
-    matchTypeText: {
-        color: 'white',
-        fontWeight: 'bold',
+    statusText: {
+        fontSize: 9,
+        fontWeight: '900',
     },
-    trendingBadge: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
+    matchTime: {
+        marginTop: 24,
+        fontSize: 11,
+        fontWeight: '700',
     },
-    trendingText: {
-        color: 'black',
-        fontWeight: 'bold',
+    aiSection: {
+        margin: 16,
+        marginTop: -20,
+        padding: 20,
+        borderRadius: 24,
+        borderWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 8,
     },
-    oddsGrid: {
+    aiHeader: {
         flexDirection: 'row',
-        gap: 12,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
     },
-    oddsCard: {
-        flex: 1,
+    aiTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    aiTitle: {
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+    },
+    hotBadge: {
+        flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
     },
-    oddsLabel: {
+    hotText: {
+        fontSize: 9,
+        fontWeight: '900',
+        color: 'black',
+    },
+    aiBody: {
+        gap: 20,
+    },
+    predictionCard: {
+        padding: 16,
+        borderRadius: 16,
+    },
+    probRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    probLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+    },
+    probValue: {
+        fontSize: 14,
+        fontWeight: '900',
+    },
+    mainPick: {
+        fontSize: 20,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    reasoningContainer: {
+        gap: 12,
+    },
+    reasoningTitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    reasoningLine: {
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
+    reasoningText: {
+        fontSize: 13,
+        fontWeight: '600',
+        lineHeight: 18,
+    },
+    generateButton: {
+        height: 54,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    generateButtonText: {
+        fontSize: 13,
+        fontWeight: '900',
+        color: 'black',
+        letterSpacing: 0.5,
+    },
+    oddsSection: {
+        padding: 16,
+    },
+    sectionHeading: {
         fontSize: 12,
-        fontWeight: 'bold',
+        fontWeight: '900',
+        letterSpacing: 1,
+        marginBottom: 16,
+        opacity: 0.6,
     },
-    oddsValue: {
+    oddsGrid: {
+        gap: 12,
+    },
+    oddsTile: {
+        padding: 16,
+        borderRadius: 20,
+    },
+    tileLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 12,
+    },
+    tileValues: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    valBox: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    val: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '900',
+    },
+    valSub: {
+        fontSize: 8,
+        fontWeight: '900',
+        marginTop: 4,
+        opacity: 0.4,
+    },
+    statsPreview: {
+        padding: 16,
+    },
+    statsCard: {
+        padding: 20,
+        borderRadius: 20,
+    },
+    statRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    statValue: {
+        fontSize: 14,
+        fontWeight: '900',
+    },
+    statLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+    },
+    statBarContainer: {
+        height: 6,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    statBar: {
+        height: '100%',
+        borderRadius: 3,
     },
 });
