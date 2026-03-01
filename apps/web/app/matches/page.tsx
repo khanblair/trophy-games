@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star } from 'lucide-react';
+import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Radio, RefreshCw } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AIAnalysis } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
@@ -14,6 +14,9 @@ export default function MatchesPage() {
     const [analyzingId, setAnalyzingId] = useState<string | null>(null);
     const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [syncingOdds, setSyncingOdds] = useState(false);
+    const [syncingLive, setSyncingLive] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<{oddsMatches: number; liveMatches: number; lastOddsSync: string | null} | null>(null);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -21,23 +24,103 @@ export default function MatchesPage() {
     const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip'>('All');
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
+    const [sourceFilter, setSourceFilter] = useState<'All' | 'odds-api' | 'goaloo-live'>('All');
 
     // Selection for Modal
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const handleScrape = async () => {
+    const fetchSyncStatus = async () => {
         try {
-            await fetch('/api/scrape', {
+            const res = await fetch('/api/sync');
+            const data = await res.json();
+            setSyncStatus({
+                oddsMatches: data.oddsMatchesCount || 0,
+                liveMatches: data.liveMatchesCount || 0,
+                lastOddsSync: data.lastOddsSync
+            });
+        } catch (e) {
+            console.error('Failed to fetch sync status', e);
+        }
+    };
+
+    const fetchMatches = async () => {
+        try {
+            const res = await fetch('/api/matches');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setMatches(data);
+                
+                const existingAnalyses: Record<string, AIAnalysis> = {};
+                data.forEach((match: MatchData) => {
+                    if (match.aiPrediction) {
+                        existingAnalyses[match.id] = match.aiPrediction;
+                    }
+                });
+                setAnalyses(existingAnalyses);
+            }
+        } catch (error) {
+            console.error('Failed to fetch matches:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMatches();
+        fetchSyncStatus();
+    }, []);
+
+    const handleRefresh = async () => {
+        await fetchMatches();
+        await fetchSyncStatus();
+    };
+
+    const handleSyncOdds = async () => {
+        setSyncingOdds(true);
+        console.log('[Matches] Starting Odds API sync...');
+        try {
+            const res = await fetch('/api/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'live_scrape'
-                })
+                body: JSON.stringify({ action: 'sync_odds' })
             });
-            setTimeout(() => window.location.reload(), 2000);
+            const data = await res.json();
+            console.log('[Matches] Odds sync response:', data);
+            
+            setTimeout(async () => {
+                await fetchMatches();
+                await fetchSyncStatus();
+                setSyncingOdds(false);
+                console.log('[Matches] Odds sync completed!');
+            }, 3000);
         } catch (e) {
-            console.error('Scrape failed', e);
+            console.error('[Matches] Odds sync failed:', e);
+            setSyncingOdds(false);
+        }
+    };
+
+    const handleSyncLive = async () => {
+        setSyncingLive(true);
+        console.log('[Matches] Starting Live sync...');
+        try {
+            const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sync_live' })
+            });
+            const data = await res.json();
+            console.log('[Matches] Live sync response:', data);
+            
+            setTimeout(async () => {
+                await fetchMatches();
+                await fetchSyncStatus();
+                setSyncingLive(false);
+                console.log('[Matches] Live sync completed!');
+            }, 3000);
+        } catch (e) {
+            console.error('[Matches] Live sync failed:', e);
+            setSyncingLive(false);
         }
     };
 
@@ -138,6 +221,7 @@ const handleOpenModal = (match: MatchData) => {
         const matchesStatus =
             statusFilter === 'All' ||
             (statusFilter === 'Live' && match.status.includes(':')) ||
+            (statusFilter === 'Live' && match.source === 'goaloo-live') ||
             (statusFilter === 'Finished' && match.status === 'FT') ||
             (statusFilter === 'Scheduled' && !match.status.includes(':') && match.status !== 'FT');
 
@@ -145,8 +229,10 @@ const handleOpenModal = (match: MatchData) => {
         const matchesDate = !dateFilter || match.timestamp.includes(dateFilter);
         
         const matchesType = typeFilter === 'All' || match.matchType === typeFilter;
+        
+        const matchesSource = sourceFilter === 'All' || match.source === sourceFilter;
 
-        return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType;
+        return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType && matchesSource;
     });
 
     const uniqueLeagues = Array.from(new Set(matches.map(m => m.league))).sort();
@@ -159,19 +245,51 @@ const handleOpenModal = (match: MatchData) => {
 
     return (
         <div className="p-8 space-y-8">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Match Analysis</h1>
                     <p className="text-zinc-500 dark:text-zinc-400">Real-time match data with AI predictions and market analysis.</p>
                 </div>
-                <button
-                    onClick={handleScrape}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
-                >
-                    <Zap size={16} />
-                    Run Live Scrape
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleRefresh}
+                        className="flex items-center gap-2 px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors"
+                    >
+                        <RefreshCw size={16} />
+                        Refresh
+                    </button>
+                    <button
+                        onClick={handleSyncOdds}
+                        disabled={syncingOdds}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                        {syncingOdds ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        {syncingOdds ? 'Syncing...' : 'Sync Odds API'}
+                    </button>
+                    <button
+                        onClick={handleSyncLive}
+                        disabled={syncingLive}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                        {syncingLive ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}
+                        {syncingLive ? 'Syncing...' : 'Sync Live'}
+                    </button>
+                </div>
             </div>
+
+            {/* Sync Status */}
+            {syncStatus && (
+                <div className="bg-gradient-to-r from-green-400/10 to-red-500/10 rounded-2xl p-4 border border-green-400/20">
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-4">
+                            <span className="text-green-600 font-medium">📊 Odds API: {syncStatus.oddsMatches} matches</span>
+                            <span className="text-red-600 font-medium">⚽ Live: {syncStatus.liveMatches} matches</span>
+                        </div>
+                        <span className="text-zinc-500">Last sync: {syncStatus.lastOddsSync ? new Date(syncStatus.lastOddsSync).toLocaleString() : 'Never'}</span>
+                    </div>
+                </div>
+            )}
 
             {/* Filter Bar */}
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -252,6 +370,28 @@ const handleOpenModal = (match: MatchData) => {
                 </div>
             </div>
 
+            <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-sm font-medium text-zinc-500">Source:</span>
+                <div className="flex gap-2">
+                    {(['All', 'odds-api', 'goaloo-live'] as const).map((source) => (
+                        <button
+                            key={source}
+                            onClick={() => setSourceFilter(source)}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize flex items-center gap-1",
+                                sourceFilter === source
+                                    ? source === 'odds-api' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                            )}
+                        >
+                            {source === 'odds-api' && '📊 Odds API'}
+                            {source === 'goaloo-live' && '⚽ Goaloo Live'}
+                            {source === 'All' && 'All Sources'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-4">
                     <Loader2 className="animate-spin text-blue-600" size={40} />
@@ -264,14 +404,14 @@ const handleOpenModal = (match: MatchData) => {
                     </div>
                     <div className="text-center space-y-1">
                         <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No matches found</p>
-                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Run the scraper to analyze live odds and get professional AI betting predictions.</p>
+                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Click sync to fetch latest odds from The Odds API.</p>
                     </div>
                     <button
-                        onClick={handleScrape}
+                        onClick={handleSyncOdds}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
                     >
                         <Zap size={18} />
-                        Trigger Live Scrape
+                        Sync Odds
                     </button>
                 </div>
             ) : filteredMatches.length === 0 ? (

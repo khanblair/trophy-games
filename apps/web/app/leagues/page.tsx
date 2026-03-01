@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Trophy, Search, ChevronRight, Globe, Filter, Loader2, Zap, Star, TrendingUp } from 'lucide-react';
+import { Trophy, Search, ChevronRight, Globe, Filter, Loader2, Star, TrendingUp, Zap, Radio } from 'lucide-react';
 import { LeagueInfo, MatchData } from '@/lib/scraper/parsers';
 import { LeagueDetailModal } from '@/components/LeagueDetailModal';
 import { cn } from '@/lib/utils';
@@ -10,15 +10,15 @@ export default function LeaguesPage() {
     const [leagues, setLeagues] = useState<LeagueInfo[]>([]);
     const [matches, setMatches] = useState<MatchData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [scraping, setScraping] = useState(false);
-    const [scrapeStatus, setScrapeStatus] = useState<any>(null);
+    const [syncingOdds, setSyncingOdds] = useState(false);
+    const [syncingLive, setSyncingLive] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<{oddsMatches: number; liveMatches: number; lastSync: string} | null>(null);
 
     // Filter State
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<'All' | 'league' | 'cup'>('All');
     const [countryFilter, setCountryFilter] = useState('All');
     const [sortBy, setSortBy] = useState<'name' | 'matchCount'>('name');
-    const [trendingLeagues, setTrendingLeagues] = useState<{url: string; name: string; country: string}[]>([]);
 
     // Selection state
     const [selectedLeague, setSelectedLeague] = useState<LeagueInfo | null>(null);
@@ -27,20 +27,23 @@ export default function LeaguesPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [leaguesRes, matchesRes, scrapeRes] = await Promise.all([
+                const [leaguesRes, matchesRes, syncRes] = await Promise.all([
                     fetch('/api/leagues'),
                     fetch('/api/matches'),
-                    fetch('/api/scrape')
+                    fetch('/api/sync')
                 ]);
 
                 const leaguesData = await leaguesRes.json();
                 const matchesData = await matchesRes.json();
-                const scrapeData = await scrapeRes.json();
+                const syncData = await syncRes.json();
 
                 if (Array.isArray(leaguesData)) setLeagues(leaguesData);
                 if (Array.isArray(matchesData)) setMatches(matchesData);
-                setScrapeStatus(scrapeData);
-                setTrendingLeagues(scrapeData.trendingLeagues || []);
+                setSyncStatus({
+                    oddsMatches: syncData.oddsMatchesCount || 0,
+                    liveMatches: syncData.liveMatchesCount || 0,
+                    lastSync: syncData.lastOddsSync || 'Never'
+                });
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             } finally {
@@ -48,45 +51,75 @@ export default function LeaguesPage() {
             }
         };
         fetchData();
-
-        // Poll scrape status
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch('/api/scrape');
-                const data = await res.json();
-                setScrapeStatus(data);
-                if (data.status === 'completed' || data.status === 'failed') {
-                    setScraping(false);
-                    // Refresh data
-                    const [leaguesRes, matchesRes] = await Promise.all([
-                        fetch('/api/leagues'),
-                        fetch('/api/matches')
-                    ]);
-                    setLeagues(await leaguesRes.json());
-                    setMatches(await matchesRes.json());
-                }
-            } catch (e) {}
-        }, 2000);
-
-        return () => clearInterval(interval);
     }, []);
 
-    const handleLiveScrape = async () => {
-        setScraping(true);
-        await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'live_scrape' })
-        });
+    const handleSyncOdds = async () => {
+        setSyncingOdds(true);
+        console.log('[Leagues] Starting Odds API sync...');
+        try {
+            const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sync_odds' })
+            });
+            const data = await res.json();
+            console.log('[Leagues] Odds sync response:', data);
+            
+            setTimeout(async () => {
+                const [leaguesRes, matchesRes, syncRes] = await Promise.all([
+                    fetch('/api/leagues'),
+                    fetch('/api/matches'),
+                    fetch('/api/sync')
+                ]);
+                setLeagues(await leaguesRes.json());
+                setMatches(await matchesRes.json());
+                const syncData = await syncRes.json();
+                setSyncStatus({
+                    oddsMatches: syncData.oddsMatchesCount || 0,
+                    liveMatches: syncData.liveMatchesCount || 0,
+                    lastSync: syncData.lastOddsSync || 'Never'
+                });
+                setSyncingOdds(false);
+                console.log('[Leagues] Odds sync completed!');
+            }, 3000);
+        } catch (e) {
+            console.error('[Leagues] Odds sync failed:', e);
+            setSyncingOdds(false);
+        }
     };
 
-    const handleTrendingScrape = async () => {
-        setScraping(true);
-        await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'scrape_trending' })
-        });
+    const handleSyncLive = async () => {
+        setSyncingLive(true);
+        console.log('[Leagues] Starting Live sync...');
+        try {
+            const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sync_live' })
+            });
+            const data = await res.json();
+            console.log('[Leagues] Live sync response:', data);
+            
+            setTimeout(async () => {
+                const [, matchesRes, syncRes] = await Promise.all([
+                    fetch('/api/leagues'),
+                    fetch('/api/matches'),
+                    fetch('/api/sync')
+                ]);
+                setMatches(await matchesRes.json());
+                const syncData = await syncRes.json();
+                setSyncStatus({
+                    oddsMatches: syncData.oddsMatchesCount || 0,
+                    liveMatches: syncData.liveMatchesCount || 0,
+                    lastSync: syncData.lastOddsSync || 'Never'
+                });
+                setSyncingLive(false);
+                console.log('[Leagues] Live sync completed!');
+            }, 3000);
+        } catch (e) {
+            console.error('[Leagues] Live sync failed:', e);
+            setSyncingLive(false);
+        }
     };
 
     const handleOpenModal = (league: LeagueInfo) => {
@@ -122,53 +155,43 @@ export default function LeaguesPage() {
     return (
         <div className="p-8 space-y-8">
             {/* Header */}
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Leagues</h1>
-                <p className="text-zinc-500 dark:text-zinc-400">Manage and explore all scraped competitions from the Goaloo database.</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Leagues</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400">Manage and explore tracked competitions from The Odds API and Goaloo.</p>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSyncOdds}
+                        disabled={syncingOdds}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                        {syncingOdds ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        {syncingOdds ? 'Syncing Odds...' : 'Sync Odds API'}
+                    </button>
+                    <button
+                        onClick={handleSyncLive}
+                        disabled={syncingLive}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                        {syncingLive ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />}
+                        {syncingLive ? 'Syncing Live...' : 'Sync Live'}
+                    </button>
+                </div>
             </div>
 
-            {/* Trending Leagues Section */}
-            <div className="bg-gradient-to-r from-yellow-400/10 to-orange-500/10 rounded-3xl p-6 border border-yellow-400/20">
-                {scrapeStatus?.isProduction ? (
-                    <div className="text-center py-4">
-                        <p className="text-orange-600 dark:text-orange-400 font-medium mb-2">
-                            ⚠️ Scraping is disabled in production
-                        </p>
-                        <p className="text-sm text-zinc-500">
-                            Run <code className="bg-zinc-200 dark:bg-zinc-700 px-2 py-1 rounded">bun run dev</code> locally to scrape data, then deploy. The data will be stored in Convex and available in production.
-                        </p>
+            {/* Sync Status */}
+            {syncStatus && (
+                <div className="bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-2xl p-4 border border-green-400/20">
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-4">
+                            <span className="text-green-600 font-medium">Odds API: {syncStatus.oddsMatches} matches</span>
+                            <span className="text-red-600 font-medium">Live: {syncStatus.liveMatches} matches</span>
+                        </div>
+                        <span className="text-zinc-500">Last sync: {syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleString() : 'Never'}</span>
                     </div>
-                ) : (
-                    <>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-yellow-400 rounded-xl">
-                                    <TrendingUp size={20} className="text-black" />
-                                </div>
-                                <div>
-                                    <h2 className="font-bold text-zinc-900 dark:text-zinc-50">Trending Leagues</h2>
-                                    <p className="text-xs text-zinc-500">Top leagues being tracked</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleTrendingScrape}
-                                disabled={scraping}
-                                className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-bold rounded-xl transition-colors disabled:opacity-50"
-                            >
-                                {scraping ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                                {scraping ? 'Scraping...' : 'Scrape Trending'}
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                            {trendingLeagues.map((league, i) => (
-                                <div key={i} className="text-center p-2 bg-white/50 dark:bg-zinc-800/50 rounded-lg">
-                                    <p className="text-xs font-bold truncate">{league.name}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">

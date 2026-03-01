@@ -8,7 +8,8 @@ import {
     Trophy,
     Swords,
     Database,
-    BrainCircuit
+    BrainCircuit,
+    Radio
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,6 +21,7 @@ function cn(...inputs: ClassValue[]) {
 const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Leagues', href: '/leagues', icon: Trophy },
+    { name: 'Live', href: '/live', icon: Radio },
     { name: 'Matches', href: '/matches', icon: Swords },
     { name: 'Analytics', href: '/analytics', icon: BrainCircuit },
     { name: 'History', href: '/history', icon: Database },

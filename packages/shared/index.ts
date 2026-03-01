@@ -69,6 +69,7 @@ export interface MatchData {
             odds: { home: string; draw: string; away: string; };
         }[];
     };
+    source?: 'odds-api' | 'goaloo-live';
 }
 
 export interface LeagueInfo {

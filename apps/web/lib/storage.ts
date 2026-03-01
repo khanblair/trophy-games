@@ -11,6 +11,34 @@ export interface ScrapedData {
     lastUpdated: string;
 }
 
+export async function saveOddsData(matches: MatchData[], leagues: LeagueInfo[]) {
+    if (!convex || !matches.length) return;
+
+    console.log(`[Storage] Saving ${matches.length} odds-api matches to Convex...`);
+    try {
+        await convex.mutation(api.matches.saveAll, {
+            matches: matches,
+            leagues: leagues,
+        });
+    } catch (error) {
+        console.error('[Storage] Save odds data failed:', error);
+    }
+}
+
+export async function saveLiveData(matches: MatchData[]) {
+    if (!convex || !matches.length) return;
+
+    console.log(`[Storage] Saving ${matches.length} goaloo-live matches to Convex...`);
+    try {
+        await convex.mutation(api.matches.saveAll, {
+            matches: matches,
+            leagues: [],
+        });
+    } catch (error) {
+        console.error('[Storage] Save live data failed:', error);
+    }
+}
+
 export async function saveData(data: Partial<ScrapedData>) {
     if (!convex || !data.matches || !data.leagues) return;
 
@@ -37,15 +65,10 @@ export async function loadData(): Promise<ScrapedData> {
             convex.query(api.matches.getAllLeagues)
         ]);
 
-        const matches = (rawMatches as MatchData[] || []).filter(m =>
-            m.leagueId && TRENDING_LEAGUE_IDS.has(m.leagueId)
-        );
+        const matches = (rawMatches as MatchData[] || []);
+        const leagues = (rawLeagues as LeagueInfo[] || []);
 
-        const leagues = (rawLeagues as LeagueInfo[] || []).filter(l =>
-            TRENDING_LEAGUE_IDS.has(l.id)
-        );
-
-        console.log(`[Storage] Loaded ${matches.length} trending matches and ${leagues.length} trending leagues.`);
+        console.log(`[Storage] Loaded ${matches.length} matches and ${leagues.length} leagues.`);
 
         return {
             leagues: leagues,
@@ -55,5 +78,29 @@ export async function loadData(): Promise<ScrapedData> {
     } catch (error) {
         console.error('[Storage] Load from Convex failed:', error);
         return { leagues: [], matches: [], lastUpdated: '' };
+    }
+}
+
+export async function getSyncStatus(): Promise<{ oddsMatches: number; liveMatches: number; lastOddsSync: string | null; lastLiveSync: string | null }> {
+    if (!convex) {
+        return { oddsMatches: 0, liveMatches: 0, lastOddsSync: null, lastLiveSync: null };
+    }
+
+    try {
+        const allMatches = await convex.query(api.matches.getAll, { limit: 1000 });
+        const matches = allMatches as MatchData[] || [];
+        
+        const oddsMatches = matches.filter(m => m.source === 'odds-api').length;
+        const liveMatches = matches.filter(m => m.source === 'goaloo-live').length;
+
+        return {
+            oddsMatches,
+            liveMatches,
+            lastOddsSync: null,
+            lastLiveSync: null,
+        };
+    } catch (error) {
+        console.error('[Storage] Get sync status failed:', error);
+        return { oddsMatches: 0, liveMatches: 0, lastOddsSync: null, lastLiveSync: null };
     }
 }

@@ -138,8 +138,6 @@ export const saveAll = mutation({
         leagues: v.array(v.any()),
     },
     handler: async (ctx, args) => {
-        // Basic implementation: clear and replace 
-        // In production we'd do UPSERT logic
         for (const match of args.matches) {
             const existing = await ctx.db
                 .query("matches")
@@ -147,7 +145,8 @@ export const saveAll = mutation({
                 .unique();
 
             if (existing) {
-                await ctx.db.patch(existing._id, match);
+                const updated = { ...existing, ...match };
+                await ctx.db.patch(existing._id, updated);
             } else {
                 await ctx.db.insert("matches", match);
             }
@@ -165,5 +164,18 @@ export const saveAll = mutation({
                 await ctx.db.insert("leagues", league);
             }
         }
+    },
+});
+
+export const getBySource = query({
+    args: {
+        source: v.union(v.literal('odds-api'), v.literal('goaloo-live')),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("matches")
+            .withIndex("by_source", (q) => q.eq("source", args.source))
+            .order("desc")
+            .take(100);
     },
 });

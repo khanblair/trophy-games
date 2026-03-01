@@ -1,37 +1,42 @@
-name: Scrape Football Matches
+name: Sync Football Data
 
 on:
   schedule:
-    # Run every hour - adjust as needed
-    - cron: '0 * * * *'
+    # Live matches: every 5 minutes
+    # Odds API: every 12 hours
+    - cron: '*/5 * * * *'
   workflow_dispatch:
-    # Allow manual trigger
+    inputs:
+      action:
+        description: 'Sync action'
+        required: true
+        default: 'sync_all'
+        type: choice
+        options:
+          - sync_all
+          - sync_odds
+          - sync_live
 
 jobs:
-  scrape:
+  sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
+      - name: Sync Football Data
         run: |
-          bun install --frozen-lockfile
-      
-      - name: Run Scraper
-        run: |
-          bun run scrape
+          curl -X POST "${{ secrets.VERCEL_URL }}/api/sync" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"action": "${{ github.event.inputs.action || 'sync_all' }}"'
         env:
-          CONVEX_DEPLOY_URL: ${{ secrets.CONVEX_DEPLOY_URL }}
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
       - name: Report Status
         if: always()
         run: |
-          echo "Scraping completed at $(date)"
+          echo "Sync completed at $(date)"
