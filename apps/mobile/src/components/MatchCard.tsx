@@ -157,7 +157,7 @@ export const MatchCard = ({
                         <View style={styles.predictionSection}>
                             <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>PREDICTION</Text>
                             <View style={[styles.predictionChip, { backgroundColor: themeColors.primary }]}>
-                                <Text style={styles.predictionValue}>{prediction || 'TIPS'}</Text>
+                                <Text style={styles.predictionValue}>{prediction || 'ANALYZING'}</Text>
                             </View>
                         </View>
 

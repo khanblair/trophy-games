@@ -126,7 +126,7 @@ export default function WinsScreen() {
                                 homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
                                 awayTeamLogo={match.awayTeamLogo}
-                                prediction="WIN"
+                                prediction={match.prediction || 'WIN'}
                                 odds="2.10"
                                 homeScore={match.homeScore}
                                 awayScore={match.awayScore}

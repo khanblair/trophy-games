@@ -26,10 +26,19 @@ export async function analyzeMatch(matchData: unknown): Promise<AIAnalysis> {
         const client = getGroqClient();
         const prompt = `
       Analyze the following sports match data and provide a professional betting prediction.
-      Include confidence level (0-100), reasoning, and a suggested bet if applicable.
+      DO NOT only provide "Home Win" or "Away Win" predictions. 
+      Consider all primary markets including:
+      - Full Time Result (1X2): Home, Away, or DRAW
+      - Over/Under Goals (e.g., Over 2.5, Under 1.5)
+      - Both Teams to Score (BTTS)
+      - Double Chance (e.g., 1X, X2)
+
+      Choose the prediction with the highest statistical probability based on the provided match data, including any available historical stats, odds, and team info.
+
+      Include confidence level (0-100), detailed reasoning, and a suggested bet if applicable.
       Return the result ONLY as a JSON object with this structure:
       {
-        "prediction": "string",
+        "prediction": "string (e.g., 'Over 2.5 Goals', 'Home Win', 'Draw', 'BTTS - Yes')",
         "confidence": number,
         "reasoning": ["string"],
         "suggestedBet": "string"

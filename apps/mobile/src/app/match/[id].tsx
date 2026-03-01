@@ -16,7 +16,6 @@ export default function MatchDetailScreen() {
 
     const [match, setMatch] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [analyzing, setAnalyzing] = useState(false);
     const [aiInsight, setAiInsight] = useState<string | null>(null);
 
     useEffect(() => {
@@ -38,9 +37,6 @@ export default function MatchDetailScreen() {
         loadMatch();
     }, [id, matchData]);
 
-    const handleAnalyze = () => {
-        // AI Insights are now pre-fetched or provided via props
-    };
 
     if (loading) {
         return (
@@ -171,17 +167,12 @@ export default function MatchDetailScreen() {
                             )}
                         </View>
                     ) : (
-                        <TouchableOpacity
-                            style={[styles.generateButton, { backgroundColor: themeColors.primary }]}
-                            onPress={handleAnalyze}
-                            disabled={analyzing}
-                        >
-                            {analyzing ? (
-                                <ActivityIndicator size="small" color="black" />
-                            ) : (
-                                <Text style={styles.generateButtonText}>GENERATE EXCLUSIVE INSIGHTS</Text>
-                            )}
-                        </TouchableOpacity>
+                        <View style={[styles.emptyAiContainer, { backgroundColor: themeColors.cardBgSecondary }]}>
+                            <BrainCircuit size={24} color={themeColors.textMuted} />
+                            <Text style={[styles.emptyAiText, { color: themeColors.textMuted }]}>
+                                No AI insights available yet for this match.
+                            </Text>
+                        </View>
                     )}
                 </View>
 
@@ -397,17 +388,20 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         lineHeight: 18,
     },
-    generateButton: {
-        height: 54,
+    emptyAiContainer: {
+        padding: 30,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: 'rgba(255,255,255,0.1)',
     },
-    generateButtonText: {
-        fontSize: 13,
-        fontWeight: '900',
-        color: 'black',
-        letterSpacing: 0.5,
+    emptyAiText: {
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
     },
     oddsSection: {
         padding: 16,

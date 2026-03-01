@@ -159,7 +159,7 @@ export default function FreeTipsScreen() {
                                 homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
                                 awayTeamLogo={match.awayTeamLogo}
-                                prediction={match.aiPrediction?.prediction || "H / A"}
+                                prediction={match.aiPrediction?.prediction || "TIPS"}
                                 odds={match.odds?.home || "1.85"}
                                 homeScore={match.homeScore}
                                 awayScore={match.awayScore}
