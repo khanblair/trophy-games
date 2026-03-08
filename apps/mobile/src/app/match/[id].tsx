@@ -2,8 +2,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIn
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Timer, Trophy, TrendingUp, ChevronLeft, BrainCircuit, CheckCircle2, Zap, ShieldCheck, Target, BarChart2 } from 'lucide-react-native';
+import { ConvexReactClient } from "convex/react";
+import { api } from '@trophy-games/backend';
 import { useTheme } from '../../context/ThemeContext';
-import { webApi } from '../../api/web';
+
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 const { width } = Dimensions.get('window');
 
@@ -21,10 +25,12 @@ export default function MatchDetailScreen() {
             try {
                 if (matchData) {
                     setMatch(JSON.parse(decodeURIComponent(matchData as string)));
-                } else {
-                    const matches = await webApi.getMatches();
+                } else if (convex) {
+                    // Fetch all matches and find the specific one by ID
+                    const matches = await convex.query(api.matches.getAll, { limit: 500 });
                     const found = matches.find((m: any) => m.id === id);
                     setMatch(found);
+                    console.log(`[Match Detail] Found match ${id} from Convex`);
                 }
             } catch (e) {
                 console.error('Failed to load match:', e);

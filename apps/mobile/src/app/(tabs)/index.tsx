@@ -35,23 +35,14 @@ export default function FreeTipsScreen() {
         }
 
         try {
-            // Fetch free matches directly from Convex
+            // Fetch ONLY free matches directly from Convex (not unassigned)
             const freeMatches = await convex.query(api.matches.get, {
                 matchType: 'free',
                 limit: 100
             });
             
-            // Also fetch unassigned matches (treated as free)
-            const unassignedMatches = await convex.query(api.matches.get, {
-                matchType: 'unassigned',
-                limit: 100
-            });
-            
-            // Combine free and unassigned matches
-            const allMatches = [...(freeMatches || []), ...(unassignedMatches || [])];
-            
-            setMatches(allMatches);
-            console.log(`[Home Screen] Loaded ${allMatches.length} free matches from Convex`);
+            setMatches(freeMatches || []);
+            console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex`);
         } catch (error) {
             console.error('[Home Screen] Failed to fetch free matches from Convex:', error);
             setMatches([]);

@@ -1,10 +1,15 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
 import { DollarSign, Zap, CheckCircle2, Clock, Send, Key } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ConvexReactClient } from "convex/react";
+import { api } from '@trophy-games/backend';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import * as Application from 'expo-application';
+
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
 
@@ -64,8 +69,28 @@ export default function PaidTipsScreen() {
         if (memberStatus !== 'active') return;
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
-        const data = await webApi.getMatches('paid');
-        setMatches(data || []);
+        
+        if (!convex) {
+            console.error('[Convex] Convex client not initialized');
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
+        try {
+            // Fetch ONLY paid matches directly from Convex
+            const paidMatches = await convex.query(api.matches.get, {
+                matchType: 'paid',
+                limit: 100
+            });
+            
+            setMatches(paidMatches || []);
+            console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex`);
+        } catch (error) {
+            console.error('[Paid Screen] Failed to fetch paid matches from Convex:', error);
+            setMatches([]);
+        }
+        
         setLoading(false);
         setRefreshing(false);
     }, [memberStatus]);
