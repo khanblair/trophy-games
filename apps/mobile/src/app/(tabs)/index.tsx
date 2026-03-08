@@ -2,7 +2,7 @@ import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet
 import { Zap } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
-import { ConvexReactClient, useConvexQuery } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,7 +26,7 @@ export default function FreeTipsScreen() {
         } else {
             setLoading(true);
         }
-        
+
         if (!convex) {
             console.error('[Convex] Convex client not initialized');
             setLoading(false);
@@ -40,14 +40,14 @@ export default function FreeTipsScreen() {
                 matchType: 'free',
                 limit: 100
             });
-            
+
             setMatches(freeMatches || []);
             console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex`);
         } catch (error) {
             console.error('[Home Screen] Failed to fetch free matches from Convex:', error);
             setMatches([]);
         }
-        
+
         setLoading(false);
         setRefreshing(false);
     }, []);

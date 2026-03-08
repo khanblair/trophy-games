@@ -91,4 +91,21 @@ export default defineSchema({
     })
         .index("by_device_id", ["deviceId"])
         .index("by_status", ["status"]),
+
+    // Devices for push notifications
+    devices: defineTable({
+        deviceId: v.string(),
+        pushToken: v.optional(v.string()),
+        lastActiveAt: v.string(),
+    }).index("by_device_id", ["deviceId"]),
+
+    // Alerts (In-app notifications)
+    alerts: defineTable({
+        deviceId: v.optional(v.string()), // target specific device, or global if undefined
+        title: v.string(),
+        body: v.string(),
+        data: v.optional(v.any()), // extra context
+        createdAt: v.string(),
+        readBy: v.optional(v.array(v.string())), // array of deviceIds that have read it (if global) or boolean if targeted
+    }).index("by_device_id", ["deviceId"]),
 });

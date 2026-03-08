@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Key, Plus, Trash2, RotateCcw, RefreshCw, Clock, CheckCircle2, XCircle, Crown, DollarSign } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Token {
     _id: string;
@@ -50,12 +51,18 @@ export default function AdminTokensPage() {
             });
             const data = await res.json();
             if (data.token) {
+                toast.success('Token generated successfully!');
                 copyToClipboard(data.token);
                 await loadTokens();
                 setShowForm(false);
                 setForm({ deviceId: '', type: 'vip', matchId: '', expiresAt: '' });
+            } else {
+                toast.error(data.error || 'Failed to generate token');
             }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            toast.error('Failed to generate token');
+        }
         setCreating(false);
     };
 
@@ -67,7 +74,11 @@ export default function AdminTokensPage() {
                 body: JSON.stringify({ token }),
             });
             setTokens(prev => prev.map(t => t.token === token ? { ...t, isActive: false } : t));
-        } catch (e) { console.error(e); }
+            toast.success('Token revoked successfully');
+        } catch (e) {
+            console.error(e);
+            toast.error('Failed to revoke token');
+        }
     };
 
     const reactivateToken = async (token: string) => {
@@ -78,12 +89,17 @@ export default function AdminTokensPage() {
                 body: JSON.stringify({ token }),
             });
             setTokens(prev => prev.map(t => t.token === token ? { ...t, isActive: true } : t));
-        } catch (e) { console.error(e); }
+            toast.success('Token reactivated successfully');
+        } catch (e) {
+            console.error(e);
+            toast.error('Failed to reactivate token');
+        }
     };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text).catch(() => { });
         setCopiedToken(text);
+        toast.info('Token copied to clipboard');
         setTimeout(() => setCopiedToken(null), 2000);
     };
 

@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 export const getAll = query({
     args: {
@@ -114,6 +115,25 @@ export const updateMatchType = mutation({
 
         if (existing) {
             await ctx.db.patch(existing._id, { matchType: args.matchType });
+
+            if (args.matchType !== existing.matchType) {
+                if (args.matchType === 'free') {
+                    await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                        title: "Free Tip Added!",
+                        body: `A new high-confidence free tip has been added: ${existing.homeTeam} vs ${existing.awayTeam}. Check it out now!`,
+                    });
+                } else if (args.matchType === 'vip') {
+                    await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                        title: "New VIP Prediction",
+                        body: `Premium VIP tip available: ${existing.homeTeam} vs ${existing.awayTeam}. Unlock with your token!`,
+                    });
+                } else if (args.matchType === 'paid') {
+                    await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                        title: "New Paid Prediction",
+                        body: `A new Paid tip is now available: ${existing.homeTeam} vs ${existing.awayTeam}.`,
+                    });
+                }
+            }
         }
     },
 });

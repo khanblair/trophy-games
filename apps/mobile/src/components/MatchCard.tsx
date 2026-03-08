@@ -176,7 +176,9 @@ export const MatchCard = ({
                             disabled={!aiInsight}
                         >
                             <Sparkles size={14} color={themeColors.primary} />
-                            <Text style={[styles.aiChipText, { color: themeColors.primary }]}>AI</Text>
+                            <Text style={[styles.aiChipText, { color: themeColors.primary }]}>
+                                {aiInsight ? `${aiInsight.confidence}%` : 'AI'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 )}

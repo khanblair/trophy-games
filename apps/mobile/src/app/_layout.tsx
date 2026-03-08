@@ -6,10 +6,12 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { Sun, Moon, Menu, Home, DollarSign, Crown, CheckCircle, ShoppingCart, Zap, TrendingUp } from 'lucide-react-native';
+import { ConvexProvider, ConvexReactClient, useMutation, useQuery } from "convex/react";
+import { Sun, Moon, Menu, Home, DollarSign, Crown, CheckCircle, ShoppingCart, Zap, TrendingUp, Bell } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { api } from '@trophy-games/backend';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -22,6 +24,7 @@ const menuItems = [
     { name: 'VIP Tips', href: '/(tabs)/vip', icon: Crown, type: 'vip' },
     { name: 'Wins', href: '/(tabs)/wins', icon: CheckCircle },
     { name: 'Market', href: '/(tabs)/market', icon: ShoppingCart },
+    { name: 'Alerts', href: '/alerts', icon: Bell },
 ];
 
 export default function RootLayout() {
@@ -58,10 +61,48 @@ function RootLayoutContent() {
     const router = useRouter();
     const { theme, isDark, themeColors, toggleTheme } = useTheme();
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const { expoPushToken, notification } = usePushNotifications();
+
+    const [deviceId, setDeviceId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const getDeviceId = async () => {
+            try {
+                const Application = await import('expo-application');
+                const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
+                setDeviceId(id);
+            } catch (e) {
+                console.error('Failed to get deviceId:', e);
+            }
+        };
+        getDeviceId();
+    }, []);
+
+    const alerts = useQuery(api.alerts.getAlerts, { deviceId: deviceId || "unknown" });
+    const unreadCount = alerts?.filter((a: any) => !(a.readBy ?? []).includes(deviceId || "unknown")).length || 0;
+
+    const registerDevice = useMutation(api.devices.registerPushToken || ({} as any));
 
     const toggleDrawer = () => {
         setDrawerOpen(!drawerOpen);
     };
+
+    useEffect(() => {
+        const registerToken = async () => {
+            if (expoPushToken && convex && deviceId) {
+                try {
+                    await convex.mutation(api.devices.registerPushToken, {
+                        deviceId: deviceId,
+                        pushToken: expoPushToken.data,
+                    });
+                    console.log('Push token registered');
+                } catch (e) {
+                    console.error('Failed to register push token:', e);
+                }
+            }
+        };
+        registerToken();
+    }, [expoPushToken, deviceId]);
 
     return (
         <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
@@ -80,7 +121,20 @@ function RootLayoutContent() {
                         </TouchableOpacity>
                     ),
                     headerRight: () => (
-                        <ThemeToggle onToggle={toggleTheme} currentTheme={theme} themeColors={themeColors} />
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity
+                                onPress={() => router.push('/alerts')}
+                                style={styles.bellButton}
+                            >
+                                <Bell size={22} color={themeColors.text} strokeWidth={2.5} />
+                                {unreadCount > 0 && (
+                                    <View style={[styles.badge, { backgroundColor: themeColors.primary }]}>
+                                        <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                            <ThemeToggle onToggle={toggleTheme} currentTheme={theme} themeColors={themeColors} />
+                        </View>
                     )
                 }}>
                     <Stack.Screen name="(tabs)" options={{
@@ -175,7 +229,34 @@ const styles = StyleSheet.create({
     },
     themeToggle: {
         padding: 12,
-        marginRight: 4,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    bellButton: {
+        padding: 12,
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: '#D9FF00',
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 2,
+        borderWidth: 1.5,
+        borderColor: 'white', // Will be dynamic below
+    },
+    badgeText: {
+        color: 'black',
+        fontSize: 8,
+        fontWeight: '900',
     },
     drawerOverlay: {
         position: 'absolute',

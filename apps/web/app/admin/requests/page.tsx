@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, Crown, DollarSign, Clock, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface MembershipRequest {
     _id: string;
@@ -44,13 +45,19 @@ export default function AdminRequestsPage() {
             const data = await res.json();
 
             if (action === 'approve' && data.token) {
-                navigator.clipboard.writeText(data.token).catch(() => {});
+                toast.success('Request approved and token generated!');
+                navigator.clipboard.writeText(data.token).catch(() => { });
                 setCopiedToken(data.token);
                 setTimeout(() => setCopiedToken(null), 4000);
+            } else if (action === 'reject') {
+                toast.success('Request rejected successfully.');
             }
 
             await loadRequests();
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            toast.error(`Failed to ${action} request`);
+        }
         setProcessingId(null);
     };
 
@@ -134,7 +141,7 @@ export default function AdminRequestsPage() {
                                         <td className="px-4 py-3">
                                             {req.token ? (
                                                 <button
-                                                    onClick={() => { navigator.clipboard.writeText(req.token!).catch(() => {}); }}
+                                                    onClick={() => { navigator.clipboard.writeText(req.token!).catch(() => { }); }}
                                                     className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-1"
                                                     title="Copy token"
                                                 >

@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 // --- Access Tokens ---
 
@@ -78,6 +79,11 @@ export const revokeToken = mutation({
 
         if (tokenDoc) {
             await ctx.db.patch(tokenDoc._id, { isActive: false });
+            await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "Token Deactivated",
+                body: "Your access token has been deactivated by an admin.",
+                deviceId: tokenDoc.deviceId,
+            });
         }
     },
 });
@@ -211,6 +217,12 @@ export const approveMembershipRequest = mutation({
             isClaimed: false,
         });
 
+        await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+            title: "Request Approved",
+            body: `Your ${request.type === 'vip' ? 'VIP' : 'Paid'} access request has been approved! Open the app to enter your token.`,
+            deviceId: request.deviceId,
+        });
+
         return { success: true };
     },
 });
@@ -221,10 +233,20 @@ export const rejectMembershipRequest = mutation({
         notes: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const request = await ctx.db.get(args.requestId);
         await ctx.db.patch(args.requestId, {
             status: "rejected",
             notes: args.notes,
         });
+
+        if (request) {
+            await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "Request Rejected",
+                body: "Your membership access request was not approved.",
+                deviceId: request.deviceId,
+            });
+        }
+
         return { success: true };
     },
 });

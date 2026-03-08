@@ -56,7 +56,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="market"
                 options={{
-                    title: 'ALERTS',
+                    title: 'MEMBERSHIP',
                     tabBarIcon: ({ color }) => <Bell color={color} size={22} />,
                 }}
             />

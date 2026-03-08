@@ -1,325 +1,360 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
-import { useState, useCallback } from 'react';
-import { Bell, CheckCircle2, Clock, Zap, TrendingUp, Trophy, Info, BellOff } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
+import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { webApi } from '../../api/web';
+import * as Application from 'expo-application';
 
-type NotifType = 'prediction' | 'result' | 'live' | 'system';
+type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
 
-interface Notification {
-    id: string;
-    type: NotifType;
-    title: string;
-    message: string;
-    time: string;
-    read: boolean;
-}
-
-// Static sample notifications — in production these would come from a push/API
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-    {
-        id: '1',
-        type: 'prediction',
-        title: 'New VIP Prediction',
-        message: 'Manchester City vs Arsenal — AI confidence: 87%. Tip: Over 2.5 Goals.',
-        time: '2h ago',
-        read: false,
-    },
-    {
-        id: '2',
-        type: 'result',
-        title: 'Match Result: WIN',
-        message: 'Real Madrid vs Barcelona prediction was correct. Final: 2-1.',
-        time: '5h ago',
-        read: false,
-    },
-    {
-        id: '3',
-        type: 'live',
-        title: 'Match Going Live',
-        message: 'Liverpool vs Chelsea kicks off in 15 minutes. Check live predictions.',
-        time: '6h ago',
-        read: true,
-    },
-    {
-        id: '4',
-        type: 'prediction',
-        title: 'New Paid Prediction',
-        message: 'PSG vs Bayern Munich — AI confidence: 79%. Tip: Both Teams to Score.',
-        time: '1d ago',
-        read: true,
-    },
-    {
-        id: '5',
-        type: 'result',
-        title: 'Match Result: WIN',
-        message: 'Juventus vs Inter Milan prediction was correct. Final: 1-0.',
-        time: '1d ago',
-        read: true,
-    },
-    {
-        id: '6',
-        type: 'system',
-        title: 'Access Token Approved',
-        message: 'Your VIP membership request has been approved. Enter your token in the VIP tab to unlock access.',
-        time: '2d ago',
-        read: true,
-    },
-    {
-        id: '7',
-        type: 'prediction',
-        title: 'High Confidence Alert',
-        message: 'Atletico Madrid vs Sevilla — AI confidence: 91%. Rare high-confidence pick.',
-        time: '2d ago',
-        read: true,
-    },
-    {
-        id: '8',
-        type: 'system',
-        title: 'Daily Sync Complete',
-        message: 'Match predictions have been updated with today\'s fixtures.',
-        time: '3d ago',
-        read: true,
-    },
-];
-
-const TYPE_CONFIG: Record<NotifType, { icon: any; color: string; label: string }> = {
-    prediction: { icon: Zap, color: '#D9FF00', label: 'PREDICTION' },
-    result: { icon: Trophy, color: '#22c55e', label: 'RESULT' },
-    live: { icon: TrendingUp, color: '#ef4444', label: 'LIVE' },
-    system: { icon: Info, color: '#60a5fa', label: 'SYSTEM' },
-};
-
-type FilterTab = 'ALL' | 'UNREAD' | 'PREDICTIONS' | 'RESULTS';
-
-export default function AlertsScreen() {
+export default function MembershipStoreScreen() {
     const { themeColors } = useTheme();
-    const [notifications, setNotifications] = useState<Notification[]>(SAMPLE_NOTIFICATIONS);
-    const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
     const [refreshing, setRefreshing] = useState(false);
+    const [deviceId, setDeviceId] = useState('');
+    const [vipStatus, setVipStatus] = useState<MemberStatus>('loading');
+    const [paidStatus, setPaidStatus] = useState<MemberStatus>('loading');
+    const [requesting, setRequesting] = useState<string | null>(null);
+    const [tokenInput, setTokenInput] = useState('');
+    const [showTokenInput, setShowTokenInput] = useState(false);
+    const [verifyingToken, setVerifyingToken] = useState(false);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const checkStatus = useCallback(async () => {
+        try {
+            const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
+            setDeviceId(id);
 
-    const filtered = notifications.filter(n => {
-        if (activeFilter === 'UNREAD') return !n.read;
-        if (activeFilter === 'PREDICTIONS') return n.type === 'prediction';
-        if (activeFilter === 'RESULTS') return n.type === 'result';
-        return true;
-    });
+            const [vip, paid] = await Promise.all([
+                webApi.getMembershipStatus(id, 'vip'),
+                webApi.getMembershipStatus(id, 'paid')
+            ]);
 
-    const markAllRead = useCallback(() => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setVipStatus(vip.status as MemberStatus);
+            setPaidStatus(paid.status as MemberStatus);
+        } catch (e) {
+            console.error('Failed to check membership status:', e);
+            setVipStatus('none');
+            setPaidStatus('none');
+        }
     }, []);
 
-    const markRead = useCallback((id: string) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    }, []);
+    useEffect(() => {
+        checkStatus().finally(() => setVipStatus(prev => prev === 'loading' ? 'none' : prev));
+    }, [checkStatus]);
 
-    const onRefresh = useCallback(() => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        setTimeout(() => setRefreshing(false), 800);
-    }, []);
+        await checkStatus();
+        setRefreshing(false);
+    }, [checkStatus]);
 
-    const filters: FilterTab[] = ['ALL', 'UNREAD', 'PREDICTIONS', 'RESULTS'];
+    const handleRequest = async (type: 'vip' | 'paid') => {
+        if (!deviceId) return;
+        setRequesting(type);
+        try {
+            const result = await webApi.requestMembership(deviceId, type);
+            if (result.success) {
+                if (type === 'vip') setVipStatus('pending');
+                else setPaidStatus('pending');
+                Alert.alert('Success!', `Your ${type.toUpperCase()} request has been sent to admin.`);
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to send request. Please try again.');
+        }
+        setRequesting(null);
+    };
+
+    const handleVerifyToken = async () => {
+        if (!tokenInput.trim()) return;
+        setVerifyingToken(true);
+        try {
+            const result = await webApi.verifyToken(tokenInput.trim(), deviceId);
+            if (result.valid) {
+                Alert.alert('Success!', 'Your token has been verified. Access granted.');
+                setShowTokenInput(false);
+                setTokenInput('');
+                checkStatus();
+            } else {
+                Alert.alert('Invalid Token', result.reason || 'Token is invalid or already used.');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Verification failed. Try again later.');
+        }
+        setVerifyingToken(false);
+    };
+
+    const StatusBadge = ({ status, type }: { status: MemberStatus, type: string }) => {
+        if (status === 'none' || status === 'loading') return null;
+
+        const config = {
+            pending: { color: '#f59e0b', icon: Clock, label: 'PENDING' },
+            approved: { color: '#10b981', icon: CheckCircle2, label: 'APPROVED' },
+            active: { color: themeColors.primary, icon: Crown, label: 'ACTIVE' }
+        }[status as 'pending' | 'approved' | 'active'];
+
+        if (!config) return null;
+
+        return (
+            <View style={[styles.statusPill, { backgroundColor: config.color + '20', borderColor: config.color + '40' }]}>
+                <config.icon size={10} color={config.color} />
+                <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
+            </View>
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
-                <View style={styles.headerLeft}>
-                    <Bell size={18} color={themeColors.primary} />
-                    <Text style={[styles.headerTitle, { color: themeColors.text }]}>ALERTS</Text>
-                    {unreadCount > 0 && (
-                        <View style={[styles.badge, { backgroundColor: themeColors.primary }]}>
-                            <Text style={styles.badgeText}>{unreadCount}</Text>
-                        </View>
-                    )}
-                </View>
-                {unreadCount > 0 && (
-                    <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
-                        <CheckCircle2 size={14} color={themeColors.textMuted} />
-                        <Text style={[styles.markAllText, { color: themeColors.textMuted }]}>Mark all read</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Filter tabs */}
-            <View style={[styles.filterBar, { borderBottomColor: themeColors.border }]}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                    {filters.map(f => (
-                        <TouchableOpacity
-                            key={f}
-                            onPress={() => setActiveFilter(f)}
-                            style={[
-                                styles.filterChip,
-                                { backgroundColor: activeFilter === f ? themeColors.primary : themeColors.cardBgSecondary }
-                            ]}
-                        >
-                            <Text style={[
-                                styles.filterChipText,
-                                { color: activeFilter === f ? 'black' : themeColors.textMuted }
-                            ]}>
-                                {f}{f === 'UNREAD' && unreadCount > 0 ? ` (${unreadCount})` : ''}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-
             <ScrollView
-                style={styles.list}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={themeColors.primary}
-                        colors={[themeColors.primary]}
-                    />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.primary} />}
             >
-                {filtered.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <View style={[styles.emptyIcon, { backgroundColor: themeColors.cardBgSecondary }]}>
-                            <BellOff size={36} color={themeColors.textMuted} />
+                {/* Hero section */}
+                <View style={[styles.hero, { backgroundColor: themeColors.cardBg }]}>
+                    <View style={styles.heroContent}>
+                        <View style={[styles.heroBadge, { backgroundColor: themeColors.primary + '20' }]}>
+                            <Sparkles size={14} color={themeColors.primary} />
+                            <Text style={[styles.heroBadgeText, { color: themeColors.primary }]}>PREMIUM ACCESS</Text>
                         </View>
-                        <Text style={[styles.emptyText, { color: themeColors.text }]}>No Alerts</Text>
-                        <Text style={[styles.emptySubtext, { color: themeColors.textMuted }]}>
-                            {activeFilter === 'UNREAD' ? 'You\'re all caught up!' : 'No notifications in this category.'}
+                        <Text style={[styles.heroTitle, { color: themeColors.text }]}>UNLEASH THE POWER OF AI</Text>
+                        <Text style={[styles.heroSubtitle, { color: themeColors.textMuted }]}>
+                            Get professional-grade predictions and insights with over 90% verified strike rate.
                         </Text>
                     </View>
-                ) : (
-                    filtered.map(notif => {
-                        const cfg = TYPE_CONFIG[notif.type];
-                        const IconComp = cfg.icon;
-                        return (
+                </View>
+
+                <View style={styles.content}>
+                    {/* Token Input Section (if approved) */}
+                    {(vipStatus === 'approved' || paidStatus === 'approved' || showTokenInput) && (
+                        <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.primary }]}>
+                            <View style={styles.cardHeader}>
+                                <Key size={20} color={themeColors.primary} />
+                                <Text style={[styles.cardTitle, { color: themeColors.text }]}>ENTER ACCESS TOKEN</Text>
+                            </View>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: themeColors.cardBgSecondary, color: themeColors.text, borderColor: themeColors.border }]}
+                                placeholder="APP-XXXX-XXXX"
+                                placeholderTextColor={themeColors.textMuted}
+                                value={tokenInput}
+                                onChangeText={setTokenInput}
+                                autoCapitalize="characters"
+                            />
                             <TouchableOpacity
-                                key={notif.id}
-                                onPress={() => markRead(notif.id)}
-                                activeOpacity={0.7}
-                                style={[
-                                    styles.notifCard,
-                                    {
-                                        backgroundColor: themeColors.cardBg,
-                                        borderColor: !notif.read ? cfg.color + '40' : themeColors.border,
-                                        borderLeftColor: !notif.read ? cfg.color : themeColors.border,
-                                    }
-                                ]}
+                                style={[styles.actionBtn, { backgroundColor: themeColors.primary }]}
+                                onPress={handleVerifyToken}
+                                disabled={verifyingToken || !tokenInput.trim()}
                             >
-                                <View style={[styles.iconWrap, { backgroundColor: cfg.color + '18' }]}>
-                                    <IconComp size={18} color={cfg.color} />
-                                </View>
-                                <View style={styles.notifBody}>
-                                    <View style={styles.notifTopRow}>
-                                        <View style={[styles.typePill, { backgroundColor: cfg.color + '22' }]}>
-                                            <Text style={[styles.typeText, { color: cfg.color }]}>{cfg.label}</Text>
-                                        </View>
-                                        <View style={styles.timeRow}>
-                                            <Clock size={10} color={themeColors.textMuted} />
-                                            <Text style={[styles.timeText, { color: themeColors.textMuted }]}>{notif.time}</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={[styles.notifTitle, { color: themeColors.text }]} numberOfLines={1}>
-                                        {notif.title}
-                                    </Text>
-                                    <Text style={[styles.notifMessage, { color: themeColors.textMuted }]} numberOfLines={2}>
-                                        {notif.message}
-                                    </Text>
-                                </View>
-                                {!notif.read && (
-                                    <View style={[styles.unreadDot, { backgroundColor: cfg.color }]} />
-                                )}
+                                {verifyingToken ? <ActivityIndicator color="black" size="small" /> : <Text style={styles.actionBtnText}>ACTIVATE ACCESS</Text>}
                             </TouchableOpacity>
-                        );
-                    })
-                )}
+                        </View>
+                    )}
+
+                    {/* VIP Membership Plans */}
+                    <Text style={[styles.sectionTitle, { color: themeColors.text }]}>MEMBERSHIP PLANS</Text>
+
+                    {/* VIP WEEKLY */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg }]}>
+                        <View style={styles.cardTop}>
+                            <View style={styles.cardHeader}>
+                                <Crown size={24} color={themeColors.primary} />
+                                <View>
+                                    <Text style={[styles.planTitle, { color: themeColors.text }]}>VIP WEEKLY</Text>
+                                    <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>7 Days Full Access</Text>
+                                </View>
+                            </View>
+                            <StatusBadge status={vipStatus} type="vip" />
+                        </View>
+
+                        <View style={styles.features}>
+                            {[
+                                'Daily Elite AI Predictions',
+                                '90%+ Strike Rate Accuracy',
+                                'Exclusive Match Insights',
+                                'Priority Support'
+                            ].map((f, i) => (
+                                <View key={i} style={styles.featureLine}>
+                                    <ShieldCheck size={14} color={themeColors.primary} />
+                                    <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {vipStatus === 'none' && (
+                            <TouchableOpacity
+                                style={[styles.actionBtn, { backgroundColor: themeColors.primary }]}
+                                onPress={() => handleRequest('vip')}
+                                disabled={requesting === 'vip'}
+                            >
+                                {requesting === 'vip' ? <ActivityIndicator color="black" /> : <Text style={styles.actionBtnText}>REQUEST ACCESS</Text>}
+                            </TouchableOpacity>
+                        )}
+                        {vipStatus === 'pending' && (
+                            <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
+                                <Clock size={16} color={themeColors.textMuted} />
+                                <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
+                            </View>
+                        )}
+                        {vipStatus === 'active' && (
+                            <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
+                                <CheckCircle2 size={16} color={themeColors.primary} />
+                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>Subscription Active</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* PAID TIPS */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg }]}>
+                        <View style={styles.cardTop}>
+                            <View style={styles.cardHeader}>
+                                <Trophy size={24} color="#D9FF00" />
+                                <View>
+                                    <Text style={[styles.planTitle, { color: themeColors.text }]}>PAID TIPS</Text>
+                                    <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>Single Match Unlock</Text>
+                                </View>
+                            </View>
+                            <StatusBadge status={paidStatus} type="paid" />
+                        </View>
+
+                        <Text style={[styles.description, { color: themeColors.textMuted }]}>
+                            Perfect for those who want specific high-confidence match predictions without a subscription.
+                        </Text>
+
+                        {paidStatus === 'none' && (
+                            <TouchableOpacity
+                                style={[styles.outlineBtn, { borderColor: themeColors.primary }]}
+                                onPress={() => handleRequest('paid')}
+                                disabled={requesting === 'paid'}
+                            >
+                                <Text style={[styles.outlineBtnText, { color: themeColors.primary }]}>REQUEST SINGLE UNLOCK</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Support / Info */}
+                    <View style={[styles.footer, { backgroundColor: themeColors.cardBgSecondary }]}>
+                        <InfoSection icon={ShieldCheck} title="Verified Results" desc="All our predictions are verified by independent sources." />
+                        <View style={styles.divider} />
+                        <InfoSection icon={CreditCard} title="Secure Access" desc="Contact support for secure payment options." />
+                    </View>
+                </View>
             </ScrollView>
+        </View>
+    );
+}
+
+function InfoSection({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
+    const { themeColors } = useTheme();
+    return (
+        <View style={styles.infoSection}>
+            <View style={[styles.infoIcon, { backgroundColor: themeColors.background }]}>
+                <Icon size={16} color={themeColors.primary} />
+            </View>
+            <View style={styles.infoContent}>
+                <Text style={[styles.infoTitle, { color: themeColors.text }]}>{title}</Text>
+                <Text style={[styles.infoDesc, { color: themeColors.textMuted }]}>{desc}</Text>
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: {
+    hero: {
+        padding: 30,
+        paddingTop: 40,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        marginBottom: 20,
+    },
+    heroContent: { alignItems: 'flex-start' },
+    heroBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-    },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    headerTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1 },
-    badge: {
-        minWidth: 20,
-        height: 20,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 5,
-    },
-    badgeText: { fontSize: 10, fontWeight: '900', color: 'black' },
-    markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    markAllText: { fontSize: 11, fontWeight: '700' },
-    filterBar: { paddingVertical: 10, borderBottomWidth: 1 },
-    filterScroll: { paddingHorizontal: 14, gap: 8 },
-    filterChip: {
-        paddingHorizontal: 14,
-        paddingVertical: 7,
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
         borderRadius: 20,
+        marginBottom: 12,
     },
-    filterChipText: { fontSize: 10, fontWeight: '900' },
-    list: { flex: 1 },
-    listContent: { padding: 14, gap: 10, paddingBottom: 40 },
-    emptyContainer: { paddingVertical: 70, alignItems: 'center', gap: 14 },
-    emptyIcon: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emptyText: { fontSize: 16, fontWeight: '700' },
-    emptySubtext: { textAlign: 'center', fontSize: 13, paddingHorizontal: 36 },
-    notifCard: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        padding: 14,
-        borderRadius: 16,
+    heroBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    heroTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -1, marginBottom: 8, lineHeight: 32 },
+    heroSubtitle: { fontSize: 14, lineHeight: 20 },
+    content: { paddingHorizontal: 20, gap: 20, paddingBottom: 40 },
+    sectionTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginBottom: -4 },
+    card: {
+        padding: 20,
+        borderRadius: 24,
         borderWidth: 1,
-        borderLeftWidth: 3,
-        gap: 12,
+        borderColor: 'rgba(255,255,255,0.05)',
+        gap: 16,
     },
-    iconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-    },
-    notifBody: { flex: 1 },
-    notifTopRow: {
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    cardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+    cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    planTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+    planSubtitle: { fontSize: 12 },
+    statusPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 5,
-    },
-    typePill: {
+        gap: 4,
         paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
+        paddingVertical: 4,
+        borderRadius: 20,
+        borderWidth: 1,
     },
-    typeText: { fontSize: 9, fontWeight: '900' },
-    timeRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    timeText: { fontSize: 10 },
-    notifTitle: { fontSize: 13, fontWeight: '800', marginBottom: 3 },
-    notifMessage: { fontSize: 12, lineHeight: 17 },
-    unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginTop: 4,
-        flexShrink: 0,
+    statusText: { fontSize: 8, fontWeight: '900' },
+    features: { gap: 10 },
+    featureLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    featureText: { fontSize: 13, fontWeight: '600' },
+    description: { fontSize: 13, lineHeight: 18 },
+    actionBtn: {
+        height: 52,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
+    actionBtnText: { color: 'black', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+    outlineBtn: {
+        height: 52,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+    },
+    outlineBtnText: { fontWeight: '900', fontSize: 13 },
+    pendingInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 12,
+    },
+    pendingText: { fontSize: 13, fontWeight: '700' },
+    activeInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 12,
+    },
+    activeInfoText: { fontSize: 13, fontWeight: '900' },
+    input: {
+        height: 52,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        fontWeight: '700',
+        borderWidth: 1,
+    },
+    footer: {
+        padding: 24,
+        borderRadius: 24,
+        gap: 16,
+    },
+    infoSection: { flexDirection: 'row', gap: 12 },
+    infoIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    infoContent: { flex: 1 },
+    infoTitle: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
+    infoDesc: { fontSize: 12, lineHeight: 16 },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
 });
