@@ -66,9 +66,38 @@ export const getHistory = query({
     },
     handler: async (ctx, args) => {
         return await ctx.db.query("matches")
-            .filter((q) => q.eq(q.field("status"), "Finished"))
+            .filter((q) =>
+                q.or(
+                    q.eq(q.field("status"), "Finished"),
+                    q.eq(q.field("status"), "FT"),
+                    q.eq(q.field("isHistory"), true),
+                )
+            )
             .order("desc")
-            .take(args.limit || 50);
+            .take(args.limit || 100);
+    },
+});
+
+export const getHistoryByDateRange = query({
+    args: {
+        startDate: v.string(),
+        endDate: v.string(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.query("matches")
+            .withIndex("by_match_date", (q) =>
+                q.gte("matchDate", args.startDate).lte("matchDate", args.endDate)
+            )
+            .filter((q) =>
+                q.or(
+                    q.eq(q.field("status"), "Finished"),
+                    q.eq(q.field("status"), "FT"),
+                    q.eq(q.field("isHistory"), true),
+                )
+            )
+            .order("desc")
+            .take(args.limit || 100);
     },
 });
 
@@ -85,6 +114,44 @@ export const updateMatchType = mutation({
 
         if (existing) {
             await ctx.db.patch(existing._id, { matchType: args.matchType });
+        }
+    },
+});
+
+export const updateMatchResult = mutation({
+    args: {
+        matchId: v.string(),
+        result: v.union(v.literal('win'), v.literal('lose'), v.literal('draw')),
+        isHistory: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                result: args.result,
+                isHistory: args.isHistory ?? true,
+            });
+        }
+    },
+});
+
+export const markAsHistory = mutation({
+    args: {
+        matchId: v.string(),
+        isHistory: v.boolean(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, { isHistory: args.isHistory });
         }
     },
 });
@@ -139,16 +206,23 @@ export const saveAll = mutation({
     },
     handler: async (ctx, args) => {
         for (const match of args.matches) {
+            // Derive matchDate from timestamp if not set
+            const matchDate = match.matchDate || (match.timestamp ? match.timestamp.split('T')[0] : undefined);
+            const matchWithDate = matchDate ? { ...match, matchDate } : match;
+
             const existing = await ctx.db
                 .query("matches")
                 .withIndex("by_match_id", (q) => q.eq("id", match.id))
                 .unique();
 
             if (existing) {
-                const updated = { ...existing, ...match };
+                // Preserve existing result/isHistory when updating
+                const updated = { ...existing, ...matchWithDate };
+                if (existing.result && !matchWithDate.result) updated.result = existing.result;
+                if (existing.isHistory && !matchWithDate.isHistory) updated.isHistory = existing.isHistory;
                 await ctx.db.patch(existing._id, updated);
             } else {
-                await ctx.db.insert("matches", match);
+                await ctx.db.insert("matches", matchWithDate);
             }
         }
 

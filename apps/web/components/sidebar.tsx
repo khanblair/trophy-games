@@ -12,7 +12,9 @@ import {
     Radio,
     Menu,
     X,
-    ChevronLeft
+    Key,
+    Users,
+    ShieldCheck,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -28,6 +30,11 @@ const navItems = [
     { name: 'Matches', href: '/matches', icon: Swords },
     { name: 'Analytics', href: '/analytics', icon: BrainCircuit },
     { name: 'History', href: '/history', icon: Database },
+];
+
+const adminItems = [
+    { name: 'Access Tokens', href: '/admin/tokens', icon: Key },
+    { name: 'Requests', href: '/admin/requests', icon: Users },
 ];
 
 interface SidebarProps {
@@ -93,6 +100,31 @@ export function MobileSidebar({ isOpen, onClose }: SidebarProps) {
                             </Link>
                         );
                     })}
+                    <div className="pt-4 pb-1">
+                        <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Admin</p>
+                    </div>
+                    {adminItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                onClick={onClose}
+                                className={cn(
+                                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                    isActive
+                                        ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500"
+                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+                                )}
+                            >
+                                <item.icon size={18} className={cn(
+                                    "transition-colors",
+                                    isActive ? "text-blue-600 dark:text-blue-500" : "text-zinc-400 group-hover:text-zinc-900 dark:text-zinc-500 dark:group-hover:text-zinc-50"
+                                )} />
+                                {item.name}
+                            </Link>
+                        );
+                    })}
                 </nav>
 
                 <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
@@ -128,6 +160,30 @@ export function Sidebar() {
 
             <nav className="flex-1 space-y-1 px-4 py-6">
                 {navItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                        <Link
+                            key={item.name}
+                            href={item.href}
+                            className={cn(
+                                "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200",
+                                isActive
+                                    ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500"
+                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+                            )}
+                        >
+                            <item.icon size={18} className={cn(
+                                "transition-colors",
+                                isActive ? "text-blue-600 dark:text-blue-500" : "text-zinc-400 group-hover:text-zinc-900 dark:text-zinc-500 dark:group-hover:text-zinc-50"
+                            )} />
+                            {item.name}
+                        </Link>
+                    );
+                })}
+                <div className="pt-4 pb-1">
+                    <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Admin</p>
+                </div>
+                {adminItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link

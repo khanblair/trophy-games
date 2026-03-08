@@ -41,11 +41,17 @@ export default defineSchema({
         detailedOdds: v.optional(v.any()),
         h2h: v.optional(v.any()),
         source: v.optional(v.union(v.literal('odds-api'), v.literal('goaloo-live'))),
+        // History / result tracking
+        result: v.optional(v.union(v.literal('win'), v.literal('lose'), v.literal('draw'))),
+        matchDate: v.optional(v.string()), // YYYY-MM-DD
+        isHistory: v.optional(v.boolean()), // manually marked as history by admin
     })
         .index("by_match_id", ["id"])
         .index("by_match_type", ["matchType"])
         .index("by_trending", ["isTrending"])
-        .index("by_source", ["source"]),
+        .index("by_source", ["source"])
+        .index("by_match_date", ["matchDate"])
+        .index("by_history", ["isHistory"]),
 
     leagues: defineTable({
         id: v.number(),
@@ -58,4 +64,30 @@ export default defineSchema({
         countryId: v.optional(v.number()),
         countryFlag: v.optional(v.string()),
     }).index("by_league_id", ["id"]),
+
+    // Access tokens for VIP / Paid match gating
+    accessTokens: defineTable({
+        token: v.string(),         // unique token string shown to user
+        matchId: v.optional(v.string()), // null = access all matches of that type
+        deviceId: v.string(),      // device or user identifier
+        type: v.union(v.literal('vip'), v.literal('paid')),
+        createdAt: v.string(),
+        expiresAt: v.optional(v.string()),
+        isActive: v.boolean(),
+    })
+        .index("by_token", ["token"])
+        .index("by_device_id", ["deviceId"]),
+
+    // Membership requests from mobile users
+    membershipRequests: defineTable({
+        deviceId: v.string(),
+        type: v.union(v.literal('vip'), v.literal('paid')),
+        status: v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected')),
+        requestedAt: v.string(),
+        approvedAt: v.optional(v.string()),
+        token: v.optional(v.string()), // set after approval
+        notes: v.optional(v.string()),
+    })
+        .index("by_device_id", ["deviceId"])
+        .index("by_status", ["status"]),
 });

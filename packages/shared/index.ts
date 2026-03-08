@@ -70,6 +70,9 @@ export interface MatchData {
         }[];
     };
     source?: 'odds-api' | 'goaloo-live';
+    result?: 'win' | 'lose' | 'draw';
+    matchDate?: string; // YYYY-MM-DD for date filtering
+    isHistory?: boolean; // manually marked as history by admin
 }
 
 export interface LeagueInfo {

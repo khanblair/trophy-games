@@ -1,11 +1,12 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
-import { Crown, Calendar, Filter } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
+import { Crown, Calendar, Lock, Key, CheckCircle2, Clock, Send } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useColorScheme } from 'react-native';
 import { webApi } from '../../api/web';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
-import { colors } from '../../theme/colors';
+import * as Application from 'expo-application';
+
+type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
 
 export default function VIPTipsScreen() {
     const [matches, setMatches] = useState<any[]>([]);
@@ -14,6 +15,12 @@ export default function VIPTipsScreen() {
     const { themeColors } = useTheme();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedLeague, setSelectedLeague] = useState('All');
+    const [memberStatus, setMemberStatus] = useState<MemberStatus>('loading');
+    const [tokenInput, setTokenInput] = useState('');
+    const [enteringToken, setEnteringToken] = useState(false);
+    const [verifyingToken, setVerifyingToken] = useState(false);
+    const [requesting, setRequesting] = useState(false);
+    const [deviceId, setDeviceId] = useState('');
 
     const dates = useMemo(() => {
         const d = [];
@@ -32,49 +39,202 @@ export default function VIPTipsScreen() {
 
     const filteredMatches = useMemo(() => {
         return matches.filter(match => {
-            const matchDate = match.timestamp.split('T')[0];
+            const matchDate = match.timestamp?.split('T')[0];
             const dateMatch = matchDate === selectedDate;
             const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
             return dateMatch && leagueMatch;
         });
     }, [matches, selectedDate, selectedLeague]);
 
+    useEffect(() => {
+        const init = async () => {
+            // Get device ID
+            const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
+            setDeviceId(id);
+
+            // Check membership status
+            try {
+                const status = await webApi.getMembershipStatus(id, 'vip');
+                setMemberStatus(status.status as MemberStatus);
+            } catch {
+                setMemberStatus('none');
+            }
+        };
+        init();
+    }, []);
+
     const loadData = useCallback(async (isRefresh = false) => {
-        if (isRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
-        await webApi.clearCache();
+        if (memberStatus !== 'active') return;
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+
         const data = await webApi.getMatches('vip');
         setMatches(data || []);
         setLoading(false);
         setRefreshing(false);
-    }, []);
+    }, [memberStatus]);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (memberStatus === 'active') loadData();
+    }, [memberStatus, loadData]);
 
-    const onRefresh = useCallback(() => {
-        loadData(true);
-    }, [loadData]);
+    const onRefresh = useCallback(() => { loadData(true); }, [loadData]);
 
+    const requestMembership = async () => {
+        if (!deviceId) return;
+        setRequesting(true);
+        try {
+            const result = await webApi.requestMembership(deviceId, 'vip');
+            if (result.success) {
+                setMemberStatus('pending');
+                Alert.alert('Request Sent!', 'Your VIP membership request has been submitted. You will receive a token once approved by admin.');
+            } else if (result.reason === 'Request already pending') {
+                setMemberStatus('pending');
+            }
+        } catch {
+            Alert.alert('Error', 'Failed to send request. Please try again.');
+        }
+        setRequesting(false);
+    };
+
+    const verifyToken = async () => {
+        if (!tokenInput.trim()) return;
+        setVerifyingToken(true);
+        try {
+            const result = await webApi.verifyToken(tokenInput.trim(), deviceId);
+            if (result.valid) {
+                setMemberStatus('active');
+                setEnteringToken(false);
+                setTokenInput('');
+                Alert.alert('Access Granted!', 'Welcome to VIP! You now have access to elite predictions.');
+            } else {
+                Alert.alert('Invalid Token', result.reason || 'This token is not valid for your device.');
+            }
+        } catch {
+            Alert.alert('Error', 'Failed to verify token. Please try again.');
+        }
+        setVerifyingToken(false);
+    };
+
+    // ---- Gate: loading membership ----
+    if (memberStatus === 'loading') {
+        return (
+            <View style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator color={themeColors.primary} size="large" />
+            </View>
+        );
+    }
+
+    // ---- Gate: not a member ----
+    if (memberStatus === 'none' || memberStatus === 'pending') {
+        return (
+            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <ScrollView contentContainerStyle={styles.gateContainer}>
+                    <View style={[styles.gateBadge, { backgroundColor: themeColors.primary }]}>
+                        <Crown size={18} color="black" />
+                        <Text style={styles.gateBadgeText}>ELITE ACCESS REQUIRED</Text>
+                    </View>
+
+                    <Text style={[styles.gateTitle, { color: themeColors.text }]}>JOIN THE 1%</Text>
+                    <Text style={[styles.gateSubtitle, { color: themeColors.textMuted }]}>
+                        Get access to our most accurate AI predictions with verified 90%+ strike rate.
+                    </Text>
+
+                    {/* Features */}
+                    {['Expert AI analysis on every match', 'Verified 90%+ accuracy predictions', 'Exclusive VIP-only picks', 'Priority support'].map((f, i) => (
+                        <View key={i} style={styles.featureRow}>
+                            <CheckCircle2 size={14} color={themeColors.primary} />
+                            <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
+                        </View>
+                    ))}
+
+                    {/* Request membership */}
+                    {memberStatus === 'none' && !enteringToken && (
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, { backgroundColor: themeColors.primary }]}
+                            onPress={requestMembership}
+                            disabled={requesting}
+                        >
+                            {requesting ? <ActivityIndicator color="black" size="small" /> : (
+                                <>
+                                    <Send size={16} color="black" />
+                                    <Text style={styles.primaryBtnText}>REQUEST VIP MEMBERSHIP</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Pending state */}
+                    {memberStatus === 'pending' && !enteringToken && (
+                        <View style={[styles.pendingCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.primary }]}>
+                            <Clock size={20} color={themeColors.primary} />
+                            <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Under Review</Text>
+                            <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
+                                Your request is pending admin approval. Once approved, you will receive an access token.
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Enter token */}
+                    {!enteringToken ? (
+                        <TouchableOpacity
+                            style={[styles.secondaryBtn, { borderColor: themeColors.border }]}
+                            onPress={() => setEnteringToken(true)}
+                        >
+                            <Key size={14} color={themeColors.textMuted} />
+                            <Text style={[styles.secondaryBtnText, { color: themeColors.textMuted }]}>I HAVE A TOKEN</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={[styles.tokenInputCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+                            <Text style={[styles.tokenInputLabel, { color: themeColors.textMuted }]}>ENTER YOUR ACCESS TOKEN</Text>
+                            <TextInput
+                                value={tokenInput}
+                                onChangeText={setTokenInput}
+                                placeholder="e.g. VIP-XXXX-XXXX-XXXX"
+                                placeholderTextColor={themeColors.textMuted}
+                                style={[styles.tokenInput, { color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.cardBgSecondary }]}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                            />
+                            <View style={styles.tokenBtnRow}>
+                                <TouchableOpacity
+                                    style={[styles.primaryBtn, { backgroundColor: themeColors.primary, flex: 1 }]}
+                                    onPress={verifyToken}
+                                    disabled={verifyingToken || !tokenInput.trim()}
+                                >
+                                    {verifyingToken
+                                        ? <ActivityIndicator color="black" size="small" />
+                                        : <Text style={styles.primaryBtnText}>VERIFY TOKEN</Text>
+                                    }
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.cancelBtn, { backgroundColor: themeColors.cardBgSecondary }]}
+                                    onPress={() => { setEnteringToken(false); setTokenInput(''); }}
+                                >
+                                    <Text style={[styles.cancelBtnText, { color: themeColors.textMuted }]}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+                </ScrollView>
+            </View>
+        );
+    }
+
+    // ---- Approved member: show matches ----
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            <View style={styles.calendarStrip}>
+            {/* Calendar strip */}
+            <View style={[styles.calendarStrip, { borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datesContainer}>
                     {dates.map((date) => {
-                        const d = new Date(date);
+                        const d = new Date(date + 'T12:00:00');
                         const isSelected = date === selectedDate;
                         return (
                             <TouchableOpacity
                                 key={date}
                                 onPress={() => setSelectedDate(date)}
-                                style={[
-                                    styles.dateButton,
-                                    isSelected && { backgroundColor: themeColors.primary }
-                                ]}
+                                style={[styles.dateButton, isSelected && { backgroundColor: themeColors.primary }]}
                             >
                                 <Text style={[styles.dayName, { color: isSelected ? 'black' : themeColors.textMuted }]}>
                                     {d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
@@ -88,21 +248,16 @@ export default function VIPTipsScreen() {
                 </ScrollView>
             </View>
 
+            {/* League filter */}
             <View style={styles.filterSection}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaguesScroll}>
                     {uniqueLeagues.map(league => (
                         <TouchableOpacity
                             key={league}
                             onPress={() => setSelectedLeague(league)}
-                            style={[
-                                styles.leagueChip,
-                                { backgroundColor: selectedLeague === league ? themeColors.primary : themeColors.cardBgSecondary }
-                            ]}
+                            style={[styles.leagueChip, { backgroundColor: selectedLeague === league ? themeColors.primary : themeColors.cardBgSecondary }]}
                         >
-                            <Text style={[
-                                styles.leagueChipText,
-                                { color: selectedLeague === league ? 'black' : themeColors.textMuted }
-                            ]}>
+                            <Text style={[styles.leagueChipText, { color: selectedLeague === league ? 'black' : themeColors.textMuted }]}>
                                 {league.toUpperCase()}
                             </Text>
                         </TouchableOpacity>
@@ -110,35 +265,20 @@ export default function VIPTipsScreen() {
                 </ScrollView>
             </View>
 
-            <View style={styles.vipBanner}>
-                <View style={[styles.vipBadge, { backgroundColor: themeColors.primary }]}>
-                    <Crown size={20} color="black" />
-                    <Text style={styles.vipBadgeText}>ELITE ACCESS</Text>
-                </View>
-                <Text style={[styles.vipTitle, { color: themeColors.text }]}>JOIN THE 1%</Text>
-                <Text style={[styles.vipSubtitle, { color: themeColors.textMuted }]}>
-                    Get access to our most accurate AI predictions with verified 90%+ strike rate.
-                </Text>
-                <TouchableOpacity style={[styles.vipButton, { backgroundColor: themeColors.primary }]}>
-                    <Text style={styles.vipButtonText}>GET VIP MEMBERSHIP</Text>
-                </TouchableOpacity>
+            {/* VIP active badge */}
+            <View style={[styles.activeBanner, { backgroundColor: `${themeColors.primary}15`, borderColor: `${themeColors.primary}30` }]}>
+                <Crown size={14} color={themeColors.primary} />
+                <Text style={[styles.activeBannerText, { color: themeColors.primary }]}>VIP ACCESS ACTIVE</Text>
             </View>
 
             <ScrollView
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={themeColors.primary}
-                        colors={[themeColors.primary]}
-                    />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.primary} colors={[themeColors.primary]} />}
             >
                 <View style={styles.sectionHeader}>
-                    <Crown size={16} color={themeColors.primary} />
+                    <Crown size={14} color={themeColors.primary} />
                     <Text style={[styles.sectionTitle, { color: themeColors.text }]}>TODAY'S VIP PICKS</Text>
                 </View>
 
@@ -159,10 +299,9 @@ export default function VIPTipsScreen() {
                                 homeTeamLogo={match.homeTeamLogo}
                                 awayTeam={match.awayTeam}
                                 awayTeamLogo={match.awayTeamLogo}
-                                isLocked={true}
-                                price={200}
+                                isLocked={false}
                                 aiInsight={match.aiPrediction}
-                                prediction={match.prediction}
+                                prediction={match.aiPrediction?.prediction}
                                 odds={match.odds?.home}
                             />
                         ))}
@@ -170,9 +309,9 @@ export default function VIPTipsScreen() {
                 ) : (
                     <View style={styles.emptyContainer}>
                         <View style={[styles.emptyIconWrapper, { backgroundColor: themeColors.cardBgSecondary }]}>
-                            <Crown size={40} color={themeColors.textMuted} />
+                            <Crown size={36} color={themeColors.textMuted} />
                         </View>
-                        <Text style={[styles.emptyText, { color: themeColors.text }]}>No VIP Tips Available</Text>
+                        <Text style={[styles.emptyText, { color: themeColors.text }]}>No VIP Tips Today</Text>
                         <Text style={[styles.emptySubtext, { color: themeColors.textMuted }]}>
                             New elite predictions are being analyzed. Check back soon.
                         </Text>
@@ -184,153 +323,121 @@ export default function VIPTipsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    vipBanner: {
-        padding: 24,
+    container: { flex: 1 },
+
+    // Gate screen
+    gateContainer: {
+        padding: 28,
+        paddingTop: 48,
         alignItems: 'center',
-        gap: 12,
-        backgroundColor: 'rgba(217, 255, 0, 0.05)',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(217, 255, 0, 0.1)',
+        gap: 16,
+        paddingBottom: 48,
     },
-    vipBadge: {
+    gateBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
         borderRadius: 20,
+        marginBottom: 4,
     },
-    vipBadgeText: {
-        fontSize: 10,
-        fontWeight: '900',
-        color: 'black',
-        letterSpacing: 1,
-    },
-    vipTitle: {
-        fontSize: 32,
-        fontWeight: '900',
-        letterSpacing: -1,
-    },
-    vipSubtitle: {
-        textAlign: 'center',
-        fontSize: 14,
-        lineHeight: 20,
-        paddingHorizontal: 20,
-    },
-    vipButton: {
-        marginTop: 8,
-        width: '100%',
+    gateBadgeText: { fontSize: 10, fontWeight: '900', color: 'black', letterSpacing: 1 },
+    gateTitle: { fontSize: 34, fontWeight: '900', letterSpacing: -1 },
+    gateSubtitle: { textAlign: 'center', fontSize: 14, lineHeight: 20, paddingHorizontal: 16 },
+    featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start', width: '100%', paddingHorizontal: 8 },
+    featureText: { fontSize: 14, fontWeight: '600' },
+    primaryBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
         paddingVertical: 16,
         borderRadius: 16,
+        width: '100%',
+        marginTop: 8,
+    },
+    primaryBtnText: { color: 'black', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+    secondaryBtn: {
+        flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#D9FF00',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 13,
+        borderRadius: 14,
+        width: '100%',
+        borderWidth: 1,
     },
-    vipButtonText: {
-        color: 'black',
-        fontWeight: '900',
-        fontSize: 14,
-        letterSpacing: 0.5,
+    secondaryBtnText: { fontWeight: '800', fontSize: 12, letterSpacing: 1 },
+    pendingCard: {
+        width: '100%',
+        padding: 20,
+        borderRadius: 18,
+        alignItems: 'center',
+        gap: 10,
+        borderWidth: 1,
+        borderStyle: 'dashed',
     },
-    content: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 16,
-        paddingTop: 16,
-        paddingBottom: 40,
-    },
-    calendarStrip: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    datesContainer: {
+    pendingTitle: { fontSize: 15, fontWeight: '900' },
+    pendingText: { textAlign: 'center', fontSize: 13, lineHeight: 18 },
+    tokenInputCard: {
+        width: '100%',
+        padding: 20,
+        borderRadius: 18,
+        borderWidth: 1,
         gap: 12,
     },
+    tokenInputLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    tokenInput: {
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    tokenBtnRow: { flexDirection: 'row', gap: 10 },
+    cancelBtn: { paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, justifyContent: 'center' },
+    cancelBtnText: { fontSize: 12, fontWeight: '700' },
+
+    // Active member screen
+    activeBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        justifyContent: 'center',
+    },
+    activeBannerText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    calendarStrip: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1 },
+    datesContainer: { gap: 10 },
     dateButton: {
         width: 50,
-        height: 65,
-        borderRadius: 15,
+        height: 62,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.02)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.05)',
     },
-    dayName: {
-        fontSize: 10,
-        fontWeight: '900',
-        marginBottom: 4,
-    },
-    dayDate: {
-        fontSize: 18,
-        fontWeight: '900',
-    },
-    filterSection: {
-        paddingHorizontal: 16,
-        paddingTop: 8,
-    },
-    leaguesScroll: {
-        paddingVertical: 4,
-        gap: 8,
-    },
-    leagueChip: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    leagueChipText: {
-        fontSize: 10,
-        fontWeight: '900',
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16,
-        marginTop: 8,
-    },
-    sectionTitle: {
-        fontSize: 12,
-        fontWeight: '900',
-        letterSpacing: 1,
-    },
-    loadingContainer: {
-        paddingVertical: 60,
-        alignItems: 'center',
-    },
-    fixtureGrid: {
-        gap: 8,
-    },
-    emptyContainer: {
-        paddingVertical: 60,
-        alignItems: 'center',
-        gap: 16,
-    },
-    emptyIconWrapper: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emptyText: {
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    emptySubtext: {
-        textAlign: 'center',
-        fontSize: 14,
-        paddingHorizontal: 40,
-    },
+    dayName: { fontSize: 9, fontWeight: '900', marginBottom: 3 },
+    dayDate: { fontSize: 17, fontWeight: '900' },
+    filterSection: { paddingHorizontal: 14, paddingTop: 8 },
+    leaguesScroll: { paddingVertical: 4, gap: 8 },
+    leagueChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    leagueChipText: { fontSize: 10, fontWeight: '900' },
+    content: { flex: 1 },
+    scrollContent: { padding: 14, paddingTop: 14, paddingBottom: 40 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 6 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+    loadingContainer: { paddingVertical: 60, alignItems: 'center' },
+    fixtureGrid: { gap: 8 },
+    emptyContainer: { paddingVertical: 60, alignItems: 'center', gap: 14 },
+    emptyIconWrapper: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+    emptyText: { fontSize: 16, fontWeight: '700' },
+    emptySubtext: { textAlign: 'center', fontSize: 13, paddingHorizontal: 36 },
 });

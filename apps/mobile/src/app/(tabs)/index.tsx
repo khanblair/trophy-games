@@ -2,10 +2,14 @@ import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet
 import { Zap } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
-import { webApi } from '../../api/web';
+import { ConvexReactClient, useConvexQuery } from "convex/react";
+import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
+
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 export default function FreeTipsScreen() {
     const [selectedLeague, setSelectedLeague] = useState('All');
@@ -22,17 +26,47 @@ export default function FreeTipsScreen() {
         } else {
             setLoading(true);
         }
-        await webApi.clearCache();
-        const data = await webApi.getMatches('free');
-        setMatches(data || []);
+        
+        if (!convex) {
+            console.error('[Convex] Convex client not initialized');
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
+        try {
+            // Fetch free matches directly from Convex
+            const freeMatches = await convex.query(api.matches.get, {
+                matchType: 'free',
+                limit: 100
+            });
+            
+            // Also fetch unassigned matches (treated as free)
+            const unassignedMatches = await convex.query(api.matches.get, {
+                matchType: 'unassigned',
+                limit: 100
+            });
+            
+            // Combine free and unassigned matches
+            const allMatches = [...(freeMatches || []), ...(unassignedMatches || [])];
+            
+            setMatches(allMatches);
+            console.log(`[Home Screen] Loaded ${allMatches.length} free matches from Convex`);
+        } catch (error) {
+            console.error('[Home Screen] Failed to fetch free matches from Convex:', error);
+            setMatches([]);
+        }
+        
         setLoading(false);
         setRefreshing(false);
     }, []);
 
     useEffect(() => {
         loadData();
-        // Fetch leagues for filter
-        webApi.getLeagues().then(setLeagues);
+        // Fetch leagues for filter - using Convex directly
+        if (convex) {
+            convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
+        }
     }, [loadData, selectedDate]);
 
     const filteredMatches = matches.filter(m => {

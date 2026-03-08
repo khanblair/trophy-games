@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, DollarSign, Crown, CheckCircle, ShoppingCart } from 'lucide-react-native';
+import { Home, DollarSign, Crown, CheckCircle, Bell } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -56,8 +56,8 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="market"
                 options={{
-                    title: 'STORE',
-                    tabBarIcon: ({ color }) => <ShoppingCart color={color} size={22} />,
+                    title: 'ALERTS',
+                    tabBarIcon: ({ color }) => <Bell color={color} size={22} />,
                 }}
             />
         </Tabs>

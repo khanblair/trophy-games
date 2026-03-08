@@ -70,6 +70,66 @@ class WebApiService {
         }
     }
 
+    async getHistoryByDate(startDate: string, endDate: string) {
+        const cacheKey = `web_history_${startDate}_${endDate}`;
+        const cachedData = await CacheManager.get(cacheKey);
+
+        if (cachedData) return cachedData;
+
+        try {
+            const response = await axios.get(
+                `${WEB_API_URL}/api/mobile/history?startDate=${startDate}&endDate=${endDate}`,
+                { timeout: 10000 }
+            );
+            await CacheManager.set(cacheKey, response.data, 15 * 60);
+            return response.data;
+        } catch (error: any) {
+            console.error('[WebAPI] Failed to fetch history by date:', error.message);
+            return [];
+        }
+    }
+
+    async getMembershipStatus(deviceId: string, type: 'vip' | 'paid') {
+        try {
+            const response = await axios.get(
+                `${WEB_API_URL}/api/mobile/membership?deviceId=${encodeURIComponent(deviceId)}&type=${type}`,
+                { timeout: 10000 }
+            );
+            return response.data;
+        } catch (error: any) {
+            console.error('[WebAPI] Failed to get membership status:', error.message);
+            return { status: 'none' };
+        }
+    }
+
+    async requestMembership(deviceId: string, type: 'vip' | 'paid') {
+        try {
+            const response = await axios.post(
+                `${WEB_API_URL}/api/mobile/membership`,
+                { deviceId, type },
+                { timeout: 10000 }
+            );
+            return response.data;
+        } catch (error: any) {
+            console.error('[WebAPI] Failed to request membership:', error.message);
+            throw error;
+        }
+    }
+
+    async verifyToken(token: string, deviceId: string) {
+        try {
+            const response = await axios.post(
+                `${WEB_API_URL}/api/mobile/token`,
+                { token, deviceId },
+                { timeout: 10000 }
+            );
+            return response.data;
+        } catch (error: any) {
+            console.error('[WebAPI] Failed to verify token:', error.message);
+            return { valid: false, reason: 'Network error' };
+        }
+    }
+
     async getLeagues() {
         const cacheKey = 'web_leagues';
         const cachedData = await CacheManager.get(cacheKey);

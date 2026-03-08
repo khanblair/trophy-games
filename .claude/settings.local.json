@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(node -e \"const fs=require\\(''fs''\\); fs.writeFileSync\\(''D:/SYSTEMS/trophy-games/apps/web/app/history/page.tsx'', ''// placeholder''\\); console.log\\(''ok''\\);\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\); fs.writeFileSync\\(''D:/SYSTEMS/trophy-games/apps/web/app/admin/tokens/page.tsx'', ''// placeholder''\\); console.log\\(''ok''\\);\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\); fs.writeFileSync\\(''D:/SYSTEMS/trophy-games/apps/web/app/admin/requests/page.tsx'', ''// placeholder''\\); console.log\\(''ok''\\);\")"
+    ]
+  }
+}

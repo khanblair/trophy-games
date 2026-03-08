@@ -9,6 +9,7 @@
  */
 
 import type * as matches from "../matches.js";
+import type * as tokens from "../tokens.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   matches: typeof matches;
+  tokens: typeof tokens;
 }>;
 
 /**
