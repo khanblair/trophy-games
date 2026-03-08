@@ -74,6 +74,7 @@ export default defineSchema({
         createdAt: v.string(),
         expiresAt: v.optional(v.string()),
         isActive: v.boolean(),
+        isClaimed: v.optional(v.boolean()),
     })
         .index("by_token", ["token"])
         .index("by_device_id", ["deviceId"]),

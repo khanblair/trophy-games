@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Key, Plus, Trash2, RefreshCw, Clock, CheckCircle2, XCircle, Crown, DollarSign } from 'lucide-react';
+import { Key, Plus, Trash2, RotateCcw, RefreshCw, Clock, CheckCircle2, XCircle, Crown, DollarSign } from 'lucide-react';
 
 interface Token {
     _id: string;
@@ -70,8 +70,19 @@ export default function AdminTokensPage() {
         } catch (e) { console.error(e); }
     };
 
+    const reactivateToken = async (token: string) => {
+        try {
+            await fetch('/api/admin/tokens', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token }),
+            });
+            setTokens(prev => prev.map(t => t.token === token ? { ...t, isActive: true } : t));
+        } catch (e) { console.error(e); }
+    };
+
     const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text).catch(() => {});
+        navigator.clipboard.writeText(text).catch(() => { });
         setCopiedToken(text);
         setTimeout(() => setCopiedToken(null), 2000);
     };
@@ -202,10 +213,14 @@ export default function AdminTokensPage() {
                                                 : <span className="inline-flex items-center gap-1 text-xs text-zinc-400"><XCircle size={12} />Inactive</span>
                                             }
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            {token.isActive && (
-                                                <button onClick={() => revokeToken(token.token)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Revoke">
-                                                    <Trash2 size={14} />
+                                        <td className="px-4 py-3 text-center flex justify-center gap-2">
+                                            {token.isActive ? (
+                                                <button onClick={() => revokeToken(token.token)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Revoke">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => reactivateToken(token.token)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Reactivate">
+                                                    <RotateCcw size={16} />
                                                 </button>
                                             )}
                                         </td>

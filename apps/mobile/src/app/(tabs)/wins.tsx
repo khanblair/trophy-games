@@ -199,7 +199,6 @@ export default function WinsScreen() {
                                 homeScore={match.homeScore}
                                 awayScore={match.awayScore}
                                 aiInsight={match.aiPrediction}
-                                resultBadge={match.result}
                             />
                         ))}
                     </View>

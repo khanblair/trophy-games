@@ -20,12 +20,13 @@ export const createToken = mutation({
             createdAt: new Date().toISOString(),
             expiresAt: args.expiresAt,
             isActive: true,
+            isClaimed: false,
         });
         return { token: args.token };
     },
 });
 
-export const verifyToken = query({
+export const verifyToken = mutation({
     args: {
         token: v.string(),
         deviceId: v.string(),
@@ -41,6 +42,11 @@ export const verifyToken = query({
         if (tokenDoc.deviceId !== args.deviceId) return { valid: false, reason: "Token bound to different device" };
         if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
             return { valid: false, reason: "Token expired" };
+        }
+
+        // Mark it as claimed upon successful verification
+        if (!tokenDoc.isClaimed) {
+            await ctx.db.patch(tokenDoc._id, { isClaimed: true });
         }
 
         return { valid: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
@@ -136,7 +142,10 @@ export const getMembershipStatus = query({
             )
             .collect();
 
-        const validToken = tokens.find(t => !t.expiresAt || new Date(t.expiresAt) > new Date());
+        const validToken = tokens.find(t =>
+            (!t.expiresAt || new Date(t.expiresAt) > new Date()) &&
+            t.isClaimed !== false
+        );
         if (validToken) {
             return { status: 'active', token: validToken.token, matchId: validToken.matchId };
         }
@@ -199,6 +208,7 @@ export const approveMembershipRequest = mutation({
             createdAt: new Date().toISOString(),
             expiresAt: args.expiresAt,
             isActive: true,
+            isClaimed: false,
         });
 
         return { success: true };
@@ -216,5 +226,23 @@ export const rejectMembershipRequest = mutation({
             notes: args.notes,
         });
         return { success: true };
+    },
+});
+
+export const reactivateToken = mutation({
+    args: {
+        token: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const tokenDoc = await ctx.db
+            .query("accessTokens")
+            .withIndex("by_token", (q) => q.eq("token", args.token))
+            .first();
+
+        if (tokenDoc) {
+            await ctx.db.patch(tokenDoc._id, {
+                isActive: true,
+            });
+        }
     },
 });

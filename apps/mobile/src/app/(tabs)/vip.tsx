@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Crown, Calendar, Lock, Key, CheckCircle2, Clock, Send } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ConvexReactClient } from "convex/react";
@@ -72,7 +72,7 @@ export default function VIPTipsScreen() {
         if (memberStatus !== 'active') return;
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
-        
+
         if (!convex) {
             console.error('[Convex] Convex client not initialized');
             setLoading(false);
@@ -86,14 +86,14 @@ export default function VIPTipsScreen() {
                 matchType: 'vip',
                 limit: 100
             });
-            
+
             setMatches(vipMatches || []);
             console.log(`[VIP Screen] Loaded ${vipMatches?.length || 0} vip matches from Convex`);
         } catch (error) {
             console.error('[VIP Screen] Failed to fetch vip matches from Convex:', error);
             setMatches([]);
         }
-        
+
         setLoading(false);
         setRefreshing(false);
     }, [memberStatus]);
@@ -150,10 +150,17 @@ export default function VIPTipsScreen() {
     }
 
     // ---- Gate: not a member ----
-    if (memberStatus === 'none' || memberStatus === 'pending') {
+    if (memberStatus === 'none' || memberStatus === 'pending' || memberStatus === 'approved') {
         return (
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <ScrollView contentContainerStyle={styles.gateContainer}>
+            <KeyboardAvoidingView
+                style={[styles.container, { backgroundColor: themeColors.background }]}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.gateContainer}
+                    keyboardShouldPersistTaps='handled'
+                    showsVerticalScrollIndicator={false}
+                >
                     <View style={[styles.gateBadge, { backgroundColor: themeColors.primary }]}>
                         <Crown size={18} color="black" />
                         <Text style={styles.gateBadgeText}>ELITE ACCESS REQUIRED</Text>
@@ -195,6 +202,17 @@ export default function VIPTipsScreen() {
                             <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Under Review</Text>
                             <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
                                 Your request is pending admin approval. Once approved, you will receive an access token.
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Approved state */}
+                    {memberStatus === 'approved' && !enteringToken && (
+                        <View style={[styles.pendingCard, { backgroundColor: themeColors.cardBg, borderColor: '#10b981' }]}>
+                            <CheckCircle2 size={20} color="#10b981" />
+                            <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Approved!</Text>
+                            <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
+                                Your VIP access request has been approved. Please enter your token below to unlock it.
                             </Text>
                         </View>
                     )}
@@ -241,7 +259,7 @@ export default function VIPTipsScreen() {
                         </View>
                     )}
                 </ScrollView>
-            </View>
+            </KeyboardAvoidingView>
         );
     }
 
@@ -355,7 +373,7 @@ const styles = StyleSheet.create({
         paddingTop: 48,
         alignItems: 'center',
         gap: 16,
-        paddingBottom: 48,
+        paddingBottom: 100,
     },
     gateBadge: {
         flexDirection: 'row',

@@ -62,3 +62,14 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Failed to revoke token' }, { status: 500 });
     }
 }
+
+export async function PUT(request: Request) {
+    try {
+        const { token } = await request.json();
+        await convex.mutation(api.tokens.reactivateToken, { token });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('[API] Reactivate token failed:', error);
+        return NextResponse.json({ error: 'Failed to reactivate token' }, { status: 500 });
+    }
+}

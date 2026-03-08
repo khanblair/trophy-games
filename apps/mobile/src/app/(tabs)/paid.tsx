@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { DollarSign, Zap, CheckCircle2, Clock, Send, Key } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ConvexReactClient } from "convex/react";
@@ -69,7 +69,7 @@ export default function PaidTipsScreen() {
         if (memberStatus !== 'active') return;
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
-        
+
         if (!convex) {
             console.error('[Convex] Convex client not initialized');
             setLoading(false);
@@ -83,14 +83,14 @@ export default function PaidTipsScreen() {
                 matchType: 'paid',
                 limit: 100
             });
-            
+
             setMatches(paidMatches || []);
             console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex`);
         } catch (error) {
             console.error('[Paid Screen] Failed to fetch paid matches from Convex:', error);
             setMatches([]);
         }
-        
+
         setLoading(false);
         setRefreshing(false);
     }, [memberStatus]);
@@ -145,10 +145,17 @@ export default function PaidTipsScreen() {
         );
     }
 
-    if (memberStatus === 'none' || memberStatus === 'pending') {
+    if (memberStatus === 'none' || memberStatus === 'pending' || memberStatus === 'approved') {
         return (
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <ScrollView contentContainerStyle={styles.gateContainer}>
+            <KeyboardAvoidingView
+                style={[styles.container, { backgroundColor: themeColors.background }]}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.gateContainer}
+                    keyboardShouldPersistTaps='handled'
+                    showsVerticalScrollIndicator={false}
+                >
                     <View style={[styles.gateBadge, { backgroundColor: themeColors.orange9 }]}>
                         <DollarSign size={16} color="black" />
                         <Text style={styles.gateBadgeText}>PREMIUM ACCESS REQUIRED</Text>
@@ -187,6 +194,16 @@ export default function PaidTipsScreen() {
                             <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Under Review</Text>
                             <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
                                 Your request is pending admin approval. You will receive an access token shortly.
+                            </Text>
+                        </View>
+                    )}
+
+                    {memberStatus === 'approved' && !enteringToken && (
+                        <View style={[styles.pendingCard, { backgroundColor: themeColors.cardBg, borderColor: '#10b981' }]}>
+                            <CheckCircle2 size={18} color={'#10b981'} />
+                            <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Approved!</Text>
+                            <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
+                                Your Paid access request has been approved. Please enter your token below.
                             </Text>
                         </View>
                     )}
@@ -232,7 +249,7 @@ export default function PaidTipsScreen() {
                         </View>
                     )}
                 </ScrollView>
-            </View>
+            </KeyboardAvoidingView>
         );
     }
 
@@ -335,7 +352,7 @@ export default function PaidTipsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    gateContainer: { padding: 28, paddingTop: 48, alignItems: 'center', gap: 16, paddingBottom: 48 },
+    gateContainer: { padding: 28, paddingTop: 48, alignItems: 'center', gap: 16, paddingBottom: 100 },
     gateBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, marginBottom: 4 },
     gateBadgeText: { fontSize: 10, fontWeight: '900', color: 'black', letterSpacing: 1 },
     gateTitle: { fontSize: 32, fontWeight: '900', letterSpacing: -1 },

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'token and deviceId required' }, { status: 400 });
         }
 
-        const result = await convex.query(api.tokens.verifyToken, { token, deviceId });
+        const result = await convex.mutation(api.tokens.verifyToken, { token, deviceId });
         return NextResponse.json(result);
     } catch (error) {
         console.error('[API] Verify token failed:', error);

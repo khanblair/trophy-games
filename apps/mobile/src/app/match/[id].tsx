@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Dimensions } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Timer, Trophy, TrendingUp, ChevronLeft, BrainCircuit, CheckCircle2, Zap, ShieldCheck, Target, BarChart2 } from 'lucide-react-native';
 import { ConvexReactClient } from "convex/react";
@@ -42,20 +43,20 @@ export default function MatchDetailScreen() {
 
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
                 <ActivityIndicator size="large" color={themeColors.primary} />
-            </View>
+            </SafeAreaView>
         );
     }
 
     if (!match) {
         return (
-            <View style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]} edges={['top', 'left', 'right']}>
                 <Text style={{ color: themeColors.textMuted }}>Match details unavailable</Text>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
                     <Text style={{ color: themeColors.primary, fontWeight: '900' }}>GO BACK</Text>
                 </TouchableOpacity>
-            </View>
+            </SafeAreaView>
         );
     }
 
@@ -63,21 +64,17 @@ export default function MatchDetailScreen() {
     const isFinished = match.status === 'Finished' || match.status === 'FT';
 
     return (
-        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            <Stack.Screen
-                options={{
-                    headerShown: true,
-                    headerTitle: match.league?.toUpperCase() || 'MATCH DETAILS',
-                    headerStyle: { backgroundColor: themeColors.background },
-                    headerTintColor: themeColors.text,
-                    headerTitleStyle: { fontWeight: '900', fontSize: 13 },
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
-                            <ChevronLeft size={24} color={themeColors.text} />
-                        </TouchableOpacity>
-                    ),
-                }}
-            />
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+            {/* Custom Header */}
+            <View style={[styles.customHeader, { backgroundColor: themeColors.background }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.headerLeft}>
+                    <ChevronLeft size={24} color={themeColors.text} />
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: themeColors.text }]}>
+                    {match.league?.toUpperCase() || 'MATCH DETAILS'}
+                </Text>
+                <View style={styles.headerRight} />
+            </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
@@ -319,7 +316,7 @@ export default function MatchDetailScreen() {
                 )}
 
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -559,4 +556,29 @@ const styles = StyleSheet.create({
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     infoKey: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
     infoVal: { fontSize: 13, fontWeight: '600' },
+
+    // Custom Header
+    customHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    headerLeft: {
+        padding: 8,
+        marginLeft: -8,
+    },
+    headerTitle: {
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerRight: {
+        width: 40,
+    },
 });
