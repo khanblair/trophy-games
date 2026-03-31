@@ -171,13 +171,13 @@ export const create = mutation({
             });
         } else if (args.match.matchType === 'vip') {
             await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
-                title: "New VIP Prediction",
-                body: `Premium VIP tip available: ${args.match.homeTeam} vs ${args.match.awayTeam}`,
+                title: "🔥 New VIP Tip Available",
+                body: "Exclusive VIP prediction just dropped! Unlock premium access to win big today.",
             });
         } else if (args.match.matchType === 'paid') {
             await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
-                title: "New Paid Prediction",
-                body: `A new Paid tip is now available: ${args.match.homeTeam} vs ${args.match.awayTeam}`,
+                title: "💰 New Paid Tip Available",
+                body: "High-confidence paid prediction added! Get access now for expert insights.",
             });
         }
 
@@ -283,13 +283,13 @@ export const updateMatchType = mutation({
                     });
                 } else if (args.matchType === 'vip') {
                     await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
-                        title: "New VIP Prediction",
-                        body: `Premium VIP tip available: ${existing.homeTeam} vs ${existing.awayTeam}. Unlock with your token!`,
+                        title: "🔥 New VIP Prediction",
+                        body: "Exclusive VIP tip now available! Upgrade to premium for expert predictions.",
                     });
                 } else if (args.matchType === 'paid') {
                     await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
-                        title: "New Paid Prediction",
-                        body: `A new Paid tip is now available: ${existing.homeTeam} vs ${existing.awayTeam}.`,
+                        title: "💰 New Paid Prediction",
+                        body: "Premium paid tip just added! Unlock access for professional insights.",
                     });
                 }
             }
