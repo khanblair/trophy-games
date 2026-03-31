@@ -8,6 +8,7 @@ import { analyzeMatch } from '@/lib/ai';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
 
+
 interface MatchDetailModalProps {
     match: MatchData | null;
     isOpen: boolean;
@@ -19,8 +20,12 @@ type Tab = 'Overview' | 'Odds';
 export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
     const [analyzing, setAnalyzing] = useState(false);
+    const [localPrediction, setLocalPrediction] = useState(match?.aiPrediction || null);
 
     if (!match) return null;
+
+    // Use local prediction if available (after just generating), otherwise use match data
+    const aiPred = localPrediction || match.aiPrediction;
 
     const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
         { id: 'Overview', icon: Trophy, label: 'Overview' },
@@ -30,15 +35,20 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
     const handleAnalyze = async () => {
         setAnalyzing(true);
         const result = await analyzeMatch(match);
-        // Save to Convex
+        // Save to Convex via API route
         try {
-            await fetch('/api/mobile/ai-prediction', {
+            await fetch('/api/admin/save-prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     matchId: match.id,
                     aiPrediction: result
                 })
+            });
+            // Update local state to show the prediction immediately
+            setLocalPrediction({
+                ...result,
+                generatedAt: new Date().toISOString()
             });
         } catch (e) {
             console.error('Failed to save AI prediction:', e);
@@ -206,30 +216,30 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
 
                             {/* AI Prediction Section */}
                             <div className="md:col-span-2">
-                                {match.aiPrediction ? (
+                                {aiPred ? (
                                     <div className="space-y-4">
                                         <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
                                             <BrainCircuit size={16} className="text-purple-500" />
                                             AI Prediction
                                             <span className="ml-auto text-xs bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
-                                                {match.aiPrediction.confidence}% confidence
+                                                {aiPred.confidence}% confidence
                                             </span>
                                         </h3>
                                         <div className="rounded-xl border border-purple-100 bg-purple-50/30 p-4 dark:border-purple-500/20 dark:bg-purple-500/5">
                                             <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
-                                                {match.aiPrediction.prediction}
+                                                {aiPred.prediction}
                                             </p>
                                             <div className="mt-3 grid gap-2">
-                                                {match.aiPrediction.reasoning.map((reason, i) => (
+                                                {aiPred.reasoning?.map((reason: string, i: number) => (
                                                     <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
                                                         <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />
                                                         <span>{reason}</span>
                                                     </div>
                                                 ))}
                                             </div>
-                                            {match.aiPrediction.suggestedBet && (
+                                            {aiPred.suggestedBet && (
                                                 <div className="mt-3 px-3 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                                                    <span className="font-bold text-blue-600">Pro Tip:</span> {match.aiPrediction.suggestedBet}
+                                                    <span className="font-bold text-blue-600">Pro Tip:</span> {aiPred.suggestedBet}
                                                 </div>
                                             )}
                                         </div>

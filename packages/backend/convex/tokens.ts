@@ -67,6 +67,9 @@ export const getTokensByDevice = query({
     },
 });
 
+// Alias for mobile compatibility
+export const getTokensForDevice = getTokensByDevice;
+
 export const revokeToken = mutation({
     args: {
         token: v.string(),
@@ -268,3 +271,34 @@ export const reactivateToken = mutation({
         }
     },
 });
+
+// Alias for mobile compatibility - same as verifyToken but with different return format
+export const claimToken = mutation({
+    args: {
+        token: v.string(),
+        deviceId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const tokenDoc = await ctx.db
+            .query("accessTokens")
+            .withIndex("by_token", (q) => q.eq("token", args.token))
+            .unique();
+
+        if (!tokenDoc) return { success: false, reason: "Token not found" };
+        if (!tokenDoc.isActive) return { success: false, reason: "Token is inactive" };
+        if (tokenDoc.deviceId !== args.deviceId) return { success: false, reason: "Token bound to different device" };
+        if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
+            return { success: false, reason: "Token expired" };
+        }
+
+        // Mark it as claimed upon successful verification
+        if (!tokenDoc.isClaimed) {
+            await ctx.db.patch(tokenDoc._id, { isClaimed: true });
+        }
+
+        return { success: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
+    },
+});
+
+// Alias for mobile compatibility - same as requestMembership
+export const createMembershipRequest = requestMembership;

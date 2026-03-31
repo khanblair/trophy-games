@@ -3,7 +3,7 @@ import { Crown, Calendar, Lock, Key, CheckCircle2, Clock, Send } from 'lucide-re
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
-import { webApi } from '../../api/web';
+
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import * as Application from 'expo-application';
@@ -53,15 +53,18 @@ export default function VIPTipsScreen() {
 
     useEffect(() => {
         const init = async () => {
-            // Get device ID
             const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
             setDeviceId(id);
-
-            // Check membership status
-            try {
-                const status = await webApi.getMembershipStatus(id, 'vip');
-                setMemberStatus(status.status as MemberStatus);
-            } catch {
+            // Check membership status via Convex
+            if (convex) {
+                try {
+                    const tokens = await convex.query(api.tokens.getTokensForDevice, { deviceId: id });
+                    const hasVIPToken = tokens?.some((t: any) => t.type === 'vip' && t.isActive);
+                    setMemberStatus(hasVIPToken ? 'active' : 'none');
+                } catch {
+                    setMemberStatus('none');
+                }
+            } else {
                 setMemberStatus('none');
             }
         };
@@ -105,16 +108,15 @@ export default function VIPTipsScreen() {
     const onRefresh = useCallback(() => { loadData(true); }, [loadData]);
 
     const requestMembership = async () => {
-        if (!deviceId) return;
+        if (!deviceId || !convex) return;
         setRequesting(true);
         try {
-            const result = await webApi.requestMembership(deviceId, 'vip');
-            if (result.success) {
-                setMemberStatus('pending');
-                Alert.alert('Request Sent!', 'Your VIP membership request has been submitted. You will receive a token once approved by admin.');
-            } else if (result.reason === 'Request already pending') {
-                setMemberStatus('pending');
-            }
+            await convex.mutation(api.tokens.createMembershipRequest, {
+                deviceId,
+                type: 'vip'
+            });
+            setMemberStatus('pending');
+            Alert.alert('Request Sent!', 'Your VIP membership request has been submitted. You will receive a token once approved by admin.');
         } catch {
             Alert.alert('Error', 'Failed to send request. Please try again.');
         }
@@ -122,11 +124,14 @@ export default function VIPTipsScreen() {
     };
 
     const verifyToken = async () => {
-        if (!tokenInput.trim()) return;
+        if (!tokenInput.trim() || !convex) return;
         setVerifyingToken(true);
         try {
-            const result = await webApi.verifyToken(tokenInput.trim(), deviceId);
-            if (result.valid) {
+            const result = await convex.mutation(api.tokens.claimToken, {
+                token: tokenInput.trim(),
+                deviceId
+            });
+            if (result.success) {
                 setMemberStatus('active');
                 setEnteringToken(false);
                 setTokenInput('');

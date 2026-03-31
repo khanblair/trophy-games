@@ -15,9 +15,9 @@ export default defineSchema({
         awayTeamLogo: v.optional(v.string()),
         country: v.optional(v.string()),
         countryFlag: v.optional(v.string()),
-        timestamp: v.string(),
-        status: v.string(),
-        score: v.string(),
+        timestamp: v.string(), // ISO date string
+        status: v.string(), // 'Scheduled', 'Live', 'Finished', 'Postponed', etc.
+        score: v.string(), // e.g., "0-0", "2-1"
         homeScore: v.optional(v.number()),
         awayScore: v.optional(v.number()),
         homeStanding: v.optional(v.number()),
@@ -40,25 +40,27 @@ export default defineSchema({
         })),
         detailedOdds: v.optional(v.any()),
         h2h: v.optional(v.any()),
-        source: v.optional(v.union(v.literal('odds-api'), v.literal('goaloo-live'))),
         // History / result tracking
         result: v.optional(v.union(v.literal('win'), v.literal('lose'), v.literal('draw'))),
         matchDate: v.optional(v.string()), // YYYY-MM-DD
         isHistory: v.optional(v.boolean()), // manually marked as history by admin
+        // Metadata
+        createdAt: v.string(),
+        updatedAt: v.optional(v.string()),
+        createdBy: v.optional(v.string()), // admin identifier
     })
         .index("by_match_id", ["id"])
         .index("by_match_type", ["matchType"])
         .index("by_trending", ["isTrending"])
-        .index("by_source", ["source"])
         .index("by_match_date", ["matchDate"])
         .index("by_history", ["isHistory"]),
 
     leagues: defineTable({
         id: v.number(),
         name: v.string(),
-        url: v.string(),
+        url: v.optional(v.string()),
         logo: v.optional(v.string()),
-        type: v.string(),
+        type: v.optional(v.string()),
         matchCount: v.optional(v.number()),
         country: v.optional(v.string()),
         countryId: v.optional(v.number()),

@@ -2,7 +2,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { useState, useCallback, useEffect } from 'react';
 import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { webApi } from '../../api/web';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@trophy-games/backend';
 import * as Application from 'expo-application';
 
 type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
@@ -11,51 +12,59 @@ export default function MembershipStoreScreen() {
     const { themeColors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [deviceId, setDeviceId] = useState('');
-    const [vipStatus, setVipStatus] = useState<MemberStatus>('loading');
-    const [paidStatus, setPaidStatus] = useState<MemberStatus>('loading');
-    const [requesting, setRequesting] = useState<string | null>(null);
     const [tokenInput, setTokenInput] = useState('');
     const [showTokenInput, setShowTokenInput] = useState(false);
     const [verifyingToken, setVerifyingToken] = useState(false);
+    const [requesting, setRequesting] = useState<string | null>(null);
 
-    const checkStatus = useCallback(async () => {
-        try {
-            const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
-            setDeviceId(id);
+    // Convex mutations
+    const requestMembership = useMutation(api.tokens.requestMembership);
+    const verifyTokenMutation = useMutation(api.tokens.verifyToken);
 
-            const [vip, paid] = await Promise.all([
-                webApi.getMembershipStatus(id, 'vip'),
-                webApi.getMembershipStatus(id, 'paid')
-            ]);
-
-            setVipStatus(vip.status as MemberStatus);
-            setPaidStatus(paid.status as MemberStatus);
-        } catch (e) {
-            console.error('Failed to check membership status:', e);
-            setVipStatus('none');
-            setPaidStatus('none');
-        }
+    // Get device ID on mount
+    useEffect(() => {
+        const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
+        setDeviceId(id);
     }, []);
 
-    useEffect(() => {
-        checkStatus().finally(() => setVipStatus(prev => prev === 'loading' ? 'none' : prev));
-    }, [checkStatus]);
+    // Convex queries for membership status
+    const vipStatusData = useQuery(
+        api.tokens.getMembershipStatus,
+        deviceId ? { deviceId, type: 'vip' } : 'skip'
+    );
+    const paidStatusData = useQuery(
+        api.tokens.getMembershipStatus,
+        deviceId ? { deviceId, type: 'paid' } : 'skip'
+    );
+
+    // Map Convex status to local status
+    const getLocalStatus = (data: typeof vipStatusData): MemberStatus => {
+        if (!data) return 'loading';
+        if (data.status === 'active') return 'active';
+        if (data.status === 'pending') return 'pending';
+        if (data.status === 'approved') return 'approved';
+        return 'none';
+    };
+
+    const vipStatus = getLocalStatus(vipStatusData);
+    const paidStatus = getLocalStatus(paidStatusData);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await checkStatus();
+        // Convex queries auto-refresh, just simulate a delay
+        await new Promise(r => setTimeout(r, 500));
         setRefreshing(false);
-    }, [checkStatus]);
+    }, []);
 
     const handleRequest = async (type: 'vip' | 'paid') => {
         if (!deviceId) return;
         setRequesting(type);
         try {
-            const result = await webApi.requestMembership(deviceId, type);
+            const result = await requestMembership({ deviceId, type });
             if (result.success) {
-                if (type === 'vip') setVipStatus('pending');
-                else setPaidStatus('pending');
                 Alert.alert('Success!', `Your ${type.toUpperCase()} request has been sent to admin.`);
+            } else {
+                Alert.alert('Notice', result.reason || 'Request could not be processed.');
             }
         } catch (e) {
             Alert.alert('Error', 'Failed to send request. Please try again.');
@@ -64,15 +73,17 @@ export default function MembershipStoreScreen() {
     };
 
     const handleVerifyToken = async () => {
-        if (!tokenInput.trim()) return;
+        if (!tokenInput.trim() || !deviceId) return;
         setVerifyingToken(true);
         try {
-            const result = await webApi.verifyToken(tokenInput.trim(), deviceId);
+            const result = await verifyTokenMutation({
+                token: tokenInput.trim(),
+                deviceId
+            });
             if (result.valid) {
                 Alert.alert('Success!', 'Your token has been verified. Access granted.');
                 setShowTokenInput(false);
                 setTokenInput('');
-                checkStatus();
             } else {
                 Alert.alert('Invalid Token', result.reason || 'Token is invalid or already used.');
             }

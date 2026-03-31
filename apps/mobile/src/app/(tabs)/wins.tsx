@@ -1,7 +1,8 @@
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
-import { CheckCircle2, Trophy, TrendingUp, Calendar } from 'lucide-react-native';
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { webApi } from '../../api/web';
+import { CheckCircle2, Trophy, TrendingUp } from 'lucide-react-native';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -16,14 +17,23 @@ function getDateRange() {
 }
 
 export default function WinsScreen() {
-    const [matches, setMatches] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const { themeColors } = useTheme();
+    const [refreshing, setRefreshing] = useState(false);
     const [selectedLeague, setSelectedLeague] = useState('All');
-    const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = all dates
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     const dates = useMemo(() => getDateRange(), []);
+
+    // Convex query for match history
+    const historyData = useQuery(
+        api.matches.getHistory,
+        { limit: 200 }
+    );
+
+    const matches = useMemo(() => {
+        if (!historyData) return [];
+        return historyData;
+    }, [historyData]);
 
     const uniqueLeagues = useMemo(() => {
         const leagues = Array.from(new Set(matches.map(m => m.league))).sort();
@@ -34,45 +44,19 @@ export default function WinsScreen() {
         return matches.filter(match => {
             const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
             if (!selectedDate) return leagueMatch;
-            const matchDate = match.matchDate || match.timestamp?.split('T')[0];
+            const matchDate = match.matchDate || match.createdAt?.split('T')[0];
             return leagueMatch && matchDate === selectedDate;
         });
     }, [matches, selectedLeague, selectedDate]);
 
-    const loadData = useCallback(async (isRefresh = false) => {
-        if (isRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
-
-        try {
-            let data: any[];
-            if (selectedDate) {
-                // Fetch history for specific date range from Convex via web API
-                data = await webApi.getHistoryByDate(selectedDate, selectedDate);
-            } else {
-                // Fetch all recent history
-                data = await webApi.getHistory();
-            }
-            setMatches(data || []);
-        } catch (e) {
-            console.error('[Wins] load error:', e);
-            setMatches([]);
-        }
-
-        setLoading(false);
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        // Convex queries auto-refresh, just simulate a delay
+        await new Promise(r => setTimeout(r, 500));
         setRefreshing(false);
-    }, [selectedDate]);
+    }, []);
 
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
-    const onRefresh = useCallback(() => {
-        loadData(true);
-    }, [loadData]);
-
+    const loading = historyData === undefined;
     const winCount = matches.filter(m => m.result === 'win').length;
     const winRate = matches.length > 0 ? Math.round((winCount / matches.length) * 100) : 0;
 
@@ -185,8 +169,8 @@ export default function WinsScreen() {
                     <View style={styles.fixtureGrid}>
                         {filteredMatches.map((match: any) => (
                             <MatchCard
-                                key={match.id}
-                                matchId={match.id}
+                                key={match._id}
+                                matchId={match._id}
                                 leagueName={match.league}
                                 leagueLogo={match.leagueLogo}
                                 time="FT"

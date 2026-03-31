@@ -16,6 +16,8 @@ interface MatchCardProps {
     awayTeamLogo?: string;
     prediction?: string;
     odds?: string;
+    homeOdds?: string;
+    awayOdds?: string;
     isLocked?: boolean;
     price?: number;
     homeScore?: number;
@@ -39,6 +41,8 @@ export const MatchCard = ({
     awayTeamLogo,
     prediction,
     odds,
+    homeOdds,
+    awayOdds,
     isLocked = false,
     price,
     homeScore,
@@ -129,7 +133,15 @@ export const MatchCard = ({
                         {homeTeamLogo && <Image source={{ uri: homeTeamLogo }} style={styles.teamLogo} />}
                         <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{homeTeam}</Text>
                     </View>
-                    {homeScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{homeScore}</Text>}
+                    <View style={styles.teamRightSection}>
+                        {homeScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{homeScore}</Text>}
+                        {homeOdds && (
+                            <View style={styles.teamOddsBox}>
+                                <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>1</Text>
+                                <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{homeOdds}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.teamRow}>
@@ -137,7 +149,15 @@ export const MatchCard = ({
                         {awayTeamLogo && <Image source={{ uri: awayTeamLogo }} style={styles.teamLogo} />}
                         <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{awayTeam}</Text>
                     </View>
-                    {awayScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{awayScore}</Text>}
+                    <View style={styles.teamRightSection}>
+                        {awayScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{awayScore}</Text>}
+                        {awayOdds && (
+                            <View style={styles.teamOddsBox}>
+                                <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>2</Text>
+                                <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{awayOdds}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
 
@@ -154,18 +174,29 @@ export const MatchCard = ({
                     </View>
                 ) : (
                     <View style={styles.predictionRow}>
-                        <View style={styles.predictionSection}>
-                            <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>PREDICTION</Text>
-                            <View style={[styles.predictionChip, { backgroundColor: themeColors.primary }]}>
-                                <Text style={styles.predictionValue}>{prediction || 'ANALYZING'}</Text>
+                        {/* Main Info: Prediction + Odds on left, AI on right */}
+                        <View style={styles.mainInfoSection}>
+                            <View style={styles.predictionWrap}>
+                                <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>PREDICTION</Text>
+                                <View style={[styles.predictionChip, { backgroundColor: themeColors.primary }]}>
+                                    <Text 
+                                        style={styles.predictionValue}
+                                        numberOfLines={1}
+                                        adjustsFontSizeToFit
+                                        minimumFontScale={0.7}
+                                    >
+                                        {prediction || 'ANALYZING'}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.oddsWrap}>
+                                <Text style={[styles.oddsLabel, { color: themeColors.textMuted }]}>ODDS</Text>
+                                <Text style={[styles.oddsValue, { color: themeColors.text }]}>{odds || '1.85'}</Text>
                             </View>
                         </View>
 
-                        <View style={styles.oddsSection}>
-                            <Text style={[styles.oddsLabel, { color: themeColors.textMuted }]}>ODDS</Text>
-                            <Text style={[styles.oddsValue, { color: themeColors.text }]}>{odds || '1.85'}</Text>
-                        </View>
-
+                        {/* AI Confidence Button */}
                         <TouchableOpacity
                             style={[
                                 styles.aiChip,
@@ -280,6 +311,24 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         fontVariant: ['tabular-nums'],
     },
+    teamRightSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    teamOddsBox: {
+        alignItems: 'center',
+        minWidth: 36,
+    },
+    teamOddsLabel: {
+        fontSize: 8,
+        fontWeight: '900',
+        marginBottom: 2,
+    },
+    teamOddsValue: {
+        fontSize: 13,
+        fontWeight: '900',
+    },
     footer: {
         borderTopWidth: 1,
         paddingTop: 16,
@@ -287,9 +336,18 @@ const styles = StyleSheet.create({
     predictionRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
     },
-    predictionSection: {
-        flex: 1.5,
+    mainInfoSection: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 12,
+    },
+    predictionWrap: {
+        flex: 1,
+        minWidth: 0,
     },
     predictionLabel: {
         fontSize: 8,
@@ -299,17 +357,19 @@ const styles = StyleSheet.create({
     },
     predictionChip: {
         alignSelf: 'flex-start',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
         borderRadius: 8,
+        maxWidth: '100%',
     },
     predictionValue: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '900',
         color: 'black',
     },
-    oddsSection: {
-        flex: 1,
+    oddsWrap: {
+        alignItems: 'flex-start',
+        minWidth: 45,
     },
     oddsLabel: {
         fontSize: 8,
@@ -324,11 +384,12 @@ const styles = StyleSheet.create({
     aiChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
+        gap: 4,
+        paddingHorizontal: 8,
         paddingVertical: 6,
         borderRadius: 10,
         borderWidth: 1,
+        minWidth: 50,
     },
     aiChipText: {
         fontSize: 10,

@@ -1,4 +1,4 @@
-import { MatchData, LeagueInfo, TRENDING_LEAGUE_IDS } from '@trophy-games/shared';
+import { MatchData, LeagueInfo } from '@trophy-games/shared';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 
@@ -11,45 +11,17 @@ export interface ScrapedData {
     lastUpdated: string;
 }
 
-export async function saveOddsData(matches: MatchData[], leagues: LeagueInfo[]) {
+export async function saveMatches(matches: MatchData[], leagues: LeagueInfo[] = []) {
     if (!convex || !matches.length) return;
 
-    console.log(`[Storage] Saving ${matches.length} odds-api matches to Convex...`);
+    console.log(`[Storage] Saving ${matches.length} matches to Convex...`);
     try {
         await convex.mutation(api.matches.saveAll, {
             matches: matches,
             leagues: leagues,
         });
     } catch (error) {
-        console.error('[Storage] Save odds data failed:', error);
-    }
-}
-
-export async function saveLiveData(matches: MatchData[]) {
-    if (!convex || !matches.length) return;
-
-    console.log(`[Storage] Saving ${matches.length} goaloo-live matches to Convex...`);
-    try {
-        await convex.mutation(api.matches.saveAll, {
-            matches: matches,
-            leagues: [],
-        });
-    } catch (error) {
-        console.error('[Storage] Save live data failed:', error);
-    }
-}
-
-export async function saveData(data: Partial<ScrapedData>) {
-    if (!convex || !data.matches || !data.leagues) return;
-
-    console.log(`[Storage] Pushing ${data.matches.length} matches to Convex...`);
-    try {
-        await convex.mutation(api.matches.saveAll, {
-            matches: data.matches,
-            leagues: data.leagues,
-        });
-    } catch (error) {
-        console.error('[Storage] Save to Convex failed:', error);
+        console.error('[Storage] Save matches failed:', error);
     }
 }
 
@@ -81,26 +53,20 @@ export async function loadData(): Promise<ScrapedData> {
     }
 }
 
-export async function getSyncStatus(): Promise<{ oddsMatches: number; liveMatches: number; lastOddsSync: string | null; lastLiveSync: string | null }> {
+export async function getMatchCount(): Promise<{ totalMatches: number }> {
     if (!convex) {
-        return { oddsMatches: 0, liveMatches: 0, lastOddsSync: null, lastLiveSync: null };
+        return { totalMatches: 0 };
     }
 
     try {
         const allMatches = await convex.query(api.matches.getAll, { limit: 1000 });
         const matches = allMatches as MatchData[] || [];
         
-        const oddsMatches = matches.filter(m => m.source === 'odds-api').length;
-        const liveMatches = matches.filter(m => m.source === 'goaloo-live').length;
-
         return {
-            oddsMatches,
-            liveMatches,
-            lastOddsSync: null,
-            lastLiveSync: null,
+            totalMatches: matches.length,
         };
     } catch (error) {
-        console.error('[Storage] Get sync status failed:', error);
-        return { oddsMatches: 0, liveMatches: 0, lastOddsSync: null, lastLiveSync: null };
+        console.error('[Storage] Get match count failed:', error);
+        return { totalMatches: 0 };
     }
 }

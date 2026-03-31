@@ -1,10 +1,12 @@
 import { Tabs } from 'expo-router';
-import { Home, DollarSign, Crown, CheckCircle, Bell } from 'lucide-react-native';
+import { Home, DollarSign, Crown, CheckCircle, Store } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
     const { themeColors } = useTheme();
+    const insets = useSafeAreaInsets();
 
     return (
         <Tabs
@@ -20,8 +22,9 @@ export default function TabLayout() {
                 tabBarStyle: {
                     backgroundColor: themeColors.background,
                     borderTopColor: themeColors.border,
-                    height: 60,
+                    height: 60 + insets.bottom,
                     paddingTop: 5,
+                    paddingBottom: insets.bottom,
                 },
             }}
         >
@@ -57,7 +60,7 @@ export default function TabLayout() {
                 name="market"
                 options={{
                     title: 'MEMBERSHIP',
-                    tabBarIcon: ({ color }) => <Bell color={color} size={22} />,
+                    tabBarIcon: ({ color }) => <Store color={color} size={22} />,
                 }}
             />
         </Tabs>

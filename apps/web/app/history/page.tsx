@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { CheckCircle2, XCircle, Minus, History, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, Minus, History, RefreshCw, Crown, DollarSign, Star, Filter } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Match {
     id: string;
@@ -12,44 +13,54 @@ interface Match {
     awayScore?: number;
     timestamp: string;
     status: string;
-    matchType?: string;
+    matchType?: 'free' | 'paid' | 'vip' | 'unassigned';
     result?: 'win' | 'lose' | 'draw';
     isHistory?: boolean;
     aiPrediction?: { prediction: string; confidence: number };
 }
 
 type ResultFilter = 'all' | 'win' | 'lose' | 'draw' | 'unmarked';
+type TypeFilter = 'all' | 'free' | 'paid' | 'vip';
 
 export default function HistoryPage() {
     const [matches, setMatches] = useState<Match[]>([]);
+    const [allMatches, setAllMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingAll, setLoadingAll] = useState(false);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [search, setSearch] = useState('');
     const [tab, setTab] = useState<'history' | 'completed'>('history');
-    const [allMatches, setAllMatches] = useState<Match[]>([]);
-    const [loadingAll, setLoadingAll] = useState(false);
 
     const loadHistory = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/mobile/history?limit=200');
+            const res = await fetch('/api/admin/matches');
             const data = await res.json();
-            setMatches(Array.isArray(data) ? data : []);
-        } catch (e) { console.error(e); }
+            // Filter to only history matches
+            const historyMatches = Array.isArray(data) 
+                ? data.filter((m: Match) => m.isHistory || m.status === 'Finished' || m.status === 'FT')
+                : [];
+            setMatches(historyMatches);
+        } catch (e) { 
+            console.error(e); 
+        }
         setLoading(false);
     }, []);
 
     const loadAllMatches = useCallback(async () => {
         setLoadingAll(true);
         try {
-            const res = await fetch('/api/mobile/matches?limit=200');
+            const res = await fetch('/api/admin/matches');
             const data = await res.json();
             const notHistory = Array.isArray(data)
-                ? data.filter((m: Match) => m.status !== 'Finished' && m.status !== 'FT' && !m.isHistory)
+                ? data.filter((m: Match) => !m.isHistory && m.status !== 'Finished' && m.status !== 'FT')
                 : [];
             setAllMatches(notHistory);
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e); 
+        }
         setLoadingAll(false);
     }, []);
 
@@ -59,10 +70,13 @@ export default function HistoryPage() {
     const updateResult = async (matchId: string, result: 'win' | 'lose' | 'draw') => {
         setUpdatingId(matchId);
         try {
-            await fetch('/api/mobile/history/result', {
-                method: 'POST',
+            await fetch('/api/admin/matches', {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matchId, result, isHistory: true }),
+                body: JSON.stringify({ 
+                    matchId, 
+                    updates: { result, isHistory: true }
+                }),
             });
             setMatches(prev => prev.map(m => m.id === matchId ? { ...m, result, isHistory: true } : m));
         } catch (e) { console.error(e); }
@@ -72,10 +86,13 @@ export default function HistoryPage() {
     const markAsHistory = async (matchId: string, add: boolean) => {
         setUpdatingId(matchId);
         try {
-            await fetch('/api/mobile/history/mark', {
-                method: 'POST',
+            await fetch('/api/admin/matches', {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matchId, isHistory: add }),
+                body: JSON.stringify({ 
+                    matchId, 
+                    updates: { isHistory: add }
+                }),
             });
             if (add) {
                 const match = allMatches.find(m => m.id === matchId);
@@ -98,7 +115,8 @@ export default function HistoryPage() {
             m.league.toLowerCase().includes(q);
         const matchesResult = resultFilter === 'all' ||
             (resultFilter === 'unmarked' ? !m.result : m.result === resultFilter);
-        return matchesSearch && matchesResult;
+        const matchesType = typeFilter === 'all' || m.matchType === typeFilter;
+        return matchesSearch && matchesResult && matchesType;
     });
 
     const wins = matches.filter(m => m.result === 'win').length;
@@ -117,6 +135,21 @@ export default function HistoryPage() {
         return (
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.cls}`}>
                 {cfg.icon}{result.toUpperCase()}
+            </span>
+        );
+    };
+
+    const typeBadge = (type?: string) => {
+        const colors = {
+            free: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+            paid: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+            vip: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+            unassigned: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+        };
+        const labels = { free: 'Free', paid: 'Paid', vip: 'VIP', unassigned: '—' };
+        return (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[type as keyof typeof colors] || colors.unassigned}`}>
+                {labels[type as keyof typeof labels] || '—'}
             </span>
         );
     };
@@ -157,11 +190,18 @@ export default function HistoryPage() {
 
             {tab === 'history' && (
                 <>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search team or league..." className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500" />
-                        <div className="flex gap-2 flex-wrap">
+                    <div className="flex flex-col gap-3">
+                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search team or league..." className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500" />
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-xs text-zinc-500 py-1.5">Result:</span>
                             {(['all', 'win', 'lose', 'draw', 'unmarked'] as ResultFilter[]).map(f => (
                                 <button key={f} onClick={() => setResultFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${resultFilter === f ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>{f}</button>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-xs text-zinc-500 py-1.5">Type:</span>
+                            {(['all', 'free', 'paid', 'vip'] as TypeFilter[]).map(f => (
+                                <button key={f} onClick={() => setTypeFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${typeFilter === f ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>{f}</button>
                             ))}
                         </div>
                     </div>
@@ -180,7 +220,7 @@ export default function HistoryPage() {
                                             <th className="px-4 py-3 text-right">Home</th>
                                             <th className="px-4 py-3 text-center">Score</th>
                                             <th className="px-4 py-3">Away</th>
-                                            <th className="px-4 py-3 text-center">Prediction</th>
+                                            <th className="px-4 py-3 text-center">Type</th>
                                             <th className="px-4 py-3 text-center">Result</th>
                                             <th className="px-4 py-3 text-center">Mark</th>
                                         </tr>
@@ -195,11 +235,7 @@ export default function HistoryPage() {
                                                     {match.homeScore !== undefined ? `${match.homeScore} - ${match.awayScore}` : '—'}
                                                 </td>
                                                 <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50 text-xs">{match.awayTeam}</td>
-                                                <td className="px-4 py-3 text-center text-xs text-zinc-500">
-                                                    {match.aiPrediction?.prediction
-                                                        ? <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-full">{match.aiPrediction.prediction}</span>
-                                                        : '—'}
-                                                </td>
+                                                <td className="px-4 py-3 text-center">{typeBadge(match.matchType)}</td>
                                                 <td className="px-4 py-3 text-center">{resultBadge(match.result)}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="flex items-center justify-center gap-1">
@@ -236,7 +272,7 @@ export default function HistoryPage() {
                                             <th className="px-4 py-3 text-right">Home</th>
                                             <th className="px-4 py-3 text-center">Score</th>
                                             <th className="px-4 py-3">Away</th>
-                                            <th className="px-4 py-3 text-center">Status</th>
+                                            <th className="px-4 py-3 text-center">Type</th>
                                             <th className="px-4 py-3 text-center">Action</th>
                                         </tr>
                                     </thead>
@@ -248,7 +284,7 @@ export default function HistoryPage() {
                                                 <td className="px-4 py-3 text-right text-xs font-medium text-zinc-900 dark:text-zinc-50">{match.homeTeam}</td>
                                                 <td className="px-4 py-3 text-center font-bold text-zinc-900 dark:text-zinc-50">{match.homeScore !== undefined ? `${match.homeScore} - ${match.awayScore}` : 'vs'}</td>
                                                 <td className="px-4 py-3 text-xs font-medium text-zinc-900 dark:text-zinc-50">{match.awayTeam}</td>
-                                                <td className="px-4 py-3 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">{match.status}</span></td>
+                                                <td className="px-4 py-3 text-center">{typeBadge(match.matchType)}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <button onClick={() => markAsHistory(match.id, true)} disabled={updatingId === match.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
                                                         <History size={12} />Add to History

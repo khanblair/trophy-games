@@ -2,6 +2,8 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
+// ========== QUERIES ==========
+
 export const getAll = query({
     args: {
         limit: v.optional(v.number()),
@@ -39,6 +41,18 @@ export const get = query({
     },
 });
 
+export const getById = query({
+    args: {
+        matchId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+    },
+});
+
 export const getTrending = query({
     args: {},
     handler: async (ctx) => {
@@ -55,7 +69,7 @@ export const getByDate = query({
     },
     handler: async (ctx, args) => {
         return await ctx.db.query("matches")
-            .filter((q) => q.eq(q.field("timestamp"), args.date))
+            .filter((q) => q.eq(q.field("matchDate"), args.date))
             .order("desc")
             .take(100);
     },
@@ -102,6 +116,148 @@ export const getHistoryByDateRange = query({
     },
 });
 
+// ========== MUTATIONS ==========
+
+// CREATE - Add a new match manually
+export const create = mutation({
+    args: {
+        match: v.object({
+            id: v.string(),
+            league: v.string(),
+            leagueId: v.optional(v.number()),
+            leagueLogo: v.optional(v.string()),
+            homeTeam: v.string(),
+            homeTeamId: v.optional(v.number()),
+            homeTeamLogo: v.optional(v.string()),
+            awayTeam: v.string(),
+            awayTeamId: v.optional(v.number()),
+            awayTeamLogo: v.optional(v.string()),
+            country: v.optional(v.string()),
+            countryFlag: v.optional(v.string()),
+            timestamp: v.string(),
+            status: v.string(),
+            score: v.optional(v.string()),
+            homeScore: v.optional(v.number()),
+            awayScore: v.optional(v.number()),
+            matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
+            isTrending: v.optional(v.boolean()),
+            odds: v.optional(v.object({
+                home: v.string(),
+                away: v.string(),
+                draw: v.optional(v.string()),
+            })),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const matchDate = args.match.timestamp ? args.match.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
+
+        const newMatch = {
+            ...args.match,
+            score: args.match.score || '0-0',
+            matchDate,
+            isHistory: false,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        const matchId = await ctx.db.insert("matches", newMatch);
+
+        // Send notification for new match
+        if (args.match.matchType === 'free') {
+            await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "New Free Tip Added!",
+                body: `Check out the new match: ${args.match.homeTeam} vs ${args.match.awayTeam}`,
+            });
+        } else if (args.match.matchType === 'vip') {
+            await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "New VIP Prediction",
+                body: `Premium VIP tip available: ${args.match.homeTeam} vs ${args.match.awayTeam}`,
+            });
+        } else if (args.match.matchType === 'paid') {
+            await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "New Paid Prediction",
+                body: `A new Paid tip is now available: ${args.match.homeTeam} vs ${args.match.awayTeam}`,
+            });
+        }
+
+        return matchId;
+    },
+});
+
+// UPDATE - Update match details
+export const update = mutation({
+    args: {
+        matchId: v.string(),
+        updates: v.object({
+            league: v.optional(v.string()),
+            leagueLogo: v.optional(v.string()),
+            homeTeam: v.optional(v.string()),
+            homeTeamLogo: v.optional(v.string()),
+            awayTeam: v.optional(v.string()),
+            awayTeamLogo: v.optional(v.string()),
+            country: v.optional(v.string()),
+            countryFlag: v.optional(v.string()),
+            timestamp: v.optional(v.string()),
+            status: v.optional(v.string()),
+            score: v.optional(v.string()),
+            homeScore: v.optional(v.number()),
+            awayScore: v.optional(v.number()),
+            matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
+            isTrending: v.optional(v.boolean()),
+            odds: v.optional(v.object({
+                home: v.string(),
+                away: v.string(),
+                draw: v.optional(v.string()),
+            })),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (!existing) {
+            throw new Error(`Match with id ${args.matchId} not found`);
+        }
+
+        const updates: any = {
+            ...args.updates,
+            updatedAt: new Date().toISOString(),
+        };
+
+        // Update matchDate if timestamp changed
+        if (args.updates.timestamp) {
+            updates.matchDate = args.updates.timestamp.split('T')[0];
+        }
+
+        await ctx.db.patch(existing._id, updates);
+        return existing._id;
+    },
+});
+
+// DELETE - Delete a match
+export const deleteMatch = mutation({
+    args: {
+        matchId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (!existing) {
+            throw new Error(`Match with id ${args.matchId} not found`);
+        }
+
+        await ctx.db.delete(existing._id);
+        return { success: true };
+    },
+});
+
+// Update match type only
 export const updateMatchType = mutation({
     args: {
         matchId: v.string(),
@@ -114,7 +270,10 @@ export const updateMatchType = mutation({
             .unique();
 
         if (existing) {
-            await ctx.db.patch(existing._id, { matchType: args.matchType });
+            await ctx.db.patch(existing._id, { 
+                matchType: args.matchType,
+                updatedAt: new Date().toISOString(),
+            });
 
             if (args.matchType !== existing.matchType) {
                 if (args.matchType === 'free') {
@@ -138,6 +297,7 @@ export const updateMatchType = mutation({
     },
 });
 
+// Update match result
 export const updateMatchResult = mutation({
     args: {
         matchId: v.string(),
@@ -154,11 +314,13 @@ export const updateMatchResult = mutation({
             await ctx.db.patch(existing._id, {
                 result: args.result,
                 isHistory: args.isHistory ?? true,
+                updatedAt: new Date().toISOString(),
             });
         }
     },
 });
 
+// Mark as history
 export const markAsHistory = mutation({
     args: {
         matchId: v.string(),
@@ -171,11 +333,15 @@ export const markAsHistory = mutation({
             .unique();
 
         if (existing) {
-            await ctx.db.patch(existing._id, { isHistory: args.isHistory });
+            await ctx.db.patch(existing._id, { 
+                isHistory: args.isHistory,
+                updatedAt: new Date().toISOString(),
+            });
         }
     },
 });
 
+// Save AI prediction
 export const saveAIPrediction = mutation({
     args: {
         matchId: v.string(),
@@ -197,12 +363,14 @@ export const saveAIPrediction = mutation({
                 aiPrediction: {
                     ...args.aiPrediction,
                     generatedAt: new Date().toISOString()
-                }
+                },
+                updatedAt: new Date().toISOString(),
             });
         }
     },
 });
 
+// Toggle trending status
 export const toggleTrending = mutation({
     args: {
         matchId: v.string(),
@@ -214,21 +382,52 @@ export const toggleTrending = mutation({
             .unique();
 
         if (existing) {
-            await ctx.db.patch(existing._id, { isTrending: !existing.isTrending });
+            await ctx.db.patch(existing._id, { 
+                isTrending: !existing.isTrending,
+                updatedAt: new Date().toISOString(),
+            });
         }
     },
 });
 
+// Delete a league
+export const deleteLeague = mutation({
+    args: {
+        leagueId: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("leagues")
+            .withIndex("by_league_id", (q) => q.eq("id", args.leagueId))
+            .unique();
+
+        if (!existing) {
+            throw new Error(`League with id ${args.leagueId} not found`);
+        }
+
+        await ctx.db.delete(existing._id);
+        return { success: true };
+    },
+});
+
+// Bulk save matches (for admin import)
 export const saveAll = mutation({
     args: {
         matches: v.array(v.any()),
-        leagues: v.array(v.any()),
+        leagues: v.optional(v.array(v.any())),
     },
     handler: async (ctx, args) => {
+        const now = new Date().toISOString();
+
         for (const match of args.matches) {
             // Derive matchDate from timestamp if not set
-            const matchDate = match.matchDate || (match.timestamp ? match.timestamp.split('T')[0] : undefined);
-            const matchWithDate = matchDate ? { ...match, matchDate } : match;
+            const matchDate = match.matchDate || (match.timestamp ? match.timestamp.split('T')[0] : now.split('T')[0]);
+            const matchWithDate = {
+                ...match,
+                matchDate,
+                createdAt: match.createdAt || now,
+                updatedAt: now,
+            };
 
             const existing = await ctx.db
                 .query("matches")
@@ -246,30 +445,19 @@ export const saveAll = mutation({
             }
         }
 
-        for (const league of args.leagues) {
-            const existing = await ctx.db
-                .query("leagues")
-                .withIndex("by_league_id", (q) => q.eq("id", league.id))
-                .unique();
+        if (args.leagues) {
+            for (const league of args.leagues) {
+                const existing = await ctx.db
+                    .query("leagues")
+                    .withIndex("by_league_id", (q) => q.eq("id", league.id))
+                    .unique();
 
-            if (existing) {
-                await ctx.db.patch(existing._id, league);
-            } else {
-                await ctx.db.insert("leagues", league);
+                if (existing) {
+                    await ctx.db.patch(existing._id, league);
+                } else {
+                    await ctx.db.insert("leagues", league);
+                }
             }
         }
-    },
-});
-
-export const getBySource = query({
-    args: {
-        source: v.union(v.literal('odds-api'), v.literal('goaloo-live')),
-    },
-    handler: async (ctx, args) => {
-        return await ctx.db
-            .query("matches")
-            .withIndex("by_source", (q) => q.eq("source", args.source))
-            .order("desc")
-            .take(100);
     },
 });

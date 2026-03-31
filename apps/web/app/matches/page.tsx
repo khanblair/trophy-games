@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Radio, RefreshCw } from 'lucide-react';
+import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AIAnalysis } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
+import { MatchFormModal } from '@/components/MatchFormModal';
 import { cn } from '@/lib/utils';
 
 
@@ -14,9 +15,6 @@ export default function MatchesPage() {
     const [analyzingId, setAnalyzingId] = useState<string | null>(null);
     const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
     const [updatingId, setUpdatingId] = useState<string | null>(null);
-    const [syncingOdds, setSyncingOdds] = useState(false);
-    const [syncingLive, setSyncingLive] = useState(false);
-    const [syncStatus, setSyncStatus] = useState<{ oddsMatches: number; liveMatches: number; lastOddsSync: string | null } | null>(null);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,29 +22,16 @@ export default function MatchesPage() {
     const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip' | 'unassigned'>('All');
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
-    const [sourceFilter, setSourceFilter] = useState<'All' | 'odds-api' | 'goaloo-live'>('All');
 
-    // Selection for Modal
+    // Modal States
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const fetchSyncStatus = async () => {
-        try {
-            const res = await fetch('/api/sync');
-            const data = await res.json();
-            setSyncStatus({
-                oddsMatches: data.oddsMatchesCount || 0,
-                liveMatches: data.liveMatchesCount || 0,
-                lastOddsSync: data.lastOddsSync
-            });
-        } catch (e) {
-            console.error('Failed to fetch sync status', e);
-        }
-    };
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
 
     const fetchMatches = async () => {
         try {
-            const res = await fetch('/api/matches');
+            const res = await fetch('/api/admin/matches');
             const data = await res.json();
             if (Array.isArray(data)) {
                 setMatches(data);
@@ -68,60 +53,11 @@ export default function MatchesPage() {
 
     useEffect(() => {
         fetchMatches();
-        fetchSyncStatus();
     }, []);
 
     const handleRefresh = async () => {
+        setLoading(true);
         await fetchMatches();
-        await fetchSyncStatus();
-    };
-
-    const handleSyncOdds = async () => {
-        setSyncingOdds(true);
-        console.log('[Matches] Starting Odds API sync...');
-        try {
-            const res = await fetch('/api/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'sync_odds' })
-            });
-            const data = await res.json();
-            console.log('[Matches] Odds sync response:', data);
-
-            setTimeout(async () => {
-                await fetchMatches();
-                await fetchSyncStatus();
-                setSyncingOdds(false);
-                console.log('[Matches] Odds sync completed!');
-            }, 3000);
-        } catch (e) {
-            console.error('[Matches] Odds sync failed:', e);
-            setSyncingOdds(false);
-        }
-    };
-
-    const handleSyncLive = async () => {
-        setSyncingLive(true);
-        console.log('[Matches] Starting Live sync...');
-        try {
-            const res = await fetch('/api/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'sync_live' })
-            });
-            const data = await res.json();
-            console.log('[Matches] Live sync response:', data);
-
-            setTimeout(async () => {
-                await fetchMatches();
-                await fetchSyncStatus();
-                setSyncingLive(false);
-                console.log('[Matches] Live sync completed!');
-            }, 3000);
-        } catch (e) {
-            console.error('[Matches] Live sync failed:', e);
-            setSyncingLive(false);
-        }
     };
 
     const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip' | 'unassigned') => {
@@ -132,7 +68,6 @@ export default function MatchesPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ matchId, matchType })
             });
-            // Update local state
             setMatches(prev => prev.map(m =>
                 m.id === matchId ? { ...m, matchType } : m
             ));
@@ -142,51 +77,103 @@ export default function MatchesPage() {
         setUpdatingId(null);
     };
 
-    useEffect(() => {
-        const fetchMatches = async () => {
-            try {
-                const res = await fetch('/api/matches');
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    setMatches(data);
-
-                    // Load existing AI predictions into analyses state
-                    const existingAnalyses: Record<string, AIAnalysis> = {};
-                    data.forEach((match: MatchData) => {
-                        if (match.aiPrediction) {
-                            existingAnalyses[match.id] = match.aiPrediction;
-                            console.log(`[Loaded] AI prediction for match ${match.id}`);
-                        }
-                    });
-                    setAnalyses(existingAnalyses);
-                    console.log(`[Loaded] ${Object.keys(existingAnalyses).length} AI predictions from database`);
-                } else {
-                    setMatches([]);
-                    console.error('Invalid matches data:', data);
-                }
-            } catch (error) {
-                console.error('Failed to fetch matches:', error);
-            } finally {
-                setLoading(false);
+    const handleCreateMatch = async (matchData: Partial<MatchData>) => {
+        try {
+            const res = await fetch('/api/admin/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ match: matchData })
+            });
+            
+            if (res.ok) {
+                setIsFormModalOpen(false);
+                await fetchMatches();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to create match');
             }
-        };
-        fetchMatches();
-    }, []);
+        } catch (e) {
+            console.error('Failed to create match:', e);
+            alert('Failed to create match');
+        }
+    };
+
+    const handleUpdateMatch = async (matchData: Partial<MatchData>) => {
+        if (!selectedMatch) return;
+        
+        try {
+            const res = await fetch('/api/admin/matches', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matchId: selectedMatch.id, updates: matchData })
+            });
+            
+            if (res.ok) {
+                setIsFormModalOpen(false);
+                setSelectedMatch(null);
+                await fetchMatches();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to update match');
+            }
+        } catch (e) {
+            console.error('Failed to update match:', e);
+            alert('Failed to update match');
+        }
+    };
+
+    const handleDeleteMatch = async () => {
+        if (!selectedMatch) return;
+        
+        if (!confirm(`Are you sure you want to delete ${selectedMatch.homeTeam} vs ${selectedMatch.awayTeam}?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/admin/matches?matchId=${selectedMatch.id}`, {
+                method: 'DELETE'
+            });
+            
+            if (res.ok) {
+                setIsFormModalOpen(false);
+                setSelectedMatch(null);
+                await fetchMatches();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to delete match');
+            }
+        } catch (e) {
+            console.error('Failed to delete match:', e);
+            alert('Failed to delete match');
+        }
+    };
+
+    const openCreateModal = () => {
+        setFormMode('create');
+        setSelectedMatch(null);
+        setIsFormModalOpen(true);
+    };
+
+    const openEditModal = (match: MatchData, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setFormMode('edit');
+        setSelectedMatch(match);
+        setIsFormModalOpen(true);
+    };
 
     const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
-        e.stopPropagation(); // Don't open modal when analyzing
+        e.stopPropagation();
         setAnalyzingId(match.id);
         const result = await analyzeMatch(match);
         setAnalyses(prev => ({ ...prev, [match.id]: result }));
 
-        // Update selectedMatch if it's the same match
         if (selectedMatch?.id === match.id) {
             setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
         }
 
-        // Save AI prediction to Convex for mobile sync
+        // Save to Convex via API route
         try {
-            await fetch('/api/mobile/ai-prediction', {
+            await fetch('/api/admin/save-prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -194,7 +181,6 @@ export default function MatchesPage() {
                     aiPrediction: result
                 })
             });
-            console.log(`[AI] Saved prediction for match ${match.id}`);
         } catch (err) {
             console.error('[AI] Failed to save prediction:', err);
         }
@@ -203,12 +189,11 @@ export default function MatchesPage() {
     };
 
     const handleOpenModal = (match: MatchData) => {
-        // Include AI prediction from analyses state if available
         const matchWithAnalysis = analyses[match.id]
             ? { ...match, aiPrediction: analyses[match.id] }
             : match;
         setSelectedMatch(matchWithAnalysis);
-        setIsModalOpen(true);
+        setIsDetailModalOpen(true);
     };
 
     // Filter Logic
@@ -220,10 +205,9 @@ export default function MatchesPage() {
 
         const matchesStatus =
             statusFilter === 'All' ||
-            (statusFilter === 'Live' && match.status.includes(':')) ||
-            (statusFilter === 'Live' && match.source === 'goaloo-live') ||
-            (statusFilter === 'Finished' && match.status === 'FT') ||
-            (statusFilter === 'Scheduled' && !match.status.includes(':') && match.status !== 'FT');
+            (statusFilter === 'Live' && (match.status === 'Live' || match.status.includes('H'))) ||
+            (statusFilter === 'Finished' && (match.status === 'Finished' || match.status === 'FT')) ||
+            (statusFilter === 'Scheduled' && match.status === 'Scheduled');
 
         const matchesLeague = selectedLeague === 'All' || match.league === selectedLeague;
         const matchesDate = !dateFilter || match.timestamp.includes(dateFilter);
@@ -231,9 +215,7 @@ export default function MatchesPage() {
         const matchesType = typeFilter === 'All' ||
             (typeFilter === 'unassigned' ? (!match.matchType || match.matchType === 'unassigned') : match.matchType === typeFilter);
 
-        const matchesSource = sourceFilter === 'All' || match.source === sourceFilter;
-
-        return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType && matchesSource;
+        return matchesSearch && matchesStatus && matchesLeague && matchesDate && matchesType;
     });
 
     const uniqueLeagues = Array.from(new Set(matches.map(m => m.league))).sort();
@@ -250,48 +232,46 @@ export default function MatchesPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Match Analysis</h1>
-                    <p className="text-zinc-500 dark:text-zinc-400">Real-time match data with AI predictions and market analysis.</p>
+                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Match Management</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400">Create, edit, and manage matches. All changes sync to mobile instantly.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
                         onClick={handleRefresh}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"
+                        className="flex items-center justify-center gap-1 px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"
                     >
-                        <RefreshCw size={14} />
-                        <span className="hidden sm:inline">Refresh</span>
+                        <RefreshCw size={16} />
+                        Refresh
                     </button>
                     <button
-                        onClick={handleSyncOdds}
-                        disabled={syncingOdds}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
+                        onClick={openCreateModal}
+                        className="flex items-center justify-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-sm"
                     >
-                        {syncingOdds ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                        <span className="hidden sm:inline">{syncingOdds ? '...' : 'Odds'}</span>
-                    </button>
-                    <button
-                        onClick={handleSyncLive}
-                        disabled={syncingLive}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
-                    >
-                        {syncingLive ? <Loader2 size={14} className="animate-spin" /> : <Radio size={14} />}
-                        <span className="hidden sm:inline">{syncingLive ? '...' : 'Live'}</span>
+                        <Plus size={16} />
+                        Add Match
                     </button>
                 </div>
             </div>
 
-            {/* Sync Status */}
-            {syncStatus && (
-                <div className="bg-gradient-to-r from-green-400/10 to-red-500/10 rounded-xl p-3 md:p-4 border border-green-400/20">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
-                        <div className="flex flex-wrap gap-3">
-                            <span className="text-green-600 font-medium text-sm">📊 {syncStatus.oddsMatches}</span>
-                            <span className="text-red-600 font-medium text-sm">⚽ {syncStatus.liveMatches}</span>
-                        </div>
-                        <span className="text-zinc-500 text-xs">{syncStatus.lastOddsSync ? new Date(syncStatus.lastOddsSync).toLocaleString() : 'Never'}</span>
-                    </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <div className="text-2xl font-bold text-zinc-900 dark:text-white">{matches.length}</div>
+                    <div className="text-sm text-zinc-500">Total Matches</div>
                 </div>
-            )}
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{matchTypeCounts.free}</div>
+                    <div className="text-sm text-blue-600/70 dark:text-blue-400/70">Free Tips</div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{matchTypeCounts.paid}</div>
+                    <div className="text-sm text-orange-600/70 dark:text-orange-400/70">Paid Tips</div>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{matchTypeCounts.vip}</div>
+                    <div className="text-sm text-purple-600/70 dark:text-purple-400/70">VIP Tips</div>
+                </div>
+            </div>
 
             {/* Filter Bar */}
             <div className="flex flex-col gap-3 bg-white dark:bg-zinc-900/50 p-3 md:p-4 rounded-xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -310,7 +290,7 @@ export default function MatchesPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                         <input
                             type="text"
-                            placeholder="Search..."
+                            placeholder="Search teams or leagues..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
@@ -322,7 +302,7 @@ export default function MatchesPage() {
                         onChange={(e) => setSelectedLeague(e.target.value)}
                         className="w-full sm:w-auto px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50/50 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 text-sm"
                     >
-                        <option value="All">All</option>
+                        <option value="All">All Leagues</option>
                         {uniqueLeagues.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                 </div>
@@ -373,32 +353,10 @@ export default function MatchesPage() {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-sm font-medium text-zinc-500">Source:</span>
-                <div className="flex gap-2">
-                    {(['All', 'odds-api', 'goaloo-live'] as const).map((source) => (
-                        <button
-                            key={source}
-                            onClick={() => setSourceFilter(source)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize flex items-center gap-1",
-                                sourceFilter === source
-                                    ? source === 'odds-api' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                            )}
-                        >
-                            {source === 'odds-api' && '📊 Odds API'}
-                            {source === 'goaloo-live' && '⚽ Goaloo Live'}
-                            {source === 'All' && 'All Sources'}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-4">
                     <Loader2 className="animate-spin text-blue-600" size={40} />
-                    <p className="text-sm font-medium">Loading match data...</p>
+                    <p className="text-sm font-medium">Loading matches...</p>
                 </div>
             ) : matches.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 text-zinc-500 gap-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/20">
@@ -407,14 +365,14 @@ export default function MatchesPage() {
                     </div>
                     <div className="text-center space-y-1">
                         <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No matches found</p>
-                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Click sync to fetch latest odds from The Odds API.</p>
+                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Create your first match to get started.</p>
                     </div>
                     <button
-                        onClick={handleSyncOdds}
+                        onClick={openCreateModal}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
                     >
-                        <Zap size={18} />
-                        Sync Odds
+                        <Plus size={18} />
+                        Add First Match
                     </button>
                 </div>
             ) : filteredMatches.length === 0 ? (
@@ -424,7 +382,7 @@ export default function MatchesPage() {
                     </div>
                     <div className="text-center space-y-1">
                         <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No matching matches</p>
-                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Adjust your filters or query to find the matches you are looking for.</p>
+                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Adjust your filters to find the matches you are looking for.</p>
                     </div>
                 </div>
             ) : (
@@ -450,7 +408,6 @@ export default function MatchesPage() {
                                             </span>
                                             <div className="flex items-center gap-2">
                                                 <span>{match.league}</span>
-                                                {/* Match Type Badge */}
                                                 <span className={cn(
                                                     "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
                                                     match.matchType === 'vip' ? "bg-purple-500 text-white" :
@@ -466,14 +423,15 @@ export default function MatchesPage() {
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{match.homeTeam}</span>
-                                                <span className="text-sm font-mono text-zinc-400">{match.odds?.home}</span>
+                                                <span className="text-sm font-mono text-zinc-400">{match.odds?.home || '-'}</span>
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{match.awayTeam}</span>
-                                                <span className="text-sm font-mono text-zinc-400">{match.odds?.away}</span>
+                                                <span className="text-sm font-mono text-zinc-400">{match.odds?.away || '-'}</span>
                                             </div>
                                         </div>
 
+                                        {/* Match Type Buttons */}
                                         <div className="pt-2">
                                             <div className="flex flex-wrap gap-2">
                                                 <button
@@ -543,35 +501,38 @@ export default function MatchesPage() {
                                             </div>
                                         </div>
 
-                                        <div className="pt-2">
+                                        {/* Edit/Delete Buttons */}
+                                        <div className="flex gap-2 pt-2">
+                                            <button
+                                                onClick={(e) => openEditModal(match, e)}
+                                                className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
+                                            >
+                                                <Edit2 size={12} />
+                                                Edit
+                                            </button>
                                             <button
                                                 onClick={(e) => handleAnalyze(e, match)}
                                                 disabled={isAnalyzing}
-                                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-500/20"
+                                                className="flex-[2] flex items-center justify-center gap-1 rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                                             >
                                                 {isAnalyzing ? (
-                                                    <>
-                                                        <PulseActivity className="animate-spin" size={18} />
-                                                        AI is Analyzing...
-                                                    </>
+                                                    <Loader2 size={12} className="animate-spin" />
                                                 ) : (
-                                                    <>
-                                                        <BrainCircuit size={18} />
-                                                        {analysis ? 'Re-analyze with AI' : 'Predict with AI'}
-                                                    </>
+                                                    <BrainCircuit size={12} />
                                                 )}
+                                                {analysis ? 'Re-analyze' : 'Analyze'}
                                             </button>
                                         </div>
                                     </div>
 
                                     {/* Analysis / Odds */}
                                     <div className="p-6 md:flex-1 bg-zinc-50/50 dark:bg-zinc-900/20">
-                                        {!analysis && !isAnalyzing ? (
+                                        {!analysis && !match.aiPrediction && !isAnalyzing ? (
                                             <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-zinc-400">
                                                 <div className="h-12 w-12 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-100 dark:border-zinc-700">
                                                     <Zap size={24} />
                                                 </div>
-                                                <p className="text-sm max-w-[200px]">Click the AI button to generate deep match insights.</p>
+                                                <p className="text-sm max-w-[200px]">Click the Analyze button to generate AI insights.</p>
                                             </div>
                                         ) : isAnalyzing ? (
                                             <div className="space-y-4 animate-pulse">
@@ -583,6 +544,9 @@ export default function MatchesPage() {
                                                 </div>
                                             </div>
                                         ) : (
+                                            (() => {
+                                                const aiData = analysis || match.aiPrediction;
+                                                return aiData ? (
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
@@ -590,18 +554,18 @@ export default function MatchesPage() {
                                                         AI Match Verdict
                                                     </h4>
                                                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold dark:bg-blue-500/10">
-                                                        {analysis.confidence}% CONFIDENCE
+                                                        {aiData.confidence}% CONFIDENCE
                                                     </div>
                                                 </div>
 
                                                 <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 dark:border-blue-500/20 dark:bg-blue-500/5">
                                                     <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
-                                                        {analysis.prediction}
+                                                        {aiData.prediction}
                                                     </p>
                                                 </div>
 
                                                 <div className="grid gap-2">
-                                                    {analysis.reasoning.map((reason, i) => (
+                                                    {aiData.reasoning?.map((reason: string, i: number) => (
                                                         <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
                                                             <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />
                                                             <span>{reason}</span>
@@ -609,14 +573,16 @@ export default function MatchesPage() {
                                                     ))}
                                                 </div>
 
-                                                {analysis.suggestedBet && (
+                                                {aiData.suggestedBet && (
                                                     <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-zinc-100 text-zinc-600 text-xs dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                                                         <AlertCircle size={14} className="text-blue-600" />
                                                         <span className="font-bold">Pro Tip:</span>
-                                                        {analysis.suggestedBet}
+                                                        {aiData.suggestedBet}
                                                     </div>
                                                 )}
                                             </div>
+                                                ) : null;
+                                            })()
                                         )}
                                     </div>
                                 </div>
@@ -628,29 +594,23 @@ export default function MatchesPage() {
 
             {/* Detail Modal */}
             <MatchDetailModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
                 match={selectedMatch}
             />
-        </div>
-    );
-}
 
-function PulseActivity({ size = 24, ...props }: React.SVGProps<SVGSVGElement> & { size?: number }) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
+            {/* Create/Edit Form Modal */}
+            <MatchFormModal
+                isOpen={isFormModalOpen}
+                onClose={() => {
+                    setIsFormModalOpen(false);
+                    setSelectedMatch(null);
+                }}
+                onSubmit={formMode === 'create' ? handleCreateMatch : handleUpdateMatch}
+                onDelete={formMode === 'edit' ? handleDeleteMatch : undefined}
+                match={selectedMatch}
+                mode={formMode}
+            />
+        </div>
     );
 }

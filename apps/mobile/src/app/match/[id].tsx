@@ -211,8 +211,8 @@ export default function MatchDetailScreen() {
                     )}
                 </View>
 
-                {/* Market Odds */}
-                {match.detailedOdds && (
+                {/* Market Odds - Show detailedOdds if available, otherwise fall back to basic odds */}
+                {(match.detailedOdds || match.odds) && (
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>MARKET ODDS</Text>
                         <View style={styles.oddsGrid}>
@@ -220,23 +220,29 @@ export default function MatchDetailScreen() {
                                 <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>FULL TIME 1X2</Text>
                                 <View style={styles.oddsRow}>
                                     <View style={styles.oddsCell}>
-                                        <Text style={[styles.oddsVal, { color: themeColors.primary }]}>{match.detailedOdds.ft?.['1x2']?.home || '—'}</Text>
+                                        <Text style={[styles.oddsVal, { color: themeColors.primary }]}>
+                                            {match.detailedOdds?.ft?.['1x2']?.home || match.odds?.home || '—'}
+                                        </Text>
                                         <Text style={[styles.oddsSub, { color: themeColors.textMuted }]}>HOME</Text>
                                     </View>
                                     <View style={[styles.oddsDivider, { backgroundColor: themeColors.border }]} />
                                     <View style={styles.oddsCell}>
-                                        <Text style={[styles.oddsVal, { color: themeColors.text }]}>{match.detailedOdds.ft?.['1x2']?.draw || '—'}</Text>
+                                        <Text style={[styles.oddsVal, { color: themeColors.text }]}>
+                                            {match.detailedOdds?.ft?.['1x2']?.draw || match.odds?.draw || '—'}
+                                        </Text>
                                         <Text style={[styles.oddsSub, { color: themeColors.textMuted }]}>DRAW</Text>
                                     </View>
                                     <View style={[styles.oddsDivider, { backgroundColor: themeColors.border }]} />
                                     <View style={styles.oddsCell}>
-                                        <Text style={[styles.oddsVal, { color: themeColors.text }]}>{match.detailedOdds.ft?.['1x2']?.away || '—'}</Text>
+                                        <Text style={[styles.oddsVal, { color: themeColors.text }]}>
+                                            {match.detailedOdds?.ft?.['1x2']?.away || match.odds?.away || '—'}
+                                        </Text>
                                         <Text style={[styles.oddsSub, { color: themeColors.textMuted }]}>AWAY</Text>
                                     </View>
                                 </View>
                             </View>
 
-                            {match.detailedOdds.ft?.['ou'] && (
+                            {match.detailedOdds?.ft?.['ou'] && (
                                 <View style={[styles.oddsTile, { backgroundColor: themeColors.cardBg }]}>
                                     <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>GOALS OVER / UNDER</Text>
                                     <View style={styles.oddsRow}>

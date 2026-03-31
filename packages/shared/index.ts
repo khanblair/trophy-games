@@ -69,18 +69,20 @@ export interface MatchData {
             odds: { home: string; draw: string; away: string; };
         }[];
     };
-    source?: 'odds-api' | 'goaloo-live';
     result?: 'win' | 'lose' | 'draw';
     matchDate?: string; // YYYY-MM-DD for date filtering
     isHistory?: boolean; // manually marked as history by admin
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
 }
 
 export interface LeagueInfo {
     id: number;
     name: string;
-    url: string;
+    url?: string;
     logo?: string;
-    type: 'league' | 'cup';
+    type?: string;
     matchCount?: number;
     country?: string;
     countryId?: number;
