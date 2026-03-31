@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trophy, Search, ChevronRight, Globe, Filter, Loader2, Star, Plus, X, Sparkles, Wand2 } from 'lucide-react';
+import { Trophy, Search, ChevronRight, Globe, Filter, Loader2, Star, Plus, X, Sparkles, Wand2, Cpu } from 'lucide-react';
 import { LeagueInfo } from '@trophy-games/shared';
+import { ModelSelector } from '@/components/ModelSelector';
 import { cn } from '@/lib/utils';
+import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
 
 interface LeagueFormData {
     name: string;
@@ -39,6 +41,8 @@ export default function LeaguesPage() {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<any>(null);
     const [showAiPanel, setShowAiPanel] = useState(false);
+    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
+    const [aiMetadata, setAiMetadata] = useState<any>(null);
 
     useEffect(() => {
         fetchData();
@@ -91,15 +95,23 @@ export default function LeaguesPage() {
     const handleAiSuggest = async () => {
         if (!aiContext.trim()) return;
         setIsAiLoading(true);
+        setAiMetadata(null);
         try {
             const res = await fetch('/api/ai/suggest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'suggest-league', context: aiContext }),
+                body: JSON.stringify({ 
+                    type: 'suggest-league', 
+                    context: aiContext,
+                    modelId: selectedModel.id 
+                }),
             });
             const data = await res.json();
             if (data.success) {
                 setAiSuggestion(data.suggestions);
+                if (data.metadata) {
+                    setAiMetadata(data.metadata);
+                }
                 // Apply suggestions to form
                 if (data.suggestions.name) {
                     setFormData(prev => ({ ...prev, name: data.suggestions.name }));
@@ -352,6 +364,24 @@ export default function LeaguesPage() {
                                         <p className="text-xs text-zinc-500">
                                             Describe the league in natural language (e.g., &quot;English Premier League&quot;, &quot;UEFA Champions League&quot;, &quot;Bundesliga in Germany&quot;)
                                         </p>
+                                        
+                                        {/* Model Selector */}
+                                        <ModelSelector
+                                            selectedModel={selectedModel}
+                                            onModelChange={setSelectedModel}
+                                            disabled={isAiLoading}
+                                        />
+                                        
+                                        {/* Failover indicator */}
+                                        {aiMetadata && aiMetadata.attempts > 1 && (
+                                            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                                                <Cpu size={14} />
+                                                <span>
+                                                    Auto-switched to {aiMetadata.usedModel.name} after {aiMetadata.attempts - 1} failed attempt(s)
+                                                </span>
+                                            </div>
+                                        )}
+                                        
                                         <div className="flex gap-2">
                                             <input
                                                 type="text"

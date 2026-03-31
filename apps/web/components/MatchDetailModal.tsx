@@ -2,11 +2,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit } from 'lucide-react';
+import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit, Cpu } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
-import { analyzeMatch } from '@/lib/ai';
+import { analyzeMatch, AICallMetadata } from '@/lib/ai';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
+import { ModelSelector } from './ModelSelector';
+import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
 
 
 interface MatchDetailModalProps {
@@ -21,6 +23,8 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
     const [analyzing, setAnalyzing] = useState(false);
     const [localPrediction, setLocalPrediction] = useState(match?.aiPrediction || null);
+    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
+    const [lastCallMetadata, setLastCallMetadata] = useState<AICallMetadata | null>(null);
 
     if (!match) return null;
 
@@ -34,25 +38,43 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
 
     const handleAnalyze = async () => {
         setAnalyzing(true);
-        const result = await analyzeMatch(match);
-        // Save to Convex via API route
+        setLastCallMetadata(null);
+        
         try {
+            const result = await analyzeMatch(match, selectedModel);
+            
+            // Store metadata about which model was actually used
+            if (result.metadata) {
+                setLastCallMetadata(result.metadata);
+            }
+            
+            // Save to Convex via API route
             await fetch('/api/admin/save-prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     matchId: match.id,
-                    aiPrediction: result
+                    aiPrediction: {
+                        prediction: result.prediction,
+                        confidence: result.confidence,
+                        reasoning: result.reasoning,
+                        suggestedBet: result.suggestedBet,
+                    }
                 })
             });
+            
             // Update local state to show the prediction immediately
             setLocalPrediction({
-                ...result,
+                prediction: result.prediction,
+                confidence: result.confidence,
+                reasoning: result.reasoning,
+                suggestedBet: result.suggestedBet,
                 generatedAt: new Date().toISOString()
             });
         } catch (e) {
             console.error('Failed to save AI prediction:', e);
         }
+        
         setAnalyzing(false);
     };
 
@@ -218,13 +240,34 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             <div className="md:col-span-2">
                                 {aiPred ? (
                                     <div className="space-y-4">
-                                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
-                                            <BrainCircuit size={16} className="text-purple-500" />
-                                            AI Prediction
-                                            <span className="ml-auto text-xs bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
-                                                {aiPred.confidence}% confidence
-                                            </span>
-                                        </h3>
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
+                                                <BrainCircuit size={16} className="text-purple-500" />
+                                                AI Prediction
+                                                <span className="text-xs bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
+                                                    {aiPred.confidence}% confidence
+                                                </span>
+                                            </h3>
+                                        </div>
+                                        
+                                        {/* Model Selector & Metadata */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1">
+                                                <ModelSelector 
+                                                    selectedModel={selectedModel}
+                                                    onModelChange={setSelectedModel}
+                                                    disabled={analyzing}
+                                                />
+                                            </div>
+                                        </div>
+                                        {lastCallMetadata && lastCallMetadata.attempts > 1 && (
+                                            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                                                <Cpu size={14} />
+                                                <span>
+                                                    Auto-switched to {lastCallMetadata.usedModel.name} after {lastCallMetadata.attempts - 1} failed attempt(s)
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="rounded-xl border border-purple-100 bg-purple-50/30 p-4 dark:border-purple-500/20 dark:bg-purple-500/5">
                                             <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
                                                 {aiPred.prediction}
@@ -257,6 +300,14 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                             <BrainCircuit size={16} className="text-blue-600" />
                                             AI Prediction
                                         </h3>
+                                        
+                                        {/* Model Selector */}
+                                        <ModelSelector 
+                                            selectedModel={selectedModel}
+                                            onModelChange={setSelectedModel}
+                                            disabled={analyzing}
+                                        />
+                                        
                                         <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 p-6 text-center">
                                             <p className="text-sm text-zinc-500 mb-3">Generate AI-powered match predictions</p>
                                             <button

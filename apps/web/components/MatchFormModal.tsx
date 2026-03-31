@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Trophy, Users, MapPin, DollarSign, Star, Crown, Filter, ChevronDown, AlertCircle, Sparkles, Wand2, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Trophy, Users, MapPin, DollarSign, Star, Crown, Filter, ChevronDown, AlertCircle, Sparkles, Wand2, Loader2, Cpu } from 'lucide-react';
 import { MatchData, LeagueInfo } from '@trophy-games/shared';
 import { Modal } from './Modal';
+import { ModelSelector } from './ModelSelector';
 import { cn } from '@/lib/utils';
+import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
 
 interface MatchFormModalProps {
     isOpen: boolean;
@@ -45,6 +47,8 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
     const [aiSuggestion, setAiSuggestion] = useState<any>(null);
     const [showAiPanel, setShowAiPanel] = useState(false);
     const [useWebSearch, setUseWebSearch] = useState(false);
+    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
+    const [aiMetadata, setAiMetadata] = useState<any>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -103,15 +107,24 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
     const handleAiSuggest = async () => {
         if (!aiContext.trim()) return;
         setIsAiLoading(true);
+        setAiMetadata(null);
         try {
             const res = await fetch('/api/ai/suggest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'suggest', context: aiContext, useWebSearch }),
+                body: JSON.stringify({ 
+                    type: 'suggest', 
+                    context: aiContext, 
+                    useWebSearch,
+                    modelId: selectedModel.id 
+                }),
             });
             const data = await res.json();
             if (data.success) {
                 setAiSuggestion(data.suggestions);
+                if (data.metadata) {
+                    setAiMetadata(data.metadata);
+                }
                 // Apply suggestions to form
                 if (data.suggestions.homeTeam) {
                     setFormData(prev => ({ ...prev, homeTeam: data.suggestions.homeTeam }));
@@ -212,6 +225,14 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
                                 <p className="text-xs text-zinc-500">
                                     Describe the match in natural language (e.g., &quot;Manchester United vs Liverpool in Premier League this Saturday&quot;)
                                 </p>
+                                
+                                {/* Model Selector */}
+                                <ModelSelector
+                                    selectedModel={selectedModel}
+                                    onModelChange={setSelectedModel}
+                                    disabled={isAiLoading}
+                                />
+                                
                                 <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -221,6 +242,17 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
                                     />
                                     <span>Use web search for better accuracy (slower)</span>
                                 </label>
+                                
+                                {/* Failover indicator */}
+                                {aiMetadata && aiMetadata.attempts > 1 && (
+                                    <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                                        <Cpu size={14} />
+                                        <span>
+                                            Auto-switched to {aiMetadata.usedModel.name} after {aiMetadata.attempts - 1} failed attempt(s)
+                                        </span>
+                                    </div>
+                                )}
+                                
                                 <div className="flex gap-2">
                                     <input
                                         type="text"

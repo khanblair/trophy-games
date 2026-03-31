@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Plus, Edit2, Trash2, RefreshCw, Cpu } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
-import { analyzeMatch, AIAnalysis } from '@/lib/ai';
+import { analyzeMatch, AIAnalysis, AICallMetadata } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
 import { MatchFormModal } from '@/components/MatchFormModal';
+import { ModelSelector } from '@/components/ModelSelector';
 import { cn } from '@/lib/utils';
+import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
 
 
 export default function MatchesPage() {
@@ -15,6 +17,8 @@ export default function MatchesPage() {
     const [analyzingId, setAnalyzingId] = useState<string | null>(null);
     const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
+    const [analysisMetadata, setAnalysisMetadata] = useState<Record<string, AICallMetadata>>({});
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -164,25 +168,37 @@ export default function MatchesPage() {
     const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
         e.stopPropagation();
         setAnalyzingId(match.id);
-        const result = await analyzeMatch(match);
-        setAnalyses(prev => ({ ...prev, [match.id]: result }));
-
-        if (selectedMatch?.id === match.id) {
-            setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
-        }
-
-        // Save to Convex via API route
+        
         try {
+            const result = await analyzeMatch(match, selectedModel);
+            
+            // Store metadata if model failover occurred
+            if (result.metadata) {
+                setAnalysisMetadata(prev => ({ ...prev, [match.id]: result.metadata! }));
+            }
+            
+            setAnalyses(prev => ({ ...prev, [match.id]: result }));
+
+            if (selectedMatch?.id === match.id) {
+                setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
+            }
+
+            // Save to Convex via API route
             await fetch('/api/admin/save-prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     matchId: match.id,
-                    aiPrediction: result
+                    aiPrediction: {
+                        prediction: result.prediction,
+                        confidence: result.confidence,
+                        reasoning: result.reasoning,
+                        suggestedBet: result.suggestedBet,
+                    }
                 })
             });
         } catch (err) {
-            console.error('[AI] Failed to save prediction:', err);
+            console.error('[AI] Failed to analyze:', err);
         }
 
         setAnalyzingId(null);
@@ -251,6 +267,27 @@ export default function MatchesPage() {
                         Add Match
                     </button>
                 </div>
+            </div>
+
+            {/* AI Model Selector */}
+            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <div className="flex items-center gap-2 text-zinc-500">
+                    <Cpu size={18} />
+                    <span className="text-sm font-medium">AI Model for Analysis:</span>
+                </div>
+                <div className="w-64">
+                    <ModelSelector 
+                        selectedModel={selectedModel}
+                        onModelChange={setSelectedModel}
+                        disabled={analyzingId !== null}
+                    />
+                </div>
+                {Object.values(analysisMetadata).some(m => m.attempts > 1) && (
+                    <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg">
+                        <AlertCircle size={14} />
+                        <span>Auto-failover active - some analyses switched models due to rate limits</span>
+                    </div>
+                )}
             </div>
 
             {/* Stats */}
@@ -546,6 +583,7 @@ export default function MatchesPage() {
                                         ) : (
                                             (() => {
                                                 const aiData = analysis || match.aiPrediction;
+                                                const metadata = analysisMetadata[match.id];
                                                 return aiData ? (
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
@@ -553,8 +591,15 @@ export default function MatchesPage() {
                                                         <TrendingUp size={16} className="text-blue-600" />
                                                         AI Match Verdict
                                                     </h4>
-                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold dark:bg-blue-500/10">
-                                                        {aiData.confidence}% CONFIDENCE
+                                                    <div className="flex items-center gap-2">
+                                                        {metadata && metadata.attempts > 1 && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                                                Auto-switched
+                                                            </span>
+                                                        )}
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold dark:bg-blue-500/10">
+                                                            {aiData.confidence}% CONFIDENCE
+                                                        </div>
                                                     </div>
                                                 </div>
 
