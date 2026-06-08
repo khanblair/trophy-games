@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useColorScheme, View, TouchableOpacity, StyleSheet, Text, Image } from 'react-native';
+import { useColorScheme, View, TouchableOpacity, StyleSheet, Text, Image, Platform } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
@@ -40,21 +43,28 @@ export default function RootLayout() {
         return null;
     }
 
-    const content = (
-        <AppThemeProvider>
-            <RootLayoutContent />
-        </AppThemeProvider>
-    );
-
-    if (convex) {
+    if (!convex) {
         return (
-            <ConvexProvider client={convex}>
-                {content}
-            </ConvexProvider>
+            <AppThemeProvider>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorTitle}>Configuration Error</Text>
+                    <Text style={styles.errorText}>
+                        Convex URL is not set. Please check your environment variables.
+                    </Text>
+                </View>
+            </AppThemeProvider>
         );
     }
 
-    return content;
+    return (
+        <SafeAreaProvider>
+            <ConvexProvider client={convex}>
+                <AppThemeProvider>
+                    <RootLayoutContent />
+                </AppThemeProvider>
+            </ConvexProvider>
+        </SafeAreaProvider>
+    );
 }
 
 function RootLayoutContent() {
@@ -62,6 +72,7 @@ function RootLayoutContent() {
     const { theme, isDark, themeColors, toggleTheme } = useTheme();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const { expoPushToken, notification } = usePushNotifications();
+    const insets = useSafeAreaInsets();
 
     const [deviceId, setDeviceId] = useState<string | null>(null);
 
@@ -104,9 +115,26 @@ function RootLayoutContent() {
         registerToken();
     }, [expoPushToken, deviceId]);
 
+    // Configure Android navigation bar to match theme
+    // NOTE: expo-navigation-bar requires a development build (not Expo Go)
+    useEffect(() => {
+        if (Platform.OS === 'android') {
+            if (NavigationBar.setBackgroundColorAsync) {
+                NavigationBar.setBackgroundColorAsync(themeColors.background).catch(() => {});
+            }
+            if (NavigationBar.setButtonStyleAsync) {
+                NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+            }
+            if (NavigationBar.setBorderColorAsync) {
+                NavigationBar.setBorderColorAsync(themeColors.border).catch(() => {});
+            }
+        }
+    }, [isDark, themeColors.background, themeColors.border]);
+
     return (
         <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
                 <Stack screenOptions={{
                     headerStyle: { backgroundColor: themeColors.background },
                     headerShadowVisible: false,
@@ -222,6 +250,24 @@ const ThemeToggle = ({ onToggle, currentTheme, themeColors }: { onToggle: () => 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#000',
+        padding: 24,
+    },
+    errorTitle: {
+        color: '#EF4444',
+        fontSize: 18,
+        fontWeight: '900',
+        marginBottom: 12,
+    },
+    errorText: {
+        color: '#A1A1AA',
+        fontSize: 14,
+        textAlign: 'center',
     },
     menuButton: {
         padding: 12,

@@ -42,7 +42,7 @@ export default function AlertsScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'bottom']}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['bottom']}>
             <Stack.Screen options={{ headerShown: false }} />
 
             <View style={[styles.header, { borderBottomColor: themeColors.border }]}>

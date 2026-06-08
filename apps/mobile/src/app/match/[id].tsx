@@ -43,7 +43,7 @@ export default function MatchDetailScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
                 <ActivityIndicator size="large" color={themeColors.primary} />
             </SafeAreaView>
         );
@@ -51,7 +51,7 @@ export default function MatchDetailScreen() {
 
     if (!match) {
         return (
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center' }]} edges={['left', 'right']}>
                 <Text style={{ color: themeColors.textMuted }}>Match details unavailable</Text>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
                     <Text style={{ color: themeColors.primary, fontWeight: '900' }}>GO BACK</Text>
@@ -64,7 +64,7 @@ export default function MatchDetailScreen() {
     const isFinished = match.status === 'Finished' || match.status === 'FT';
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
             {/* Custom Header */}
             <View style={[styles.customHeader, { backgroundColor: themeColors.background }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerLeft}>

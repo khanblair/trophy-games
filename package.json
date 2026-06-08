@@ -15,5 +15,8 @@
     },
     "devDependencies": {
         "turbo": "latest"
+    },
+    "dependencies": {
+        "expo-navigation-bar": "^56.0.3"
     }
 }
