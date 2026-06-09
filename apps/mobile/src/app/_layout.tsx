@@ -145,7 +145,8 @@ function RootLayoutContent() {
                 }}>
                     <Stack.Screen name="(tabs)" options={{
                         headerShown: true,
-                        title: 'Trophy Games'
+                        title: 'Trophy Games',
+                        headerTitleAlign: 'left',
                     }} />
                     <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
