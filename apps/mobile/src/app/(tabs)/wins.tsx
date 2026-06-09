@@ -1,10 +1,14 @@
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { CheckCircle2, Trophy, TrendingUp } from 'lucide-react-native';
-import { useState, useCallback, useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { fetchMatches } from '../../api/footystats';
+
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 function getDateRange() {
     const dates: string[] = [];
@@ -18,22 +22,60 @@ function getDateRange() {
 
 export default function WinsScreen() {
     const { themeColors } = useTheme();
+    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [matches, setMatches] = useState<any[]>([]);
+    const [apiSource, setApiSource] = useState<'footystats' | 'convex'>('footystats');
 
     const dates = useMemo(() => getDateRange(), []);
 
-    // Convex query for match history
-    const historyData = useQuery(
-        api.matches.getHistory,
-        { limit: 200 }
-    );
+    const loadData = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
 
-    const matches = useMemo(() => {
-        if (!historyData) return [];
-        return historyData;
-    }, [historyData]);
+        try {
+            const footyMatches = await fetchMatches();
+            const completed = footyMatches
+                .filter(m => m.status === 'Finished')
+                .map(m => ({
+                    ...m,
+                    result: m.homeScore !== undefined && m.awayScore !== undefined
+                        ? (m.homeScore > m.awayScore ? 'win' : m.awayScore > m.homeScore ? 'lose' : 'draw')
+                        : undefined,
+                    matchDate: m.timestamp.split('T')[0],
+                }));
+            setMatches(completed);
+            setApiSource('footystats');
+            console.log(`[Wins Screen] Loaded ${completed.length} completed matches from FootyStats`);
+        } catch (footyError) {
+            console.warn('[Wins Screen] FootyStats failed, falling back to Convex:', footyError);
+            if (!convex) {
+                console.error('[Convex] Convex client not initialized');
+                setMatches([]);
+                setLoading(false);
+                setRefreshing(false);
+                return;
+            }
+            try {
+                const historyData = await convex.query(api.matches.getHistory, { limit: 200 });
+                setMatches(historyData || []);
+                setApiSource('convex');
+                console.log(`[Wins Screen] Loaded ${historyData?.length || 0} matches from Convex`);
+            } catch (convexError) {
+                console.error('[Wins Screen] Both sources failed:', convexError);
+                setMatches([]);
+            }
+        }
+
+        setLoading(false);
+        setRefreshing(false);
+    }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const uniqueLeagues = useMemo(() => {
         const leagues = Array.from(new Set(matches.map(m => m.league))).sort();
@@ -44,19 +86,15 @@ export default function WinsScreen() {
         return matches.filter(match => {
             const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
             if (!selectedDate) return leagueMatch;
-            const matchDate = match.matchDate || match.createdAt?.split('T')[0];
+            const matchDate = match.matchDate || match.timestamp?.split('T')[0];
             return leagueMatch && matchDate === selectedDate;
         });
     }, [matches, selectedLeague, selectedDate]);
 
     const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        // Convex queries auto-refresh, just simulate a delay
-        await new Promise(r => setTimeout(r, 500));
-        setRefreshing(false);
-    }, []);
+        await loadData(true);
+    }, [loadData]);
 
-    const loading = historyData === undefined;
     const winCount = matches.filter(m => m.result === 'win').length;
     const winRate = matches.length > 0 ? Math.round((winCount / matches.length) * 100) : 0;
 

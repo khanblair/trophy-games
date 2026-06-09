@@ -1,12 +1,11 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Zap } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
-import { useColorScheme } from 'react-native';
-import { ConvexReactClient, useQuery } from "convex/react";
+import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
-import { colors } from '../../theme/colors';
+import { fetchMatches } from '../../api/footystats';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -18,6 +17,7 @@ export default function FreeTipsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [leagues, setLeagues] = useState<any[]>([]);
+    const [apiSource, setApiSource] = useState<'footystats' | 'convex'>('footystats');
     const { themeColors } = useTheme();
 
     const loadData = useCallback(async (isRefresh = false) => {
@@ -27,38 +27,48 @@ export default function FreeTipsScreen() {
             setLoading(true);
         }
 
-        if (!convex) {
-            console.error('[Convex] Convex client not initialized');
-            setLoading(false);
-            setRefreshing(false);
-            return;
-        }
-
         try {
-            // Fetch ONLY free matches directly from Convex (not unassigned)
-            const freeMatches = await convex.query(api.matches.get, {
-                matchType: 'free',
-                limit: 100
-            });
-
-            setMatches(freeMatches || []);
-            console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex`);
-        } catch (error) {
-            console.error('[Home Screen] Failed to fetch free matches from Convex:', error);
-            setMatches([]);
+            const footyMatches = await fetchMatches(selectedDate);
+            setMatches(footyMatches);
+            setApiSource('footystats');
+            const leagueNames = [...new Set(footyMatches.map(m => m.league))].map(name => ({ name }));
+            setLeagues(leagueNames);
+            console.log(`[Home Screen] Loaded ${footyMatches.length} matches from FootyStats`);
+        } catch (footyError) {
+            console.warn('[Home Screen] FootyStats failed, falling back to Convex:', footyError);
+            if (!convex) {
+                console.error('[Convex] Convex client not initialized');
+                setMatches([]);
+                setLeagues([]);
+                setLoading(false);
+                setRefreshing(false);
+                return;
+            }
+            try {
+                const freeMatches = await convex.query(api.matches.get, {
+                    matchType: 'free',
+                    limit: 100
+                });
+                setMatches(freeMatches || []);
+                setApiSource('convex');
+                console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex`);
+                if (convex) {
+                    convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
+                }
+            } catch (convexError) {
+                console.error('[Home Screen] Both sources failed:', convexError);
+                setMatches([]);
+                setLeagues([]);
+            }
         }
 
         setLoading(false);
         setRefreshing(false);
-    }, []);
+    }, [selectedDate]);
 
     useEffect(() => {
         loadData();
-        // Fetch leagues for filter - using Convex directly
-        if (convex) {
-            convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
-        }
-    }, [loadData, selectedDate]);
+    }, [loadData]);
 
     const filteredMatches = matches.filter(m => {
         const matchDate = new Date(m.timestamp).toISOString().split('T')[0];

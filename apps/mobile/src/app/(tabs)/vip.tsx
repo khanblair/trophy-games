@@ -6,6 +6,7 @@ import { api } from '@trophy-games/backend';
 
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { fetchMatches } from '../../api/footystats';
 import * as Application from 'expo-application';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
@@ -76,34 +77,39 @@ export default function VIPTipsScreen() {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
-        if (!convex) {
-            console.error('[Convex] Convex client not initialized');
-            setLoading(false);
-            setRefreshing(false);
-            return;
-        }
-
         try {
-            // Fetch ONLY vip matches directly from Convex
-            const vipMatches = await convex.query(api.matches.get, {
-                matchType: 'vip',
-                limit: 100
-            });
-
-            setMatches(vipMatches || []);
-            console.log(`[VIP Screen] Loaded ${vipMatches?.length || 0} vip matches from Convex`);
-        } catch (error) {
-            console.error('[VIP Screen] Failed to fetch vip matches from Convex:', error);
-            setMatches([]);
+            const footyMatches = await fetchMatches(selectedDate);
+            setMatches(footyMatches);
+            console.log(`[VIP Screen] Loaded ${footyMatches.length} matches from FootyStats`);
+        } catch (footyError) {
+            console.warn('[VIP Screen] FootyStats failed, falling back to Convex:', footyError);
+            if (!convex) {
+                console.error('[Convex] Convex client not initialized');
+                setMatches([]);
+                setLoading(false);
+                setRefreshing(false);
+                return;
+            }
+            try {
+                const vipMatches = await convex.query(api.matches.get, {
+                    matchType: 'vip',
+                    limit: 100
+                });
+                setMatches(vipMatches || []);
+                console.log(`[VIP Screen] Loaded ${vipMatches?.length || 0} vip matches from Convex`);
+            } catch (convexError) {
+                console.error('[VIP Screen] Both sources failed:', convexError);
+                setMatches([]);
+            }
         }
 
         setLoading(false);
         setRefreshing(false);
-    }, [memberStatus]);
+    }, [memberStatus, selectedDate]);
 
     useEffect(() => {
         if (memberStatus === 'active') loadData();
-    }, [memberStatus, loadData]);
+    }, [memberStatus, loadData, selectedDate]);
 
     const onRefresh = useCallback(() => { loadData(true); }, [loadData]);
 

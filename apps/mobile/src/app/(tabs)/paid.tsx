@@ -6,6 +6,7 @@ import { api } from '@trophy-games/backend';
 
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { fetchMatches } from '../../api/footystats';
 import * as Application from 'expo-application';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
@@ -76,34 +77,39 @@ export default function PaidTipsScreen() {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
-        if (!convex) {
-            console.error('[Convex] Convex client not initialized');
-            setLoading(false);
-            setRefreshing(false);
-            return;
-        }
-
         try {
-            // Fetch ONLY paid matches directly from Convex
-            const paidMatches = await convex.query(api.matches.get, {
-                matchType: 'paid',
-                limit: 100
-            });
-
-            setMatches(paidMatches || []);
-            console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex`);
-        } catch (error) {
-            console.error('[Paid Screen] Failed to fetch paid matches from Convex:', error);
-            setMatches([]);
+            const footyMatches = await fetchMatches(selectedDate);
+            setMatches(footyMatches);
+            console.log(`[Paid Screen] Loaded ${footyMatches.length} matches from FootyStats`);
+        } catch (footyError) {
+            console.warn('[Paid Screen] FootyStats failed, falling back to Convex:', footyError);
+            if (!convex) {
+                console.error('[Convex] Convex client not initialized');
+                setMatches([]);
+                setLoading(false);
+                setRefreshing(false);
+                return;
+            }
+            try {
+                const paidMatches = await convex.query(api.matches.get, {
+                    matchType: 'paid',
+                    limit: 100
+                });
+                setMatches(paidMatches || []);
+                console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex`);
+            } catch (convexError) {
+                console.error('[Paid Screen] Both sources failed:', convexError);
+                setMatches([]);
+            }
         }
 
         setLoading(false);
         setRefreshing(false);
-    }, [memberStatus]);
+    }, [memberStatus, selectedDate]);
 
     useEffect(() => {
         if (memberStatus === 'active') loadData();
-    }, [memberStatus, loadData]);
+    }, [memberStatus, loadData, selectedDate]);
 
     const onRefresh = useCallback(() => { loadData(true); }, [loadData]);
 

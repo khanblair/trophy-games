@@ -2,22 +2,40 @@ import { NextResponse } from 'next/server';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 import { MatchData } from '@trophy-games/shared';
+import { fetchFootyStatsMatches, mergeWithConvexData } from '@/lib/footystats';
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
-// GET - Fetch all matches
+// GET - Fetch all matches (FootyStats first, merge with Convex)
 export async function GET() {
     if (!convex) {
         return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
     }
 
     try {
-        const matches = await convex.query(api.matches.getAll, { limit: 500 });
-        return NextResponse.json(matches);
-    } catch (error) {
-        console.error('[Admin Matches API] Failed to fetch matches:', error);
-        return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
+        // Try FootyStats first for live data
+        const footyMatches = await fetchFootyStatsMatches();
+        console.log(`[Admin Matches API] Loaded ${footyMatches.length} matches from FootyStats`);
+
+        // Fetch Convex data for metadata (AI predictions, match types, etc.)
+        const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
+        console.log(`[Admin Matches API] Loaded ${convexMatches.length} matches from Convex`);
+
+        // Merge: FootyStats provides live data, Convex provides metadata
+        const merged = mergeWithConvexData(footyMatches, convexMatches as MatchData[]);
+        console.log(`[Admin Matches API] Returning ${merged.length} merged matches`);
+
+        return NextResponse.json(merged);
+    } catch (footyError) {
+        console.warn('[Admin Matches API] FootyStats failed, falling back to Convex:', footyError);
+        try {
+            const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
+            return NextResponse.json(convexMatches);
+        } catch (convexError) {
+            console.error('[Admin Matches API] Both sources failed:', convexError);
+            return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
+        }
     }
 }
 

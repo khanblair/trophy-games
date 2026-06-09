@@ -6,6 +6,7 @@ import { Timer, Trophy, TrendingUp, ChevronLeft, BrainCircuit, CheckCircle2, Zap
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { useTheme } from '../../context/ThemeContext';
+import { fetchMatchStats } from '../../api/footystats';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -23,20 +24,69 @@ export default function MatchDetailScreen() {
     useEffect(() => {
         const loadMatch = async () => {
             setLoading(true);
+            let loadedMatch: any = null;
+
             try {
                 if (matchData) {
-                    setMatch(JSON.parse(decodeURIComponent(matchData as string)));
-                } else if (convex) {
-                    // Fetch all matches and find the specific one by ID
+                    loadedMatch = JSON.parse(decodeURIComponent(matchData as string));
+                }
+
+                const isNumericId = !loadedMatch && /^\d+$/.test(id as string);
+                if (isNumericId) {
+                    try {
+                        loadedMatch = await fetchMatchStats(id as string);
+                        console.log(`[Match Detail] Loaded match ${id} from FootyStats`);
+                    } catch (footyError) {
+                        console.warn('[Match Detail] FootyStats failed, falling back to Convex:', footyError);
+                    }
+                }
+
+                if (!loadedMatch && convex) {
                     const matches = await convex.query(api.matches.getAll, { limit: 500 });
-                    const found = matches.find((m: any) => m.id === id);
-                    setMatch(found);
+                    loadedMatch = matches.find((m: any) => m.id === id) || null;
                     console.log(`[Match Detail] Found match ${id} from Convex`);
                 }
+
+                // If loaded from FootyStats, try to merge AI prediction from Convex
+                if (loadedMatch && convex && !loadedMatch.aiPrediction) {
+                    try {
+                        const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
+                        const convexMatch = convexMatches.find((m: any) =>
+                            m.homeTeam === loadedMatch.homeTeam &&
+                            m.awayTeam === loadedMatch.awayTeam &&
+                            m.league === loadedMatch.league
+                        );
+                        if (convexMatch?.aiPrediction) {
+                            loadedMatch = {
+                                ...loadedMatch,
+                                aiPrediction: convexMatch.aiPrediction,
+                                matchType: convexMatch.matchType || loadedMatch.matchType,
+                                isTrending: convexMatch.isTrending ?? loadedMatch.isTrending,
+                                homeTeamLogo: convexMatch.homeTeamLogo || loadedMatch.homeTeamLogo,
+                                awayTeamLogo: convexMatch.awayTeamLogo || loadedMatch.awayTeamLogo,
+                                leagueLogo: convexMatch.leagueLogo || loadedMatch.leagueLogo,
+                                countryFlag: convexMatch.countryFlag || loadedMatch.countryFlag,
+                                h2h: convexMatch.h2h || loadedMatch.h2h,
+                                detailedOdds: convexMatch.detailedOdds || loadedMatch.detailedOdds,
+                                referee: convexMatch.referee || loadedMatch.referee,
+                                weather: convexMatch.weather || loadedMatch.weather,
+                                homeStanding: convexMatch.homeStanding ?? loadedMatch.homeStanding,
+                                awayStanding: convexMatch.awayStanding ?? loadedMatch.awayStanding,
+                            };
+                            console.log(`[Match Detail] Merged AI prediction from Convex for ${id}`);
+                        }
+                    } catch (mergeError) {
+                        console.warn('[Match Detail] Failed to merge Convex data:', mergeError);
+                    }
+                }
+
+                setMatch(loadedMatch);
             } catch (e) {
                 console.error('Failed to load match:', e);
+                setMatch(null);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         loadMatch();
     }, [id, matchData]);
