@@ -100,15 +100,10 @@ function RootLayoutContent() {
     // Configure Android navigation bar to match theme
     useEffect(() => {
         if (Platform.OS === 'android') {
-            if (NavigationBar.setBackgroundColorAsync) {
-                NavigationBar.setBackgroundColorAsync(themeColors.background).catch(() => {});
-            }
-            if (NavigationBar.setButtonStyleAsync) {
-                NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-            }
-            if (NavigationBar.setBorderColorAsync) {
-                NavigationBar.setBorderColorAsync(themeColors.border).catch(() => {});
-            }
+            const nb = NavigationBar as any;
+            if (nb.setBackgroundColorAsync) nb.setBackgroundColorAsync(themeColors.background).catch(() => {});
+            if (nb.setButtonStyleAsync) nb.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+            if (nb.setBorderColorAsync) nb.setBorderColorAsync(themeColors.border).catch(() => {});
         }
     }, [isDark, themeColors.background, themeColors.border]);
 
@@ -124,8 +119,11 @@ function RootLayoutContent() {
                         fontWeight: '700',
                         fontSize: 17,
                     },
-                    headerTitleAlign: 'left',
-                    headerLeft: () => null,
+                    headerLeft: () => (
+                        <Text style={{ fontWeight: '700', fontSize: 17, color: themeColors.text, marginLeft: 16 }}>
+                            Trophy Games
+                        </Text>
+                    ),
                     headerRight: () => (
                         <View style={styles.headerRight}>
                             <TouchableOpacity
@@ -145,8 +143,7 @@ function RootLayoutContent() {
                 }}>
                     <Stack.Screen name="(tabs)" options={{
                         headerShown: true,
-                        title: 'Trophy Games',
-                        headerTitleAlign: 'left',
+                        title: '',
                     }} />
                     <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
