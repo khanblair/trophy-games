@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { useState, useCallback, useEffect } from 'react';
 import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/typography';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@trophy-games/backend';
 import * as Application from 'expo-application';
@@ -98,7 +99,7 @@ export default function MembershipStoreScreen() {
 
         const config = {
             pending: { color: '#f59e0b', icon: Clock, label: 'PENDING' },
-            approved: { color: '#10b981', icon: CheckCircle2, label: 'APPROVED' },
+            approved: { color: '#15783a', icon: CheckCircle2, label: 'APPROVED' },
             active: { color: themeColors.primary, icon: Crown, label: 'ACTIVE' }
         }[status as 'pending' | 'approved' | 'active'];
 
@@ -153,7 +154,7 @@ export default function MembershipStoreScreen() {
                                 onPress={handleVerifyToken}
                                 disabled={verifyingToken || !tokenInput.trim()}
                             >
-                                {verifyingToken ? <ActivityIndicator color="black" size="small" /> : <Text style={styles.actionBtnText}>ACTIVATE ACCESS</Text>}
+                                {verifyingToken ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.actionBtnText}>ACTIVATE ACCESS</Text>}
                             </TouchableOpacity>
                         </View>
                     )}
@@ -194,7 +195,7 @@ export default function MembershipStoreScreen() {
                                 onPress={() => handleRequest('vip')}
                                 disabled={requesting === 'vip'}
                             >
-                                {requesting === 'vip' ? <ActivityIndicator color="black" /> : <Text style={styles.actionBtnText}>REQUEST ACCESS</Text>}
+                                {requesting === 'vip' ? <ActivityIndicator color="white" /> : <Text style={styles.actionBtnText}>REQUEST ACCESS</Text>}
                             </TouchableOpacity>
                         )}
                         {vipStatus === 'pending' && (
@@ -215,7 +216,7 @@ export default function MembershipStoreScreen() {
                     <View style={[styles.card, { backgroundColor: themeColors.cardBg }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
-                                <Trophy size={24} color="#D9FF00" />
+                                <Trophy size={24} color={themeColors.primary} />
                                 <View>
                                     <Text style={[styles.planTitle, { color: themeColors.text }]}>PAID TIPS</Text>
                                     <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>Single Match Unlock</Text>
@@ -285,11 +286,11 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         marginBottom: 12,
     },
-    heroBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    heroTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -1, marginBottom: 8, lineHeight: 32 },
+    heroBadgeText: { ...typography.gateBadge },
+    heroTitle: { ...typography.gateTitle, marginBottom: 8, lineHeight: 32 },
     heroSubtitle: { fontSize: 14, lineHeight: 20 },
     content: { paddingHorizontal: 20, gap: 20, paddingBottom: 40 },
-    sectionTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginBottom: -4 },
+    sectionTitle: { ...typography.cardTitle, marginBottom: -4 },
     card: {
         padding: 20,
         borderRadius: 24,
@@ -298,9 +299,9 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    cardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+    cardTitle: { ...typography.cardTitle },
     cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    planTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+    planTitle: { ...typography.planTitle },
     planSubtitle: { fontSize: 12 },
     statusPill: {
         flexDirection: 'row',
@@ -311,18 +312,18 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         borderWidth: 1,
     },
-    statusText: { fontSize: 8, fontWeight: '900' },
+    statusText: { ...typography.statusText },
     features: { gap: 10 },
     featureLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    featureText: { fontSize: 13, fontWeight: '600' },
-    description: { fontSize: 13, lineHeight: 18 },
+    featureText: { ...typography.body },
+    description: { ...typography.body },
     actionBtn: {
         height: 52,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    actionBtnText: { color: 'black', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+    actionBtnText: { ...typography.primaryBtn, color: 'white' },
     outlineBtn: {
         height: 52,
         borderRadius: 16,
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1.5,
     },
-    outlineBtnText: { fontWeight: '900', fontSize: 13 },
+    outlineBtnText: { ...typography.primaryBtn },
     pendingInfo: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         borderRadius: 12,
     },
-    pendingText: { fontSize: 13, fontWeight: '700' },
+    pendingText: { ...typography.medium },
     activeInfo: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -348,13 +349,13 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         borderRadius: 12,
     },
-    activeInfoText: { fontSize: 13, fontWeight: '900' },
+    activeInfoText: { ...typography.medium },
     input: {
         height: 52,
         borderRadius: 12,
         paddingHorizontal: 16,
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: '600',
         borderWidth: 1,
     },
     footer: {
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     infoSection: { flexDirection: 'row', gap: 12 },
     infoIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     infoContent: { flex: 1 },
-    infoTitle: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
-    infoDesc: { fontSize: 12, lineHeight: 16 },
+    infoTitle: { ...typography.alertTitle },
+    infoDesc: { ...typography.caption, lineHeight: 16 },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
 });

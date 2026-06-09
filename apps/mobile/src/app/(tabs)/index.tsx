@@ -5,10 +5,14 @@ import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/typography';
 import { fetchMatches } from '../../api/footystats';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+
+const toTitleCase = (str: string) =>
+    str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
 export default function FreeTipsScreen() {
     const [selectedLeague, setSelectedLeague] = useState('All');
@@ -31,7 +35,7 @@ export default function FreeTipsScreen() {
             const footyMatches = await fetchMatches(selectedDate);
             setMatches(footyMatches);
             setApiSource('footystats');
-            const leagueNames = [...new Set(footyMatches.map(m => m.league))].map(name => ({ name }));
+            const leagueNames = [...new Set(footyMatches.map(m => m.league))].map(name => ({ name, id: name }));
             setLeagues(leagueNames);
             console.log(`[Home Screen] Loaded ${footyMatches.length} matches from FootyStats`);
         } catch (footyError) {
@@ -109,8 +113,8 @@ export default function FreeTipsScreen() {
                             ]}
                             onPress={() => setSelectedLeague('All')}
                         >
-                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'black' } : { color: themeColors.text }]}>
-                                ALL
+                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'white' } : { color: themeColors.text }]}>
+                                All
                             </Text>
                         </TouchableOpacity>
                         {leagues.map((league) => (
@@ -122,8 +126,8 @@ export default function FreeTipsScreen() {
                                 ]}
                                 onPress={() => setSelectedLeague(league.name)}
                             >
-                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'black' } : { color: themeColors.text }]}>
-                                    {league.name.toUpperCase()}
+                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'white' } : { color: themeColors.text }]}>
+                                    {toTitleCase(league.name)}
                                 </Text>
                             </TouchableOpacity>
                         ))}
@@ -151,10 +155,10 @@ export default function FreeTipsScreen() {
                                 ]}
                                 onPress={() => setSelectedDate(dateStr)}
                             >
-                                <Text style={[styles.dayText, isSelected ? { color: 'black' } : { color: themeColors.textMuted }]}>
+                                <Text style={[styles.dayText, isSelected ? { color: 'white' } : { color: themeColors.textMuted }]}>
                                     {dayName}
                                 </Text>
-                                <Text style={[styles.numText, isSelected ? { color: 'black' } : { color: themeColors.text }]}>
+                                <Text style={[styles.numText, isSelected ? { color: 'white' } : { color: themeColors.text }]}>
                                     {dayNum}
                                 </Text>
                             </TouchableOpacity>
@@ -186,6 +190,7 @@ export default function FreeTipsScreen() {
                             <MatchCard
                                 key={match.id}
                                 matchId={match.id}
+                                matchData={match}
                                 leagueName={match.league}
                                 leagueLogo={match.leagueLogo}
                                 countryFlag={match.countryFlag}
@@ -243,8 +248,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.05)',
     },
     leagueChipText: {
-        fontSize: 11,
-        fontWeight: '900',
+        ...typography.chipText,
     },
     datePicker: {
         flexGrow: 0,
@@ -262,13 +266,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     dayText: {
-        fontSize: 10,
-        fontWeight: '900',
+        ...typography.dayText,
         marginBottom: 2,
     },
     numText: {
-        fontSize: 18,
-        fontWeight: '900',
+        ...typography.numText,
     },
     fixtureList: {
         flex: 1,
@@ -297,14 +299,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     emptyTitle: {
-        fontSize: 18,
-        fontWeight: '900',
-        letterSpacing: 1,
+        ...typography.emptyTitle,
     },
     emptySubtitle: {
+        ...typography.emptySubtitle,
         textAlign: 'center',
-        fontSize: 14,
         paddingHorizontal: 40,
-        lineHeight: 20,
     },
 });

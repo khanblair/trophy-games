@@ -6,6 +6,7 @@ import { api } from '@trophy-games/backend';
 
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/typography';
 import { fetchMatches } from '../../api/footystats';
 import * as Application from 'expo-application';
 
@@ -13,6 +14,9 @@ const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
+
+const toTitleCase = (str: string) =>
+    str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
 export default function VIPTipsScreen() {
     const [matches, setMatches] = useState<any[]>([]);
@@ -173,7 +177,7 @@ export default function VIPTipsScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={[styles.gateBadge, { backgroundColor: themeColors.primary }]}>
-                        <Crown size={18} color="black" />
+                        <Crown size={18} color="white" />
                         <Text style={styles.gateBadgeText}>ELITE ACCESS REQUIRED</Text>
                     </View>
 
@@ -197,9 +201,9 @@ export default function VIPTipsScreen() {
                             onPress={requestMembership}
                             disabled={requesting}
                         >
-                            {requesting ? <ActivityIndicator color="black" size="small" /> : (
+                            {requesting ? <ActivityIndicator color="white" size="small" /> : (
                                 <>
-                                    <Send size={16} color="black" />
+                                    <Send size={16} color="white" />
                                     <Text style={styles.primaryBtnText}>REQUEST VIP MEMBERSHIP</Text>
                                 </>
                             )}
@@ -219,8 +223,8 @@ export default function VIPTipsScreen() {
 
                     {/* Approved state */}
                     {memberStatus === 'approved' && !enteringToken && (
-                        <View style={[styles.pendingCard, { backgroundColor: themeColors.cardBg, borderColor: '#10b981' }]}>
-                            <CheckCircle2 size={20} color="#10b981" />
+                        <View style={[styles.pendingCard, { backgroundColor: themeColors.cardBg, borderColor: '#15783a' }]}>
+                            <CheckCircle2 size={20} color="#15783a" />
                             <Text style={[styles.pendingTitle, { color: themeColors.text }]}>Request Approved!</Text>
                             <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>
                                 Your VIP access request has been approved. Please enter your token below to unlock it.
@@ -256,7 +260,7 @@ export default function VIPTipsScreen() {
                                     disabled={verifyingToken || !tokenInput.trim()}
                                 >
                                     {verifyingToken
-                                        ? <ActivityIndicator color="black" size="small" />
+                                        ? <ActivityIndicator color="white" size="small" />
                                         : <Text style={styles.primaryBtnText}>VERIFY TOKEN</Text>
                                     }
                                 </TouchableOpacity>
@@ -289,10 +293,10 @@ export default function VIPTipsScreen() {
                                 onPress={() => setSelectedDate(date)}
                                 style={[styles.dateButton, isSelected && { backgroundColor: themeColors.primary }]}
                             >
-                                <Text style={[styles.dayName, { color: isSelected ? 'black' : themeColors.textMuted }]}>
+                                <Text style={[styles.dayName, { color: isSelected ? 'white' : themeColors.textMuted }]}>
                                     {d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                                 </Text>
-                                <Text style={[styles.dayDate, { color: isSelected ? 'black' : themeColors.text }]}>
+                                <Text style={[styles.dayDate, { color: isSelected ? 'white' : themeColors.text }]}>
                                     {d.getDate()}
                                 </Text>
                             </TouchableOpacity>
@@ -310,8 +314,8 @@ export default function VIPTipsScreen() {
                             onPress={() => setSelectedLeague(league)}
                             style={[styles.leagueChip, { backgroundColor: selectedLeague === league ? themeColors.primary : themeColors.cardBgSecondary }]}
                         >
-                            <Text style={[styles.leagueChipText, { color: selectedLeague === league ? 'black' : themeColors.textMuted }]}>
-                                {league.toUpperCase()}
+                            <Text style={[styles.leagueChipText, { color: selectedLeague === league ? 'white' : themeColors.textMuted }]}>
+                                {league === 'All' ? 'All' : toTitleCase(league)}
                             </Text>
                         </TouchableOpacity>
                     ))}
@@ -345,6 +349,7 @@ export default function VIPTipsScreen() {
                             <MatchCard
                                 key={match.id}
                                 matchId={match.id}
+                                matchData={match}
                                 leagueName={match.league}
                                 leagueLogo={match.leagueLogo}
                                 time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -395,11 +400,11 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         marginBottom: 4,
     },
-    gateBadgeText: { fontSize: 10, fontWeight: '900', color: 'black', letterSpacing: 1 },
-    gateTitle: { fontSize: 34, fontWeight: '900', letterSpacing: -1 },
-    gateSubtitle: { textAlign: 'center', fontSize: 14, lineHeight: 20, paddingHorizontal: 16 },
+    gateBadgeText: { ...typography.gateBadge, color: 'white' },
+    gateTitle: { ...typography.gateTitle },
+    gateSubtitle: { ...typography.gateSubtitle, textAlign: 'center', paddingHorizontal: 16 },
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start', width: '100%', paddingHorizontal: 8 },
-    featureText: { fontSize: 14, fontWeight: '600' },
+    featureText: { ...typography.featureText },
     primaryBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -410,7 +415,7 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: 8,
     },
-    primaryBtnText: { color: 'black', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+    primaryBtnText: { ...typography.primaryBtn, color: 'white' },
     secondaryBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -421,7 +426,7 @@ const styles = StyleSheet.create({
         width: '100%',
         borderWidth: 1,
     },
-    secondaryBtnText: { fontWeight: '800', fontSize: 12, letterSpacing: 1 },
+    secondaryBtnText: { ...typography.secondaryBtn },
     pendingCard: {
         width: '100%',
         padding: 20,
@@ -431,8 +436,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderStyle: 'dashed',
     },
-    pendingTitle: { fontSize: 15, fontWeight: '900' },
-    pendingText: { textAlign: 'center', fontSize: 13, lineHeight: 18 },
+    pendingTitle: { ...typography.pendingTitle },
+    pendingText: { ...typography.pendingText, textAlign: 'center' },
     tokenInputCard: {
         width: '100%',
         padding: 20,
@@ -440,19 +445,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         gap: 12,
     },
-    tokenInputLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    tokenInputLabel: { ...typography.tokenLabel },
     tokenInput: {
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,
-        fontSize: 15,
-        fontWeight: '700',
-        letterSpacing: 1,
+        ...typography.tokenInput,
     },
     tokenBtnRow: { flexDirection: 'row', gap: 10 },
     cancelBtn: { paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, justifyContent: 'center' },
-    cancelBtnText: { fontSize: 12, fontWeight: '700' },
+    cancelBtnText: { ...typography.cancelBtn },
 
     // Active member screen
     activeBanner: {
@@ -464,7 +467,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         justifyContent: 'center',
     },
-    activeBannerText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    activeBannerText: { ...typography.sectionLabel },
     calendarStrip: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1 },
     datesContainer: { gap: 10 },
     dateButton: {
@@ -477,20 +480,20 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.05)',
     },
-    dayName: { fontSize: 9, fontWeight: '900', marginBottom: 3 },
-    dayDate: { fontSize: 17, fontWeight: '900' },
+    dayName: { ...typography.dayText, marginBottom: 3 },
+    dayDate: { ...typography.numText },
     filterSection: { paddingHorizontal: 14, paddingTop: 8 },
     leaguesScroll: { paddingVertical: 4, gap: 8 },
     leagueChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    leagueChipText: { fontSize: 10, fontWeight: '900' },
+    leagueChipText: { ...typography.chipText },
     content: { flex: 1 },
     scrollContent: { padding: 14, paddingTop: 14, paddingBottom: 40 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 6 },
-    sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+    sectionTitle: { ...typography.sectionTitle },
     loadingContainer: { paddingVertical: 60, alignItems: 'center' },
     fixtureGrid: { gap: 8 },
     emptyContainer: { paddingVertical: 60, alignItems: 'center', gap: 14 },
     emptyIconWrapper: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
-    emptyText: { fontSize: 16, fontWeight: '700' },
-    emptySubtext: { textAlign: 'center', fontSize: 13, paddingHorizontal: 36 },
+    emptyText: { ...typography.emptyText },
+    emptySubtext: { ...typography.emptySubtext, textAlign: 'center', paddingHorizontal: 36 },
 });

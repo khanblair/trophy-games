@@ -5,10 +5,14 @@ import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../theme/typography';
 import { fetchMatches } from '../../api/footystats';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+
+const toTitleCase = (str: string) =>
+    str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
 function getDateRange() {
     const dates: string[] = [];
@@ -111,8 +115,8 @@ export default function WinsScreen() {
                             !selectedDate && { backgroundColor: themeColors.primary }
                         ]}
                     >
-                        <Text style={[styles.dayName, { color: !selectedDate ? 'black' : themeColors.textMuted }]}>ALL</Text>
-                        <Text style={[styles.dayDate, { color: !selectedDate ? 'black' : themeColors.text }]}>*</Text>
+                        <Text style={[styles.dayName, { color: !selectedDate ? 'white' : themeColors.textMuted }]}>ALL</Text>
+                        <Text style={[styles.dayDate, { color: !selectedDate ? 'white' : themeColors.text }]}>*</Text>
                     </TouchableOpacity>
                     {dates.map((date) => {
                         const d = new Date(date + 'T12:00:00');
@@ -127,10 +131,10 @@ export default function WinsScreen() {
                                     isSelected && { backgroundColor: themeColors.primary }
                                 ]}
                             >
-                                <Text style={[styles.dayName, { color: isSelected ? 'black' : themeColors.textMuted }]}>
+                                <Text style={[styles.dayName, { color: isSelected ? 'white' : themeColors.textMuted }]}>
                                     {isToday ? 'TODAY' : d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                                 </Text>
-                                <Text style={[styles.dayDate, { color: isSelected ? 'black' : themeColors.text }]}>
+                                <Text style={[styles.dayDate, { color: isSelected ? 'white' : themeColors.text }]}>
                                     {d.getDate()}
                                 </Text>
                             </TouchableOpacity>
@@ -153,9 +157,9 @@ export default function WinsScreen() {
                         >
                             <Text style={[
                                 styles.leagueChipText,
-                                { color: selectedLeague === league ? 'black' : themeColors.textMuted }
+                                { color: selectedLeague === league ? 'white' : themeColors.textMuted }
                             ]}>
-                                {league.toUpperCase()}
+                                {league === 'All' ? 'All' : toTitleCase(league)}
                             </Text>
                         </TouchableOpacity>
                     ))}
@@ -207,8 +211,9 @@ export default function WinsScreen() {
                     <View style={styles.fixtureGrid}>
                         {filteredMatches.map((match: any) => (
                             <MatchCard
-                                key={match._id}
-                                matchId={match._id}
+                                key={match._id || match.id}
+                                matchId={match._id || match.id}
+                                matchData={match}
                                 leagueName={match.league}
                                 leagueLogo={match.leagueLogo}
                                 time="FT"
@@ -258,8 +263,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.06)',
     },
-    dayName: { fontSize: 9, fontWeight: '900', marginBottom: 3 },
-    dayDate: { fontSize: 17, fontWeight: '900' },
+    dayName: { ...typography.dayText, marginBottom: 3 },
+    dayDate: { ...typography.numText },
     filterSection: { paddingHorizontal: 14, paddingTop: 8 },
     leaguesScroll: { paddingVertical: 4, gap: 8 },
     leagueChip: {
@@ -269,7 +274,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.05)',
     },
-    leagueChipText: { fontSize: 10, fontWeight: '900' },
+    leagueChipText: { ...typography.chipText },
     statsRow: {
         flexDirection: 'row',
         paddingVertical: 14,
@@ -279,8 +284,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
     },
     statBox: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    statValue: { fontSize: 16, fontWeight: '900' },
-    statLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    statValue: { ...typography.statValue },
+    statLabel: { ...typography.statLabel },
     statDivider: { width: 1, height: 22 },
     content: { flex: 1 },
     scrollContent: { padding: 14, paddingBottom: 40 },
@@ -291,7 +296,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
         marginTop: 6,
     },
-    sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+    sectionTitle: { ...typography.sectionTitle },
     loadingContainer: { paddingVertical: 60, alignItems: 'center' },
     fixtureGrid: { gap: 8 },
     emptyContainer: { paddingVertical: 70, alignItems: 'center', gap: 14 },
@@ -302,6 +307,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    emptyText: { fontSize: 16, fontWeight: '700' },
-    emptySubtext: { textAlign: 'center', fontSize: 13, paddingHorizontal: 36 },
+    emptyText: { ...typography.emptyText },
+    emptySubtext: { ...typography.emptySubtext, textAlign: 'center', paddingHorizontal: 36 },
 });

@@ -140,8 +140,8 @@ function RootLayoutContent() {
                     headerShadowVisible: false,
                     headerTintColor: themeColors.text,
                     headerTitleStyle: {
-                        fontWeight: '900',
-                        fontSize: 18,
+                        fontWeight: '700',
+                        fontSize: 17,
                     },
                     headerLeft: () => (
                         <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
@@ -167,7 +167,7 @@ function RootLayoutContent() {
                 }}>
                     <Stack.Screen name="(tabs)" options={{
                         headerShown: true,
-                        title: 'TROPHY GAMES'
+                        title: 'Trophy Games'
                     }} />
                     <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     errorTitle: {
         color: '#EF4444',
         fontSize: 18,
-        fontWeight: '900',
+        fontWeight: '700',
         marginBottom: 12,
     },
     errorText: {
@@ -289,7 +289,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 8,
         right: 8,
-        backgroundColor: '#D9FF00',
         minWidth: 16,
         height: 16,
         borderRadius: 8,
@@ -297,12 +296,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 2,
         borderWidth: 1.5,
-        borderColor: 'white', // Will be dynamic below
+        borderColor: '#000',
     },
     badgeText: {
         color: 'black',
         fontSize: 8,
-        fontWeight: '900',
+        fontWeight: '700',
     },
     drawerOverlay: {
         position: 'absolute',
@@ -341,12 +340,12 @@ const styles = StyleSheet.create({
     },
     drawerTitle: {
         fontSize: 22,
-        fontWeight: '900',
+        fontWeight: '700',
         letterSpacing: -1,
     },
     drawerSubtitle: {
         fontSize: 10,
-        fontWeight: '900',
+        fontWeight: '700',
         letterSpacing: 2,
     },
     drawerContent: {
@@ -372,7 +371,7 @@ const styles = StyleSheet.create({
     },
     drawerItemText: {
         fontSize: 15,
-        fontWeight: '700',
+        fontWeight: '600',
         flex: 1,
     },
     vipLabel: {
@@ -382,8 +381,8 @@ const styles = StyleSheet.create({
     },
     vipLabelText: {
         fontSize: 9,
-        fontWeight: '900',
-        color: 'black',
+        fontWeight: '700',
+        color: 'white',
     },
     drawerFooter: {
         paddingHorizontal: 24,
@@ -397,7 +396,7 @@ const styles = StyleSheet.create({
     },
     drawerFooterText: {
         fontSize: 10,
-        fontWeight: '900',
+        fontWeight: '600',
         letterSpacing: 1,
     },
 });
