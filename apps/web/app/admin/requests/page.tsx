@@ -32,6 +32,7 @@ export default function AdminRequestsPage() {
         setLoading(false);
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadRequests(); }, [loadRequests]);
 
     const handleAction = async (requestId: string, action: 'approve' | 'reject', notes?: string) => {
@@ -80,12 +81,12 @@ export default function AdminRequestsPage() {
             </div>
 
             {copiedToken && (
-                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
-                    <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+                <div className="flex items-center gap-3 p-4 bg-brand-green/10 dark:bg-brand-green/10 border border-brand-green/20 dark:border-brand-green/30 rounded-xl">
+                    <CheckCircle2 size={18} className="text-brand-green shrink-0" />
                     <div>
-                        <p className="text-sm font-semibold text-green-700 dark:text-green-400">Token generated and copied!</p>
-                        <p className="font-mono text-sm text-green-600 dark:text-green-300 mt-1">{copiedToken}</p>
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Share this token with the user so they can enter it in the app.</p>
+                        <p className="text-sm font-semibold text-brand-green dark:text-brand-green/80">Token generated and copied!</p>
+                        <p className="font-mono text-sm text-brand-green dark:text-brand-green/80 mt-1">{copiedToken}</p>
+                        <p className="text-xs text-brand-green dark:text-brand-green/80 mt-0.5">Share this token with the user so they can enter it in the app.</p>
                     </div>
                 </div>
             )}
@@ -132,7 +133,7 @@ export default function AdminRequestsPage() {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             {req.status === 'pending' && <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><Clock size={12} />Pending</span>}
-                                            {req.status === 'approved' && <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle2 size={12} />Approved</span>}
+                                            {req.status === 'approved' && <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-green"><CheckCircle2 size={12} />Approved</span>}
                                             {req.status === 'rejected' && <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500"><XCircle size={12} />Rejected</span>}
                                         </td>
                                         <td className="px-4 py-3 text-xs text-zinc-500 whitespace-nowrap">
@@ -155,7 +156,7 @@ export default function AdminRequestsPage() {
                                                     <button
                                                         onClick={() => handleAction(req._id, 'approve')}
                                                         disabled={processingId === req._id}
-                                                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                                                        className="flex items-center gap-1 px-3 py-1.5 bg-brand-green hover:bg-brand-green/80 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
                                                     >
                                                         <CheckCircle2 size={12} />Approve
                                                     </button>

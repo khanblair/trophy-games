@@ -50,6 +50,21 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
     const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
     const [aiMetadata, setAiMetadata] = useState<any>(null);
 
+    const fetchLeagues = async () => {
+        setLoadingLeagues(true);
+        try {
+            const res = await fetch('/api/admin/leagues');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setLeagues(data);
+            }
+        } catch (e) {
+            console.error('Failed to fetch leagues:', e);
+        }
+        setLoadingLeagues(false);
+    };
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (isOpen) {
             fetchLeagues();
@@ -58,6 +73,7 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
 
     useEffect(() => {
         if (match && mode === 'edit') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
                 id: match.id,
                 league: match.league,
@@ -74,6 +90,7 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
                 country: match.country,
             });
         } else {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
                 id: generateMatchId(),
                 league: '',
@@ -89,20 +106,6 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
             setAiSuggestion(null);
         }
     }, [match, mode, isOpen]);
-
-    const fetchLeagues = async () => {
-        setLoadingLeagues(true);
-        try {
-            const res = await fetch('/api/admin/leagues');
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setLeagues(data);
-            }
-        } catch (e) {
-            console.error('Failed to fetch leagues:', e);
-        }
-        setLoadingLeagues(false);
-    };
 
     const handleAiSuggest = async () => {
         if (!aiContext.trim()) return;

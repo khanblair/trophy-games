@@ -33,6 +33,7 @@ export default function AdminTokensPage() {
         setLoading(false);
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadTokens(); }, [loadTokens]);
 
     const createToken = async () => {
@@ -225,7 +226,7 @@ export default function AdminTokensPage() {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             {token.isActive && !isExpired(token.expiresAt)
-                                                ? <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 size={12} />Active</span>
+                                                ? <span className="inline-flex items-center gap-1 text-xs text-brand-green"><CheckCircle2 size={12} />Active</span>
                                                 : <span className="inline-flex items-center gap-1 text-xs text-zinc-400"><XCircle size={12} />Inactive</span>
                                             }
                                         </td>

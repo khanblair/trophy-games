@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: '900',
+        fontWeight: '700',
         letterSpacing: -0.5,
     },
     content: {

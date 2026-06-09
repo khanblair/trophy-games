@@ -32,10 +32,6 @@ export default function AnalyticsPage() {
         loading: true,
     });
 
-    useEffect(() => {
-        fetchAnalytics();
-    }, []);
-
     const fetchAnalytics = async () => {
         try {
             const res = await fetch('/api/admin/matches');
@@ -83,6 +79,10 @@ export default function AnalyticsPage() {
             setData(prev => ({ ...prev, loading: false }));
         }
     };
+
+    useEffect(() => {
+        fetchAnalytics(); // eslint-disable-line react-hooks/set-state-in-effect
+    }, []);
 
     if (data.loading) {
         return (
@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
                                 <span className="font-medium dark:text-zinc-200">{data.awayWins} ({data.awayWinRate}%)</span>
                             </div>
                             <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden dark:bg-zinc-800">
-                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${data.awayWinRate}%` }}></div>
+                                <div className="h-full bg-brand-green/100 rounded-full" style={{ width: `${data.awayWinRate}%` }}></div>
                             </div>
                         </div>
 

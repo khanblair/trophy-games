@@ -16,7 +16,7 @@ export default function TabLayout() {
                 tabBarInactiveTintColor: themeColors.textMuted,
                 tabBarLabelStyle: {
                     fontSize: 10,
-                    fontWeight: '900',
+                    fontWeight: '600',
                     marginBottom: 5,
                 },
                 tabBarStyle: {

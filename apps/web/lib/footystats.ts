@@ -17,6 +17,9 @@ interface FootyStatsRawMatch {
   date_unix: number;
   home_ppg: number | null;
   away_ppg: number | null;
+  home_image?: string;
+  away_image?: string;
+  league_image?: string;
 }
 
 interface FootyStatsLeagueGroup {
@@ -51,6 +54,9 @@ function toMatchData(raw: FootyStatsRawMatch, league: FootyStatsLeagueGroup): Ma
     awayTeam: raw.away_name,
     homeScore: scoresAvailable ? (raw.homeGoalCount ?? undefined) : undefined,
     awayScore: scoresAvailable ? (raw.awayGoalCount ?? undefined) : undefined,
+    homeTeamLogo: raw.home_image ? `${FOOTYSTATS_BASE_URL}/${raw.home_image}` : undefined,
+    awayTeamLogo: raw.away_image ? `${FOOTYSTATS_BASE_URL}/${raw.away_image}` : undefined,
+    leagueLogo: raw.league_image ? `${FOOTYSTATS_BASE_URL}/${raw.league_image}` : undefined,
     status: raw.status === 'incomplete' ? 'Scheduled' : raw.status === 'complete' ? 'Finished' : raw.status,
     score: scoresAvailable ? `${raw.homeGoalCount ?? 0}-${raw.awayGoalCount ?? 0}` : '',
     odds: raw.odds_ft_1 ? {
@@ -99,11 +105,17 @@ export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partia
     throw new Error(json.error || 'FootyStats match stats failed');
   }
 
-  const d = json.data;
-  const teamA = (d.team_a ?? d.teamA ?? {}) as Record<string, unknown>;
-  const teamB = (d.team_b ?? d.teamB ?? {}) as Record<string, unknown>;
+  // API returns nested: { data: { data: { match_fields } } }
+  const outerData = json.data as Record<string, unknown>;
+  const d = (outerData.data ?? outerData) as Record<string, unknown>;
+
+  const teamAStats = (d.team_a_stats ?? {}) as Record<string, unknown>;
+  const teamBStats = (d.team_b_stats ?? {}) as Record<string, unknown>;
   const rawH2h = (d.h2h ?? {}) as Record<string, unknown>;
-  const rawSummary = (rawH2h.summary ?? {}) as Record<string, unknown>;
+  const h2hSummary = (rawH2h.previous_matches_results ?? {}) as Record<string, unknown>;
+
+  const teamAResults = (d.teamAResults ?? []) as any[];
+  const teamBResults = (d.teamBResults ?? []) as any[];
 
   const timestamp = typeof d.date_unix === 'number'
     ? new Date((d.date_unix as number) * 1000).toISOString()
@@ -111,38 +123,101 @@ export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partia
 
   const scoresAvailable = d.status !== 'incomplete' && d.status !== '';
 
+  // Derive form from last 5 results
+  const deriveForm = (results: any[], teamId: number): string => {
+    return results.slice(0, 5).map((r: any) => {
+      if (r.winningTeam === 0) return 'D';
+      return r.winningTeam === teamId ? 'W' : 'L';
+    }).join('');
+  };
+
+  const homeId = Number(d.homeID ?? 0);
+  const awayId = Number(d.awayID ?? 0);
+  const homeForm = deriveForm(teamAResults, homeId);
+  const awayForm = deriveForm(teamBResults, awayId);
+
+  // H2H history from last results
+  const h2hHistory = teamAResults.slice(0, 5).map((r: any) => ({
+    date: new Date((r.date_unix as number) * 1000).toISOString().split('T')[0],
+    league: `${r.home_name} vs ${r.away_name}`,
+    home: String(r.home_name ?? ''),
+    away: String(r.away_name ?? ''),
+    score: `${r.homeGoalCount ?? 0}-${r.awayGoalCount ?? 0}`,
+    outcome: r.winningTeam === 0 ? 'D' : r.winningTeam === homeId ? 'W' : 'L',
+  }));
+
+  // Corner stats (filter out -1)
+  const homeCorners = Number(d.team_a_corners ?? -1);
+  const awayCorners = Number(d.team_b_corners ?? -1);
+
+  // Odds
+  const odds1x2 = d.odds_ft_1 ? {
+    home: String(d.odds_ft_1),
+    draw: String(d.odds_ft_x ?? ''),
+    away: String(d.odds_ft_2 ?? ''),
+  } : undefined;
+
+  const detailedOdds = odds1x2 ? {
+    ft: {
+      '1x2': odds1x2,
+      ou: d.odds_ft_over25 || d.odds_ft_under25 ? {
+        over: String(d.odds_ft_over25 ?? ''),
+        under: String(d.odds_ft_under25 ?? ''),
+        line: '2.5',
+      } : undefined,
+      ah: d.odds_dnb_1 ? {
+        home: String(d.odds_dnb_1 ?? ''),
+        away: String(d.odds_dnb_2 ?? ''),
+        line: '0',
+      } : undefined,
+    },
+    ht: d.odds_1st_half_result_1 ? {
+      '1x2': {
+        home: String(d.odds_1st_half_result_1 ?? ''),
+        draw: String(d.odds_1st_half_result_x ?? ''),
+        away: String(d.odds_1st_half_result_2 ?? ''),
+      },
+      ou: d.odds_1st_half_over05 || d.odds_1st_half_under05 ? {
+        over: String(d.odds_1st_half_over05 ?? ''),
+        under: String(d.odds_1st_half_under05 ?? ''),
+        line: '0.5',
+      } : undefined,
+    } : undefined,
+  } : undefined;
+
   return {
     id: matchId,
-    league: String(d.league_name ?? d.league ?? ''),
-    country: String(d.country ?? teamA.country ?? ''),
+    league: String(d.home_name ?? ''),
+    country: String(teamAStats.country ?? ''),
     timestamp,
-    homeTeam: String(teamA.name ?? d.home_name ?? ''),
-    awayTeam: String(teamB.name ?? d.away_name ?? ''),
-    homeScore: scoresAvailable ? (Number(d.homeGoalCount ?? teamA.goals ?? 0) || undefined) : undefined,
-    awayScore: scoresAvailable ? (Number(d.awayGoalCount ?? teamB.goals ?? 0) || undefined) : undefined,
-    homeTeamLogo: String(teamA.image ?? teamA.logo ?? '') || undefined,
-    awayTeamLogo: String(teamB.image ?? teamB.logo ?? '') || undefined,
-    homeStanding: Number(teamA.table_position ?? teamA.standing ?? 0) || undefined,
-    awayStanding: Number(teamB.table_position ?? teamB.standing ?? 0) || undefined,
+    homeTeam: String(d.home_name ?? ''),
+    awayTeam: String(d.away_name ?? ''),
+    homeScore: scoresAvailable ? (Number(d.homeGoalCount ?? 0) || undefined) : undefined,
+    awayScore: scoresAvailable ? (Number(d.awayGoalCount ?? 0) || undefined) : undefined,
+    homeTeamLogo: d.home_image ? `${FOOTYSTATS_BASE_URL}/${d.home_image}` : undefined,
+    awayTeamLogo: d.away_image ? `${FOOTYSTATS_BASE_URL}/${d.away_image}` : undefined,
+    homeStanding: Number(teamAStats.table_position ?? 0) || undefined,
+    awayStanding: Number(teamBStats.table_position ?? 0) || undefined,
     status: String(d.status ?? ''),
-    odds: d.odds_ft_1 ? {
-      home: String(d.odds_ft_1),
-      draw: String(d.odds_ft_x ?? ''),
-      away: String(d.odds_ft_2 ?? ''),
-    } : undefined,
-    referee: String(d.referee ?? '') || undefined,
-    h2h: rawH2h.summary ? {
+    odds: odds1x2,
+    homeForm: homeForm || undefined,
+    awayForm: awayForm || undefined,
+    homeCorners: homeCorners >= 0 ? homeCorners : undefined,
+    awayCorners: awayCorners >= 0 ? awayCorners : undefined,
+    h2h: h2hSummary.totalMatches ? {
       isGenerated: false,
       summary: {
-        wins: Number(rawSummary.team_a_wins ?? rawSummary.wins ?? 0),
-        draws: Number(rawSummary.draws ?? 0),
-        losses: Number(rawSummary.team_b_wins ?? rawSummary.losses ?? 0),
-        total: Number(rawSummary.team_a_wins ?? rawSummary.wins ?? 0) + Number(rawSummary.draws ?? 0) + Number(rawSummary.team_b_wins ?? rawSummary.losses ?? 0),
+        wins: Number(h2hSummary.team_a_wins ?? 0),
+        draws: Number(h2hSummary.draw ?? 0),
+        losses: Number(h2hSummary.team_b_wins ?? 0),
+        total: Number(h2hSummary.totalMatches ?? 0),
         homeGoalsAvg: 0,
         awayGoalsAvg: 0,
       },
-      history: [],
+      history: h2hHistory.length > 0 ? h2hHistory : [],
     } : undefined,
+    detailedOdds,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -181,6 +256,10 @@ export function mergeWithConvexData(
         weather: convexMatch.weather || fm.weather,
         homeStanding: convexMatch.homeStanding ?? fm.homeStanding,
         awayStanding: convexMatch.awayStanding ?? fm.awayStanding,
+        homeForm: fm.homeForm || convexMatch.homeForm,
+        awayForm: fm.awayForm || convexMatch.awayForm,
+        homeCorners: fm.homeCorners ?? convexMatch.homeCorners,
+        awayCorners: fm.awayCorners ?? convexMatch.awayCorners,
         createdAt: convexMatch.createdAt,
         updatedAt: convexMatch.updatedAt,
         createdBy: convexMatch.createdBy,

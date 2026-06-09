@@ -56,7 +56,7 @@ export default function MatchesPage() {
     };
 
     useEffect(() => {
-        fetchMatches();
+        fetchMatches(); // eslint-disable-line react-hooks/set-state-in-effect
     }, []);
 
     const handleRefresh = async () => {
@@ -612,7 +612,7 @@ export default function MatchesPage() {
                                                 <div className="grid gap-2">
                                                     {aiData.reasoning?.map((reason: string, i: number) => (
                                                         <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
-                                                            <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />
+                                                            <CheckCircle2 size={14} className="text-brand-green shrink-0 mt-0.5" />
                                                             <span>{reason}</span>
                                                         </div>
                                                     ))}

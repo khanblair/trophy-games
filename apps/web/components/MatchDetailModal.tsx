@@ -201,9 +201,9 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                         Match Odds (1X2)
                                     </h3>
                                     <div className="grid grid-cols-3 gap-4">
-                                        <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-500/10">
+                                        <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
                                             <div className="text-xs text-zinc-500 mb-1">Home</div>
-                                            <div className="text-xl font-bold text-green-600">{match.odds.home}</div>
+                                            <div className="text-xl font-bold text-brand-green">{match.odds.home}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800">
                                             <div className="text-xs text-zinc-500 mb-1">Draw</div>
@@ -228,9 +228,112 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                             <div className="text-xs text-zinc-500 mb-1">Over</div>
                                             <div className="text-xl font-bold text-red-600">{match.detailedOdds.ft['ou'].over}</div>
                                         </div>
-                                        <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-500/10">
+                                        <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
                                             <div className="text-xs text-zinc-500 mb-1">Under</div>
-                                            <div className="text-xl font-bold text-green-600">{match.detailedOdds.ft['ou'].under}</div>
+                                            <div className="text-xl font-bold text-brand-green">{match.detailedOdds.ft['ou'].under}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* H2H Summary */}
+                            {match.h2h?.summary && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Head to Head
+                                    </h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
+                                            <div className="text-xs text-zinc-500 mb-1">Home Wins</div>
+                                            <div className="text-xl font-bold text-brand-green">{match.h2h.summary.wins}</div>
+                                        </div>
+                                        <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800">
+                                            <div className="text-xs text-zinc-500 mb-1">Draws</div>
+                                            <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300">{match.h2h.summary.draws}</div>
+                                        </div>
+                                        <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
+                                            <div className="text-xs text-zinc-500 mb-1">Away Wins</div>
+                                            <div className="text-xl font-bold text-red-600">{match.h2h.summary.losses}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* H2H History */}
+                            {match.h2h?.history && match.h2h.history.length > 0 && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        H2H History
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {match.h2h.history.map((h, i) => (
+                                            <div key={i} className="flex justify-between items-center py-2 border-b border-zinc-100 dark:border-zinc-800/50 last:border-0">
+                                                <div>
+                                                    <div className="text-xs text-zinc-500">{h.date}</div>
+                                                    <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{h.home} vs {h.away}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-bold text-brand-green">{h.score}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Team Form */}
+                            {(match.homeForm || match.awayForm) && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Recent Form
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {match.homeForm && (
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{match.homeTeam}</span>
+                                                <div className="flex gap-1">
+                                                    {match.homeForm.split('').slice(0, 5).map((char, i) => (
+                                                        <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${
+                                                            char === 'W' ? 'bg-brand-green' : char === 'D' ? 'bg-amber-500' : 'bg-red-500'
+                                                        }`}>
+                                                            {char}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {match.awayForm && (
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{match.awayTeam}</span>
+                                                <div className="flex gap-1">
+                                                    {match.awayForm.split('').slice(0, 5).map((char, i) => (
+                                                        <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${
+                                                            char === 'W' ? 'bg-brand-green' : char === 'D' ? 'bg-amber-500' : 'bg-red-500'
+                                                        }`}>
+                                                            {char}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Corner Stats */}
+                            {(match.homeCorners !== undefined || match.awayCorners !== undefined) && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Corner Stats
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
+                                            <div className="text-xs text-zinc-500 mb-1">{match.homeTeam}</div>
+                                            <div className="text-xl font-bold text-brand-green">{match.homeCorners ?? 0}</div>
+                                        </div>
+                                        <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
+                                            <div className="text-xs text-zinc-500 mb-1">{match.awayTeam}</div>
+                                            <div className="text-xl font-bold text-red-600">{match.awayCorners ?? 0}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -275,7 +378,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                             <div className="mt-3 grid gap-2">
                                                 {aiPred.reasoning?.map((reason: string, i: number) => (
                                                     <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
-                                                        <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />
+                                                        <CheckCircle2 size={14} className="text-brand-green shrink-0 mt-0.5" />
                                                         <span>{reason}</span>
                                                     </div>
                                                 ))}
@@ -344,7 +447,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs uppercase text-zinc-500 font-semibold">
                                         <tr>
                                             <th className="px-4 py-3 text-left">Market</th>
-                                            <th className="px-4 py-3 text-center text-green-600">Home</th>
+                                            <th className="px-4 py-3 text-center text-brand-green">Home</th>
                                             <th className="px-4 py-3 text-center text-zinc-600">Draw</th>
                                             <th className="px-4 py-3 text-center text-red-600">Away</th>
                                         </tr>
@@ -352,7 +455,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                         <tr className="bg-white dark:bg-zinc-900/20">
                                             <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">1X2</td>
-                                            <td className="px-4 py-3 text-center font-bold bg-green-500/10 text-green-700 dark:text-green-400">{match.detailedOdds.ft['1x2'].home}</td>
+                                            <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{match.detailedOdds.ft['1x2'].home}</td>
                                             <td className="px-4 py-3 text-center font-bold">{match.detailedOdds.ft['1x2'].draw}</td>
                                             <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{match.detailedOdds.ft['1x2'].away}</td>
                                         </tr>
@@ -373,7 +476,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                                 <th className="px-4 py-3 text-left">Market</th>
                                                 <th className="px-4 py-3 text-center text-red-600">Over</th>
                                                 <th className="px-4 py-3 text-center text-zinc-600">Line</th>
-                                                <th className="px-4 py-3 text-center text-green-600">Under</th>
+                                                <th className="px-4 py-3 text-center text-brand-green">Under</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -381,7 +484,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                                 <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">O/U</td>
                                                 <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{match.detailedOdds.ft['ou'].over}</td>
                                                 <td className="px-4 py-3 text-center font-bold">{match.detailedOdds.ft['ou'].line}</td>
-                                                <td className="px-4 py-3 text-center font-bold bg-green-500/10 text-green-700 dark:text-green-400">{match.detailedOdds.ft['ou'].under}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{match.detailedOdds.ft['ou'].under}</td>
                                             </tr>
                                         </tbody>
                                     </table>

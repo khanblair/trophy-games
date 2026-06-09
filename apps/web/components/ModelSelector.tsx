@@ -64,7 +64,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled, error }:
                 <div className="flex items-center gap-2 shrink-0">
                     {error && <AlertCircle size={14} className="text-red-500" />}
                     {selectedModel.recommended && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium dark:bg-green-900/30 dark:text-green-400">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green font-medium dark:bg-brand-green/10 dark:text-brand-green/80">
                             Recommended
                         </span>
                     )}
@@ -99,7 +99,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled, error }:
                                             {model.name}
                                         </p>
                                         {model.recommended && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium dark:bg-green-900/30 dark:text-green-400">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green font-medium dark:bg-brand-green/10 dark:text-brand-green/80">
                                                 Recommended
                                             </span>
                                         )}

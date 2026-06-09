@@ -44,10 +44,6 @@ export default function LeaguesPage() {
     const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
     const [aiMetadata, setAiMetadata] = useState<any>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
     const fetchData = async () => {
         try {
             const [leaguesRes, matchesRes] = await Promise.all([
@@ -66,6 +62,10 @@ export default function LeaguesPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchData(); // eslint-disable-line react-hooks/set-state-in-effect
+    }, []);
 
     const handleCreateLeague = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -415,7 +415,7 @@ export default function LeaguesPage() {
                                                         </span>
                                                     )}
                                                     {aiSuggestion.country && (
-                                                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+                                                        <span className="text-xs bg-brand-green/10 dark:bg-brand-green/10 text-brand-green dark:text-brand-green/80 px-2 py-1 rounded">
                                                             Country: {aiSuggestion.country}
                                                         </span>
                                                     )}

@@ -64,7 +64,9 @@ export default function HistoryPage() {
         setLoadingAll(false);
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadHistory(); }, [loadHistory]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { if (tab === 'completed') loadAllMatches(); }, [tab, loadAllMatches]);
 
     const updateResult = async (matchId: string, result: 'win' | 'lose' | 'draw') => {
@@ -128,7 +130,7 @@ export default function HistoryPage() {
     const resultBadge = (result?: string) => {
         if (!result) return <span className="text-zinc-300 dark:text-zinc-600 text-xs">—</span>;
         const cfg = result === 'win'
-            ? { cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: <CheckCircle2 size={10} /> }
+            ? { cls: 'bg-brand-green/10 text-brand-green dark:bg-brand-green/10 dark:text-brand-green/80', icon: <CheckCircle2 size={10} /> }
             : result === 'lose'
             ? { cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: <XCircle size={10} /> }
             : { cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400', icon: <Minus size={10} /> };
@@ -169,7 +171,7 @@ export default function HistoryPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {([
                     { label: 'Total', value: matches.length, color: 'text-zinc-900 dark:text-zinc-50', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-                    { label: 'Wins', value: wins, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
+                    { label: 'Wins', value: wins, color: 'text-brand-green', bg: 'bg-brand-green/10 dark:bg-brand-green/10' },
                     { label: 'Losses', value: loses, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
                     { label: 'Win Rate', value: `${winRate}%`, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                 ] as const).map(stat => (
@@ -239,7 +241,7 @@ export default function HistoryPage() {
                                                 <td className="px-4 py-3 text-center">{resultBadge(match.result)}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => updateResult(match.id, 'win')} disabled={updatingId === match.id} title="Win" className={`p-1.5 rounded-lg transition-colors ${match.result === 'win' ? 'bg-green-500 text-white' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'}`}><CheckCircle2 size={14} /></button>
+                                                        <button onClick={() => updateResult(match.id, 'win')} disabled={updatingId === match.id} title="Win" className={`p-1.5 rounded-lg transition-colors ${match.result === 'win' ? 'bg-brand-green/100 text-white' : 'text-brand-green hover:bg-brand-green/10 dark:hover:bg-brand-green/10'}`}><CheckCircle2 size={14} /></button>
                                                         <button onClick={() => updateResult(match.id, 'lose')} disabled={updatingId === match.id} title="Loss" className={`p-1.5 rounded-lg transition-colors ${match.result === 'lose' ? 'bg-red-500 text-white' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}><XCircle size={14} /></button>
                                                         <button onClick={() => updateResult(match.id, 'draw')} disabled={updatingId === match.id} title="Draw" className={`p-1.5 rounded-lg transition-colors ${match.result === 'draw' ? 'bg-zinc-500 text-white' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}><Minus size={14} /></button>
                                                     </div>

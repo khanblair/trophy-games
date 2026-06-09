@@ -24,6 +24,10 @@ export default defineSchema({
         awayStanding: v.optional(v.number()),
         referee: v.optional(v.string()),
         weather: v.optional(v.string()),
+        homeForm: v.optional(v.string()),
+        awayForm: v.optional(v.string()),
+        homeCorners: v.optional(v.number()),
+        awayCorners: v.optional(v.number()),
         matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
         isTrending: v.optional(v.boolean()),
         aiPrediction: v.optional(v.object({

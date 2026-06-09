@@ -30,6 +30,7 @@ export function LeagueDetailModal({ league, matches, isOpen, onClose, onRefreshD
                     (m.leagueId && league.id && m.leagueId === league.id);
             }).slice(0, 20);
 
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLeagueMatches(filtered);
         }
     }, [isOpen, league, matches]);
@@ -149,14 +150,14 @@ export function LeagueDetailModal({ league, matches, isOpen, onClose, onRefreshD
 
                                 {/* Odds Display */}
                                 {m.odds && (
-                                    <div className="mb-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200/50 dark:border-green-800/50">
+                                    <div className="mb-2 p-2 rounded-lg bg-brand-green/10 dark:bg-brand-green/10 border border-brand-green/20 dark:border-brand-green/30">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase">Odds</span>
+                                            <span className="text-[9px] font-bold text-brand-green dark:text-brand-green/80 uppercase">Odds</span>
                                         </div>
                                         <div className="grid grid-cols-3 gap-1 text-center">
                                             <div className="bg-white dark:bg-zinc-800 rounded py-1">
                                                 <div className="text-[9px] text-zinc-500">Home</div>
-                                                <div className="text-xs font-mono font-bold text-green-600">{m.odds.home || '-'}</div>
+                                                <div className="text-xs font-mono font-bold text-brand-green">{m.odds.home || '-'}</div>
                                             </div>
                                             <div className="bg-white dark:bg-zinc-800 rounded py-1">
                                                 <div className="text-[9px] text-zinc-500">Draw</div>

@@ -18,6 +18,10 @@ export interface MatchData {
     awayScore?: number;
     homeStanding?: number;
     awayStanding?: number;
+    homeForm?: string;
+    awayForm?: string;
+    homeCorners?: number;
+    awayCorners?: number;
     referee?: string;
     weather?: string;
     matchType?: 'free' | 'paid' | 'vip' | 'unassigned';
@@ -37,14 +41,14 @@ export interface MatchData {
     detailedOdds?: {
         isGenerated?: boolean;
         ft: {
-            '1x2': { home: string; draw: string; away: string; initHome: string; initDraw: string; initAway: string; };
-            'ou': { over: string; line: string; under: string; initOver: string; initLine: string; initUnder: string; };
-            'ah': { home: string; line: string; away: string; initHome: string; initLine: string; initAway: string; };
+            '1x2': { home: string; draw: string; away: string; initHome?: string; initDraw?: string; initAway?: string; };
+            'ou'?: { over: string; line: string; under: string; initOver?: string; initLine?: string; initUnder?: string; };
+            'ah'?: { home: string; line: string; away: string; initHome?: string; initLine?: string; initAway?: string; };
         };
-        ht: {
-            '1x2': { home: string; draw: string; away: string; initHome: string; initDraw: string; initAway: string; };
-            'ou': { over: string; line: string; under: string; initOver: string; initLine: string; initUnder: string; };
-            'ah': { home: string; line: string; away: string; initHome: string; initLine: string; initAway: string; };
+        ht?: {
+            '1x2': { home: string; draw: string; away: string; initHome?: string; initDraw?: string; initAway?: string; };
+            'ou'?: { over: string; line: string; under: string; initOver?: string; initLine?: string; initUnder?: string; };
+            'ah'?: { home: string; line: string; away: string; initHome?: string; initLine?: string; initAway?: string; };
         };
     };
     h2h?: {
@@ -63,10 +67,10 @@ export interface MatchData {
             home: string;
             away: string;
             score: string;
-            htScore: string;
-            corner: string;
-            outcome: 'W' | 'D' | 'L';
-            odds: { home: string; draw: string; away: string; };
+            htScore?: string;
+            corner?: string;
+            outcome: string;
+            odds?: { home: string; draw: string; away: string; };
         }[];
     };
     result?: 'win' | 'lose' | 'draw';

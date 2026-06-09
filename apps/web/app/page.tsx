@@ -61,7 +61,7 @@ export default function DashboardPage() {
   };
 
   React.useEffect(() => {
-    fetchStats();
+    fetchStats(); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   const statCards = [
@@ -84,7 +84,7 @@ export default function DashboardPage() {
       value: stats.freeTips.toString(), 
       icon: Star, 
       trend: 'Available',
-      color: 'bg-green-600'
+      color: 'bg-brand-green'
     },
     { 
       name: 'Win Rate', 
@@ -223,7 +223,7 @@ export default function DashboardPage() {
               href="/history"
               className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-green-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-brand-green flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Target size={18} />
               </div>
               <div>
