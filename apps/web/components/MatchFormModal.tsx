@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, Clock, Trophy, Users, MapPin, DollarSign, Star, Crown, Filter, ChevronDown, AlertCircle, Sparkles, Wand2, Loader2, Cpu } from 'lucide-react';
 import { MatchData, LeagueInfo } from '@trophy-games/shared';
 import { Modal } from './Modal';
@@ -50,7 +50,7 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
     const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
     const [aiMetadata, setAiMetadata] = useState<any>(null);
 
-    const fetchLeagues = async () => {
+    const fetchLeagues = useCallback(async () => {
         setLoadingLeagues(true);
         try {
             const res = await fetch('/api/admin/leagues');
@@ -62,19 +62,17 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
             console.error('Failed to fetch leagues:', e);
         }
         setLoadingLeagues(false);
-    };
+    }, []);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (isOpen) {
-            fetchLeagues();
+            fetchLeagues(); // eslint-disable-line react-hooks/set-state-in-effect
         }
-    }, [isOpen]);
+    }, [isOpen, fetchLeagues]);
 
     useEffect(() => {
         if (match && mode === 'edit') {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setFormData({
+            setFormData({ // eslint-disable-line react-hooks/set-state-in-effect
                 id: match.id,
                 league: match.league,
                 homeTeam: match.homeTeam,
@@ -90,7 +88,6 @@ export function MatchFormModal({ isOpen, onClose, onSubmit, onDelete, match, mod
                 country: match.country,
             });
         } else {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
                 id: generateMatchId(),
                 league: '',

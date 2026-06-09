@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit, Cpu } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AICallMetadata } from '@/lib/ai';
@@ -100,9 +101,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             {/* Home Team */}
                             <div className="flex-1 space-y-2">
                                 {match.homeTeamLogo && (
-                                    <img 
+                                    <Image 
                                         src={match.homeTeamLogo} 
                                         alt={match.homeTeam}
+                                        width={64}
+                                        height={64}
                                         className="w-16 h-16 mx-auto object-contain"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = 'none';
@@ -124,9 +127,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             {/* Away Team */}
                             <div className="flex-1 space-y-2">
                                 {match.awayTeamLogo && (
-                                    <img 
+                                    <Image 
                                         src={match.awayTeamLogo} 
                                         alt={match.awayTeam}
+                                        width={64}
+                                        height={64}
                                         className="w-16 h-16 mx-auto object-contain"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = 'none';
@@ -141,9 +146,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                         <div className="flex items-center gap-4 pt-2">
                             <div className="flex items-center gap-1.5 text-zinc-400 text-xs font-medium">
                                 {match.leagueLogo && (
-                                    <img 
+                                    <Image 
                                         src={match.leagueLogo} 
                                         alt={match.league}
+                                        width={16}
+                                        height={16}
                                         className="w-4 h-4 object-contain"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = 'none';
@@ -154,9 +161,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                 <span>{match.league}</span>
                             </div>
                             {match.countryFlag && (
-                                <img 
+                                <Image 
                                     src={match.countryFlag} 
-                                    alt={match.country}
+                                    alt={match.country || 'Country flag'}
+                                    width={20}
+                                    height={12}
                                     className="w-5 h-3 object-contain"
                                     onError={(e) => {
                                         (e.target as HTMLImageElement).style.display = 'none';
