@@ -30,8 +30,11 @@
       "favicon": "./assets/images/logo.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-asset",
+      "expo-font"
     ],
+    "newArchEnabled": true,
     "experiments": {
       "typedRoutes": true
     },
