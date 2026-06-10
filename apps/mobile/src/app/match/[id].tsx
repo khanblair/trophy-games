@@ -152,7 +152,7 @@ export default function MatchDetailScreen() {
                     <ChevronLeft size={24} color={themeColors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: themeColors.text }]}>
-                    {match.league?.toUpperCase() || 'MATCH DETAILS'}
+                    {match.league ? match.league.replace(/\w\S*/g, (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : 'Match Details'}
                 </Text>
                 <View style={styles.headerRight} />
             </View>
@@ -164,7 +164,7 @@ export default function MatchDetailScreen() {
                     <View style={styles.leagueRow}>
                         <ShieldCheck size={11} color={themeColors.textMuted} />
                         <Text style={[styles.leagueText, { color: themeColors.textMuted }]}>
-                            {match.league?.toUpperCase()}
+                            {match.league?.replace(/\w\S*/g, (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())}
                         </Text>
                         {match.country && (
                             <Text style={[styles.countryText, { color: themeColors.textMuted }]}>• {match.country}</Text>
