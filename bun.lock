@@ -16,7 +16,6 @@
       "version": "1.0.0",
       "dependencies": {
         "@react-native-async-storage/async-storage": "^2.2.0",
-        "@react-navigation/drawer": "^7.3.0",
         "@react-navigation/native": "^7.1.0",
         "@trophy-games/backend": "workspace:*",
         "@trophy-games/shared": "workspace:*",
