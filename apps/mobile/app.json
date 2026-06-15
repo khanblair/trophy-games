@@ -19,7 +19,6 @@
     },
     "android": {
       "package": "com.khanblair.trophygames",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#0A0C0F"
