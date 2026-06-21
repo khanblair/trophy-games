@@ -1,9 +1,9 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit, Cpu } from 'lucide-react';
+import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit, Cpu, Loader2 } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AICallMetadata } from '@/lib/ai';
 import { Modal } from './Modal';
@@ -26,11 +26,50 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
     const [localPrediction, setLocalPrediction] = useState(match?.aiPrediction || null);
     const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
     const [lastCallMetadata, setLastCallMetadata] = useState<AICallMetadata | null>(null);
+    const [details, setDetails] = useState<Partial<MatchData> | null>(null);
+    const [loadingDetails, setLoadingDetails] = useState(false);
+
+    // Fetch rich per-match details from the proxy when the modal opens.
+    const matchId = match?.id;
+    useEffect(() => {
+        if (!isOpen || !matchId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setDetails(null);
+            return;
+        }
+        let cancelled = false;
+        setLoadingDetails(true);
+        fetch(`/api/match-stats?id=${matchId}`)
+            .then((r) => r.json())
+            .then((d) => { if (!cancelled && d && !d.error) setDetails(d); })
+            .catch((e) => console.error('Failed to load match stats:', e))
+            .finally(() => { if (!cancelled) setLoadingDetails(false); });
+        return () => { cancelled = true; };
+    }, [isOpen, matchId]);
 
     if (!match) return null;
 
     // Use local prediction if available (after just generating), otherwise use match data
     const aiPred = localPrediction || match.aiPrediction;
+
+    // Merge: proxy details fill in the rich fields/logos, list data stays
+    // authoritative for the basics (teams, league, status, score, odds).
+    const m: MatchData = {
+        ...match,
+        ...(details || {}),
+        league: match.league,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        country: match.country ?? details?.country,
+        status: match.status,
+        score: match.score,
+        timestamp: match.timestamp,
+        matchType: match.matchType,
+        aiPrediction: match.aiPrediction,
+        odds: match.odds || details?.odds,
+        homeScore: match.homeScore ?? details?.homeScore,
+        awayScore: match.awayScore ?? details?.awayScore,
+    };
 
     const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
         { id: 'Overview', icon: Trophy, label: 'Overview' },
@@ -94,16 +133,16 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                     <div className="flex flex-col items-center gap-6 text-center">
                         <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 backdrop-blur-md">
                             <Timer size={14} className="text-blue-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">{match.status}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{m.status}</span>
                         </div>
 
                         <div className="flex items-center justify-between w-full">
                             {/* Home Team */}
                             <div className="flex-1 space-y-2">
-                                {match.homeTeamLogo && (
+                                {m.homeTeamLogo && (
                                     <Image 
-                                        src={match.homeTeamLogo} 
-                                        alt={match.homeTeam}
+                                        src={m.homeTeamLogo} 
+                                        alt={m.homeTeam}
                                         width={64}
                                         height={64}
                                         className="w-16 h-16 mx-auto object-contain"
@@ -112,24 +151,24 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                         }}
                                     />
                                 )}
-                                <div className="text-2xl font-black">{match.homeTeam}</div>
+                                <div className="text-2xl font-black">{m.homeTeam}</div>
                                 <div className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Home</div>
                             </div>
 
                             {/* Score */}
                             <div className="px-8 space-y-1">
                                 <div className="text-5xl font-black tracking-tighter tabular-nums">
-                                    {match.score || '0-0'}
+                                    {m.score || '0-0'}
                                 </div>
                                 <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Score</div>
                             </div>
 
                             {/* Away Team */}
                             <div className="flex-1 space-y-2">
-                                {match.awayTeamLogo && (
+                                {m.awayTeamLogo && (
                                     <Image 
-                                        src={match.awayTeamLogo} 
-                                        alt={match.awayTeam}
+                                        src={m.awayTeamLogo} 
+                                        alt={m.awayTeam}
                                         width={64}
                                         height={64}
                                         className="w-16 h-16 mx-auto object-contain"
@@ -138,17 +177,17 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                         }}
                                     />
                                 )}
-                                <div className="text-2xl font-black">{match.awayTeam}</div>
+                                <div className="text-2xl font-black">{m.awayTeam}</div>
                                 <div className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Away</div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-4 pt-2">
                             <div className="flex items-center gap-1.5 text-zinc-400 text-xs font-medium">
-                                {match.leagueLogo && (
+                                {m.leagueLogo && (
                                     <Image 
-                                        src={match.leagueLogo} 
-                                        alt={match.league}
+                                        src={m.leagueLogo} 
+                                        alt={m.league}
                                         width={16}
                                         height={16}
                                         className="w-4 h-4 object-contain"
@@ -158,12 +197,12 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     />
                                 )}
                                 <Trophy size={14} />
-                                <span>{match.league}</span>
+                                <span>{m.league}</span>
                             </div>
-                            {match.countryFlag && (
+                            {m.countryFlag && (
                                 <Image 
-                                    src={match.countryFlag} 
-                                    alt={match.country || 'Country flag'}
+                                    src={m.countryFlag} 
+                                    alt={m.country || 'Country flag'}
                                     width={20}
                                     height={12}
                                     className="w-5 h-3 object-contain"
@@ -174,7 +213,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             )}
                             <div className="h-1 w-1 rounded-full bg-zinc-700" />
                             <div className="text-zinc-400 text-xs font-medium">
-                                {match.timestamp}
+                                {m.timestamp}
                             </div>
                         </div>
                     </div>
@@ -203,8 +242,14 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
 <div className="min-h-[300px]">
                     {activeTab === 'Overview' && (
                         <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                            {loadingDetails && (
+                                <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-400">
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Loading match details…
+                                </div>
+                            )}
                             {/* Simple Odds in Overview */}
-                            {match.odds && (
+                            {m.odds && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
                                         Match Odds (1X2)
@@ -212,41 +257,41 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     <div className="grid grid-cols-3 gap-4">
                                         <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
                                             <div className="text-xs text-zinc-500 mb-1">Home</div>
-                                            <div className="text-xl font-bold text-brand-green">{match.odds.home}</div>
+                                            <div className="text-xl font-bold text-brand-green">{m.odds.home}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800">
                                             <div className="text-xs text-zinc-500 mb-1">Draw</div>
-                                            <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300">{match.odds.draw || '-'}</div>
+                                            <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300">{m.odds.draw || '-'}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
                                             <div className="text-xs text-zinc-500 mb-1">Away</div>
-                                            <div className="text-xl font-bold text-red-600">{match.odds.away}</div>
+                                            <div className="text-xl font-bold text-red-600">{m.odds.away}</div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
                             {/* Over/Under in Overview */}
-                            {match.detailedOdds?.ft?.['ou'] && (
+                            {m.detailedOdds?.ft?.['ou'] && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
-                                        Over/Under (Line: {match.detailedOdds.ft['ou'].line})
+                                        Over/Under (Line: {m.detailedOdds.ft['ou'].line})
                                     </h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
                                             <div className="text-xs text-zinc-500 mb-1">Over</div>
-                                            <div className="text-xl font-bold text-red-600">{match.detailedOdds.ft['ou'].over}</div>
+                                            <div className="text-xl font-bold text-red-600">{m.detailedOdds.ft['ou'].over}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
                                             <div className="text-xs text-zinc-500 mb-1">Under</div>
-                                            <div className="text-xl font-bold text-brand-green">{match.detailedOdds.ft['ou'].under}</div>
+                                            <div className="text-xl font-bold text-brand-green">{m.detailedOdds.ft['ou'].under}</div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
                             {/* H2H Summary */}
-                            {match.h2h?.summary && (
+                            {m.h2h?.summary && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
                                         Head to Head
@@ -254,28 +299,28 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     <div className="grid grid-cols-3 gap-4">
                                         <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
                                             <div className="text-xs text-zinc-500 mb-1">Home Wins</div>
-                                            <div className="text-xl font-bold text-brand-green">{match.h2h.summary.wins}</div>
+                                            <div className="text-xl font-bold text-brand-green">{m.h2h.summary.wins}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800">
                                             <div className="text-xs text-zinc-500 mb-1">Draws</div>
-                                            <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300">{match.h2h.summary.draws}</div>
+                                            <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300">{m.h2h.summary.draws}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
                                             <div className="text-xs text-zinc-500 mb-1">Away Wins</div>
-                                            <div className="text-xl font-bold text-red-600">{match.h2h.summary.losses}</div>
+                                            <div className="text-xl font-bold text-red-600">{m.h2h.summary.losses}</div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
                             {/* H2H History */}
-                            {match.h2h?.history && match.h2h.history.length > 0 && (
+                            {m.h2h?.history && m.h2h.history.length > 0 && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
                                         H2H History
                                     </h3>
                                     <div className="space-y-2">
-                                        {match.h2h.history.map((h, i) => (
+                                        {m.h2h.history.map((h, i) => (
                                             <div key={i} className="flex justify-between items-center py-2 border-b border-zinc-100 dark:border-zinc-800/50 last:border-0">
                                                 <div>
                                                     <div className="text-xs text-zinc-500">{h.date}</div>
@@ -291,17 +336,17 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             )}
 
                             {/* Team Form */}
-                            {(match.homeForm || match.awayForm) && (
+                            {(m.homeForm || m.awayForm) && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
                                         Recent Form
                                     </h3>
                                     <div className="space-y-3">
-                                        {match.homeForm && (
+                                        {m.homeForm && (
                                             <div className="flex items-center gap-4">
-                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{match.homeTeam}</span>
+                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{m.homeTeam}</span>
                                                 <div className="flex gap-1">
-                                                    {match.homeForm.split('').slice(0, 5).map((char, i) => (
+                                                    {m.homeForm.split('').slice(0, 5).map((char, i) => (
                                                         <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${
                                                             char === 'W' ? 'bg-brand-green' : char === 'D' ? 'bg-amber-500' : 'bg-red-500'
                                                         }`}>
@@ -311,11 +356,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                                 </div>
                                             </div>
                                         )}
-                                        {match.awayForm && (
+                                        {m.awayForm && (
                                             <div className="flex items-center gap-4">
-                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{match.awayTeam}</span>
+                                                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 w-32 truncate">{m.awayTeam}</span>
                                                 <div className="flex gap-1">
-                                                    {match.awayForm.split('').slice(0, 5).map((char, i) => (
+                                                    {m.awayForm.split('').slice(0, 5).map((char, i) => (
                                                         <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${
                                                             char === 'W' ? 'bg-brand-green' : char === 'D' ? 'bg-amber-500' : 'bg-red-500'
                                                         }`}>
@@ -330,19 +375,19 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                             )}
 
                             {/* Corner Stats */}
-                            {(match.homeCorners !== undefined || match.awayCorners !== undefined) && (
+                            {(m.homeCorners !== undefined || m.awayCorners !== undefined) && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
                                         Corner Stats
                                     </h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="text-center p-3 rounded-lg bg-brand-green/10 dark:bg-brand-green/10">
-                                            <div className="text-xs text-zinc-500 mb-1">{match.homeTeam}</div>
-                                            <div className="text-xl font-bold text-brand-green">{match.homeCorners ?? 0}</div>
+                                            <div className="text-xs text-zinc-500 mb-1">{m.homeTeam}</div>
+                                            <div className="text-xl font-bold text-brand-green">{m.homeCorners ?? 0}</div>
                                         </div>
                                         <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-500/10">
-                                            <div className="text-xs text-zinc-500 mb-1">{match.awayTeam}</div>
-                                            <div className="text-xl font-bold text-red-600">{match.awayCorners ?? 0}</div>
+                                            <div className="text-xs text-zinc-500 mb-1">{m.awayTeam}</div>
+                                            <div className="text-xl font-bold text-red-600">{m.awayCorners ?? 0}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -446,7 +491,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                         </div>
                     )}
 
-                    {activeTab === 'Odds' && match.detailedOdds?.ft && (
+                    {activeTab === 'Odds' && m.detailedOdds?.ft && (
                         <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in duration-300">
                             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
                                 <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
@@ -464,19 +509,19 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                         <tr className="bg-white dark:bg-zinc-900/20">
                                             <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">1X2</td>
-                                            <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{match.detailedOdds.ft['1x2'].home}</td>
-                                            <td className="px-4 py-3 text-center font-bold">{match.detailedOdds.ft['1x2'].draw}</td>
-                                            <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{match.detailedOdds.ft['1x2'].away}</td>
+                                            <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{m.detailedOdds.ft['1x2'].home}</td>
+                                            <td className="px-4 py-3 text-center font-bold">{m.detailedOdds.ft['1x2'].draw}</td>
+                                            <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{m.detailedOdds.ft['1x2'].away}</td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
 
-                            {match.detailedOdds.ft['ou'] && (
+                            {m.detailedOdds.ft['ou'] && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
                                     <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
                                         <span className="text-xs font-bold text-zinc-500 uppercase">
-                                            Over/Under (Line: {match.detailedOdds.ft['ou'].line})
+                                            Over/Under (Line: {m.detailedOdds.ft['ou'].line})
                                         </span>
                                     </div>
                                     <table className="w-full text-sm">
@@ -491,9 +536,9 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                             <tr className="bg-white dark:bg-zinc-900/20">
                                                 <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">O/U</td>
-                                                <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{match.detailedOdds.ft['ou'].over}</td>
-                                                <td className="px-4 py-3 text-center font-bold">{match.detailedOdds.ft['ou'].line}</td>
-                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{match.detailedOdds.ft['ou'].under}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{m.detailedOdds.ft['ou'].over}</td>
+                                                <td className="px-4 py-3 text-center font-bold">{m.detailedOdds.ft['ou'].line}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{m.detailedOdds.ft['ou'].under}</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -506,10 +551,10 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                         </div>
                     )}
 
-                    {activeTab === 'Odds' && !match.detailedOdds?.ft && (
+                    {activeTab === 'Odds' && !m.detailedOdds?.ft && (
                         <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-4">
                             <TrendingUp size={48} className="opacity-20" />
-                            <p className="text-sm font-medium">No odds data available for this match.</p>
+                            <p className="text-sm font-medium">No odds data available for this m.</p>
                         </div>
                     )}
                 </div>

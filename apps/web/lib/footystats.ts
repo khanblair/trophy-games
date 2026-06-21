@@ -1,6 +1,19 @@
 const FOOTYSTATS_BASE_URL = 'http://us3.bot-hosting.net:20562';
 
+// Logos are served from this HTTPS CDN. match-stats returns either a full URL
+// (team_a_stats.image) or a relative path (home_image) — normalize both.
+const FOOTYSTATS_CDN = 'https://cdn.footystats.org/img';
+
 import { MatchData } from '@trophy-games/shared';
+
+function resolveLogo(...candidates: unknown[]): string | undefined {
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.length > 0) {
+      return c.startsWith('http') ? c : `${FOOTYSTATS_CDN}/${c.replace(/^\/+/, '')}`;
+    }
+  }
+  return undefined;
+}
 
 interface FootyStatsRawMatch {
   id: number;
@@ -230,8 +243,8 @@ export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partia
     awayTeam: String(d.away_name ?? ''),
     homeScore: scoresAvailable ? (Number(d.homeGoalCount ?? 0) || undefined) : undefined,
     awayScore: scoresAvailable ? (Number(d.awayGoalCount ?? 0) || undefined) : undefined,
-    homeTeamLogo: d.home_image ? `${FOOTYSTATS_BASE_URL}/${d.home_image}` : undefined,
-    awayTeamLogo: d.away_image ? `${FOOTYSTATS_BASE_URL}/${d.away_image}` : undefined,
+    homeTeamLogo: resolveLogo(teamAStats.image, d.home_image),
+    awayTeamLogo: resolveLogo(teamBStats.image, d.away_image),
     homeStanding: Number(teamAStats.table_position ?? 0) || undefined,
     awayStanding: Number(teamBStats.table_position ?? 0) || undefined,
     status: String(d.status ?? ''),
