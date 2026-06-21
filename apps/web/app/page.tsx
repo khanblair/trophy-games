@@ -6,10 +6,8 @@ import {
   Target,
   TrendingUp,
   Activity,
-  Zap,
   Clock,
   RefreshCw,
-  Plus,
   Swords,
   Users,
   Crown,
@@ -110,7 +108,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
-            Manage matches, leagues, and track prediction performance.
+            Live match data with AI predictions and performance tracking.
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
@@ -200,11 +198,11 @@ export default function DashboardPage() {
               className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
-                <Plus size={18} />
+                <Swords size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Add Match</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Create new prediction</p>
+                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">View Matches</h4>
+                <p className="text-xs text-zinc-500 hidden sm:block">Browse & tag tips</p>
               </div>
             </Link>
             <Link
@@ -215,8 +213,8 @@ export default function DashboardPage() {
                 <Trophy size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Manage Leagues</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Add or edit leagues</p>
+                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">View Leagues</h4>
+                <p className="text-xs text-zinc-500 hidden sm:block">Browse competitions</p>
               </div>
             </Link>
             <Link
@@ -227,8 +225,8 @@ export default function DashboardPage() {
                 <Target size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Track Results</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Mark match outcomes</p>
+                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Match History</h4>
+                <p className="text-xs text-zinc-500 hidden sm:block">View completed results</p>
               </div>
             </Link>
             <Link

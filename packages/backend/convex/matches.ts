@@ -2,6 +2,50 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
+// Shared validator for a match coming from the FootyStats proxy (used by the
+// web overlay flows to upsert a proxy match into Convex before tagging it).
+const proxyMatchInput = v.object({
+    id: v.string(),
+    league: v.string(),
+    leagueId: v.optional(v.number()),
+    leagueLogo: v.optional(v.string()),
+    homeTeam: v.string(),
+    homeTeamId: v.optional(v.number()),
+    homeTeamLogo: v.optional(v.string()),
+    awayTeam: v.string(),
+    awayTeamId: v.optional(v.number()),
+    awayTeamLogo: v.optional(v.string()),
+    country: v.optional(v.string()),
+    countryFlag: v.optional(v.string()),
+    timestamp: v.string(),
+    status: v.string(),
+    score: v.optional(v.string()),
+    homeScore: v.optional(v.number()),
+    awayScore: v.optional(v.number()),
+    matchType: v.optional(v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned'))),
+    isTrending: v.optional(v.boolean()),
+    odds: v.optional(v.object({
+        home: v.string(),
+        away: v.string(),
+        draw: v.optional(v.string()),
+    })),
+});
+
+// Insert a proxy match into the matches table, returning the new doc.
+async function insertProxyMatch(ctx: any, match: any) {
+    const matchDate = match.timestamp ? match.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const _id = await ctx.db.insert("matches", {
+        ...match,
+        score: match.score || (match.homeScore != null && match.awayScore != null ? `${match.homeScore}-${match.awayScore}` : '0-0'),
+        matchDate,
+        isHistory: false,
+        createdAt: now,
+        updatedAt: now,
+    });
+    return await ctx.db.get(_id);
+}
+
 // ========== QUERIES ==========
 
 export const getAll = query({
@@ -262,12 +306,21 @@ export const updateMatchType = mutation({
     args: {
         matchId: v.string(),
         matchType: v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned')),
+        // Optional proxy match payload — when the match isn't yet in Convex
+        // (i.e. it came straight from the FootyStats API), upsert it first.
+        match: v.optional(proxyMatchInput),
     },
     handler: async (ctx, args) => {
-        const existing = await ctx.db
+        let existing = await ctx.db
             .query("matches")
             .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
             .unique();
+
+        if (!existing && args.match) {
+            // Insert without the new type so the patch below still detects the
+            // change and fires the corresponding "new tip" alert.
+            existing = await insertProxyMatch(ctx, { ...args.match, matchType: 'unassigned' });
+        }
 
         if (existing) {
             await ctx.db.patch(existing._id, { 
@@ -351,12 +404,18 @@ export const saveAIPrediction = mutation({
             reasoning: v.array(v.string()),
             suggestedBet: v.optional(v.string()),
         }),
+        // Optional proxy match payload — upsert the match if it isn't in Convex.
+        match: v.optional(proxyMatchInput),
     },
     handler: async (ctx, args) => {
-        const existing = await ctx.db
+        let existing = await ctx.db
             .query("matches")
             .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
             .unique();
+
+        if (!existing && args.match) {
+            existing = await insertProxyMatch(ctx, args.match);
+        }
 
         if (existing) {
             await ctx.db.patch(existing._id, {

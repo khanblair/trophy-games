@@ -7,110 +7,23 @@ import { fetchFootyStatsMatches, mergeWithConvexData } from '@/lib/footystats';
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
-// GET - Fetch all matches (FootyStats first, merge with Convex)
+// GET - Matches come from the FootyStats proxy (same source as the mobile app).
+// Convex is used only as an overlay for AI predictions and match-type tags.
 export async function GET() {
-    if (!convex) {
-        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
-    }
-
     try {
-        // Try FootyStats first for live data
         const footyMatches = await fetchFootyStatsMatches();
         console.log(`[Admin Matches API] Loaded ${footyMatches.length} matches from FootyStats`);
 
-        // Fetch Convex data for metadata (AI predictions, match types, etc.)
-        const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
-        console.log(`[Admin Matches API] Loaded ${convexMatches.length} matches from Convex`);
+        if (!convex) {
+            return NextResponse.json(footyMatches);
+        }
 
-        // Merge: FootyStats provides live data, Convex provides metadata
+        // Overlay AI predictions / match types stored in Convex.
+        const convexMatches = await convex.query(api.matches.getAll, { limit: 1000 });
         const merged = mergeWithConvexData(footyMatches, convexMatches as MatchData[]);
-        console.log(`[Admin Matches API] Returning ${merged.length} merged matches`);
-
         return NextResponse.json(merged);
     } catch (footyError) {
-        console.warn('[Admin Matches API] FootyStats failed, falling back to Convex:', footyError);
-        try {
-            const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
-            return NextResponse.json(convexMatches);
-        } catch (convexError) {
-            console.error('[Admin Matches API] Both sources failed:', convexError);
-            return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
-        }
-    }
-}
-
-// POST - Create a new match
-export async function POST(req: Request) {
-    if (!convex) {
-        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
-    }
-
-    try {
-        const body = await req.json();
-        const { match } = body;
-
-        if (!match || !match.id || !match.league || !match.homeTeam || !match.awayTeam || !match.timestamp) {
-            return NextResponse.json({ 
-                error: 'Missing required fields: id, league, homeTeam, awayTeam, timestamp' 
-            }, { status: 400 });
-        }
-
-        const matchId = await convex.mutation(api.matches.create, { match });
-        return NextResponse.json({ success: true, matchId });
-    } catch (error) {
-        console.error('[Admin Matches API] Failed to create match:', error);
-        return NextResponse.json({ 
-            error: error instanceof Error ? error.message : 'Failed to create match' 
-        }, { status: 500 });
-    }
-}
-
-// PUT - Update an existing match
-export async function PUT(req: Request) {
-    if (!convex) {
-        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
-    }
-
-    try {
-        const body = await req.json();
-        const { matchId, updates } = body;
-
-        if (!matchId || !updates) {
-            return NextResponse.json({ 
-                error: 'Missing required fields: matchId, updates' 
-            }, { status: 400 });
-        }
-
-        await convex.mutation(api.matches.update, { matchId, updates });
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('[Admin Matches API] Failed to update match:', error);
-        return NextResponse.json({ 
-            error: error instanceof Error ? error.message : 'Failed to update match' 
-        }, { status: 500 });
-    }
-}
-
-// DELETE - Delete a match
-export async function DELETE(req: Request) {
-    if (!convex) {
-        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
-    }
-
-    try {
-        const { searchParams } = new URL(req.url);
-        const matchId = searchParams.get('matchId');
-
-        if (!matchId) {
-            return NextResponse.json({ error: 'Missing matchId parameter' }, { status: 400 });
-        }
-
-        await convex.mutation(api.matches.deleteMatch, { matchId });
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('[Admin Matches API] Failed to delete match:', error);
-        return NextResponse.json({ 
-            error: error instanceof Error ? error.message : 'Failed to delete match' 
-        }, { status: 500 });
+        console.error('[Admin Matches API] FootyStats failed:', footyError);
+        return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
     }
 }

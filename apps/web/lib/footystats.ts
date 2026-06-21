@@ -96,6 +96,42 @@ export async function fetchFootyStatsMatches(date?: string): Promise<MatchData[]
   );
 }
 
+export interface DerivedLeague {
+  id: number;
+  name: string;
+  country: string;
+  type: 'league' | 'cup';
+  logo: string;
+  matchCount: number;
+}
+
+// Derive the league list straight from the proxy matches — same source the
+// mobile app uses — so web and mobile always show the same set of leagues.
+export function deriveLeaguesFromMatches(matches: MatchData[]): DerivedLeague[] {
+  const map = new Map<string, DerivedLeague>();
+  let idx = 1;
+
+  for (const m of matches) {
+    if (!m.league) continue;
+    const existing = map.get(m.league);
+    if (existing) {
+      existing.matchCount += 1;
+      if (!existing.logo && m.leagueLogo) existing.logo = m.leagueLogo;
+    } else {
+      map.set(m.league, {
+        id: idx++,
+        name: m.league,
+        country: m.country || '',
+        type: /cup|copa|trophy|shield|league cup/i.test(m.league) ? 'cup' : 'league',
+        logo: m.leagueLogo || '',
+        matchCount: 1,
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partial<MatchData>> {
   const res = await fetch(`${FOOTYSTATS_BASE_URL}/match-stats?match_id=${matchId}`);
   if (!res.ok) throw new Error(`FootyStats API HTTP ${res.status}`);
@@ -271,10 +307,7 @@ export function mergeWithConvexData(
     }
   }
 
-  // Add remaining convex-only matches
-  for (const cm of convexMap.values()) {
-    merged.set(cm.id, cm);
-  }
-
+  // Proxy is the source of truth — Convex-only matches are intentionally
+  // dropped so web shows exactly the same matches as the mobile app.
   return Array.from(merged.values());
 }

@@ -8,7 +8,6 @@ import {
     Trophy,
     Swords,
     Database,
-    BrainCircuit,
     Menu,
     X,
     Key,
@@ -25,7 +24,6 @@ const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Matches', href: '/matches', icon: Swords },
     { name: 'Leagues', href: '/leagues', icon: Trophy },
-    { name: 'Analytics', href: '/analytics', icon: BrainCircuit },
     { name: 'History', href: '/history', icon: Database },
 ];
 

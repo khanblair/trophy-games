@@ -5,36 +5,31 @@ import { api } from '@trophy-games/backend';
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
+// POST - Tag a proxy match as free/paid/vip. The match is upserted into Convex
+// (it originates from the FootyStats proxy), so the mobile paid/vip tabs pick it up.
 export async function POST(req: Request) {
+    if (!convex) {
+        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
+    }
+
     try {
-        if (!convex) {
-            return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
+        const { matchId, matchType, match } = await req.json();
+
+        if (!matchId || !matchType) {
+            return NextResponse.json({ error: 'Missing required fields: matchId, matchType' }, { status: 400 });
         }
 
-        const { matchId, aiPrediction, match } = await req.json();
-
-        if (!matchId || !aiPrediction) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
-
-        // Upsert the proxy match into Convex (if needed), then store the prediction.
-        await convex.mutation(api.matches.saveAIPrediction, {
+        await convex.mutation(api.matches.updateMatchType, {
             matchId,
-            aiPrediction: {
-                prediction: aiPrediction.prediction,
-                confidence: aiPrediction.confidence,
-                reasoning: aiPrediction.reasoning,
-                suggestedBet: aiPrediction.suggestedBet,
-            },
+            matchType,
             match: match ? sanitizeMatch(match) : undefined,
         });
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('[Save Prediction API] Error:', error);
+        console.error('[Match Type API] Error:', error);
         return NextResponse.json({
-            error: 'Failed to save prediction',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to update match type',
         }, { status: 500 });
     }
 }

@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, Plus, Edit2, Trash2, RefreshCw, Cpu } from 'lucide-react';
+import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Cpu } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { analyzeMatch, AIAnalysis, AICallMetadata } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
-import { MatchFormModal } from '@/components/MatchFormModal';
 import { ModelSelector } from '@/components/ModelSelector';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
@@ -30,8 +29,6 @@ export default function MatchesPage() {
     // Modal States
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
 
     const fetchMatches = async () => {
         try {
@@ -64,13 +61,16 @@ export default function MatchesPage() {
         await fetchMatches();
     };
 
+    // Tag a proxy match as free/paid/vip. Sends the full match so Convex can
+    // upsert it (matches originate from the FootyStats proxy, not Convex).
     const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip' | 'unassigned') => {
+        const match = matches.find(m => m.id === matchId);
         setUpdatingId(matchId);
         try {
-            await fetch('/api/mobile/update-match', {
+            await fetch('/api/admin/match-type', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matchId, matchType })
+                body: JSON.stringify({ matchId, matchType, match })
             });
             setMatches(prev => prev.map(m =>
                 m.id === matchId ? { ...m, matchType } : m
@@ -79,90 +79,6 @@ export default function MatchesPage() {
             console.error('Update failed', e);
         }
         setUpdatingId(null);
-    };
-
-    const handleCreateMatch = async (matchData: Partial<MatchData>) => {
-        try {
-            const res = await fetch('/api/admin/matches', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ match: matchData })
-            });
-            
-            if (res.ok) {
-                setIsFormModalOpen(false);
-                await fetchMatches();
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to create match');
-            }
-        } catch (e) {
-            console.error('Failed to create match:', e);
-            alert('Failed to create match');
-        }
-    };
-
-    const handleUpdateMatch = async (matchData: Partial<MatchData>) => {
-        if (!selectedMatch) return;
-        
-        try {
-            const res = await fetch('/api/admin/matches', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matchId: selectedMatch.id, updates: matchData })
-            });
-            
-            if (res.ok) {
-                setIsFormModalOpen(false);
-                setSelectedMatch(null);
-                await fetchMatches();
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to update match');
-            }
-        } catch (e) {
-            console.error('Failed to update match:', e);
-            alert('Failed to update match');
-        }
-    };
-
-    const handleDeleteMatch = async () => {
-        if (!selectedMatch) return;
-        
-        if (!confirm(`Are you sure you want to delete ${selectedMatch.homeTeam} vs ${selectedMatch.awayTeam}?`)) {
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/admin/matches?matchId=${selectedMatch.id}`, {
-                method: 'DELETE'
-            });
-            
-            if (res.ok) {
-                setIsFormModalOpen(false);
-                setSelectedMatch(null);
-                await fetchMatches();
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to delete match');
-            }
-        } catch (e) {
-            console.error('Failed to delete match:', e);
-            alert('Failed to delete match');
-        }
-    };
-
-    const openCreateModal = () => {
-        setFormMode('create');
-        setSelectedMatch(null);
-        setIsFormModalOpen(true);
-    };
-
-    const openEditModal = (match: MatchData, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setFormMode('edit');
-        setSelectedMatch(match);
-        setIsFormModalOpen(true);
     };
 
     const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
@@ -183,12 +99,13 @@ export default function MatchesPage() {
                 setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
             }
 
-            // Save to Convex via API route
+            // Save to Convex via API route (upserts the proxy match if needed)
             await fetch('/api/admin/save-prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     matchId: match.id,
+                    match,
                     aiPrediction: {
                         prediction: result.prediction,
                         confidence: result.confidence,
@@ -248,8 +165,8 @@ export default function MatchesPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Match Management</h1>
-                    <p className="text-zinc-500 dark:text-zinc-400">Create, edit, and manage matches. All changes sync to mobile instantly.</p>
+                    <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Matches</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400">Live matches from the data feed. Tag tips and generate AI predictions — these sync to mobile.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -258,13 +175,6 @@ export default function MatchesPage() {
                     >
                         <RefreshCw size={16} />
                         Refresh
-                    </button>
-                    <button
-                        onClick={openCreateModal}
-                        className="flex items-center justify-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-sm"
-                    >
-                        <Plus size={16} />
-                        Add Match
                     </button>
                 </div>
             </div>
@@ -401,16 +311,9 @@ export default function MatchesPage() {
                         <Zap size={32} className="text-zinc-300" />
                     </div>
                     <div className="text-center space-y-1">
-                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No matches found</p>
-                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">Create your first match to get started.</p>
+                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No matches available</p>
+                        <p className="text-sm max-w-[280px] mx-auto text-zinc-500">There are no matches in the data feed right now. Pull to refresh later.</p>
                     </div>
-                    <button
-                        onClick={openCreateModal}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
-                    >
-                        <Plus size={18} />
-                        Add First Match
-                    </button>
                 </div>
             ) : filteredMatches.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 text-zinc-500 gap-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/20">
@@ -538,19 +441,12 @@ export default function MatchesPage() {
                                             </div>
                                         </div>
 
-                                        {/* Edit/Delete Buttons */}
+                                        {/* AI Analysis */}
                                         <div className="flex gap-2 pt-2">
-                                            <button
-                                                onClick={(e) => openEditModal(match, e)}
-                                                className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
-                                            >
-                                                <Edit2 size={12} />
-                                                Edit
-                                            </button>
                                             <button
                                                 onClick={(e) => handleAnalyze(e, match)}
                                                 disabled={isAnalyzing}
-                                                className="flex-[2] flex items-center justify-center gap-1 rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                                className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                                             >
                                                 {isAnalyzing ? (
                                                     <Loader2 size={12} className="animate-spin" />
@@ -642,19 +538,6 @@ export default function MatchesPage() {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 match={selectedMatch}
-            />
-
-            {/* Create/Edit Form Modal */}
-            <MatchFormModal
-                isOpen={isFormModalOpen}
-                onClose={() => {
-                    setIsFormModalOpen(false);
-                    setSelectedMatch(null);
-                }}
-                onSubmit={formMode === 'create' ? handleCreateMatch : handleUpdateMatch}
-                onDelete={formMode === 'edit' ? handleDeleteMatch : undefined}
-                match={selectedMatch}
-                mode={formMode}
             />
         </div>
     );
