@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 import { MatchData } from '@trophy-games/shared';
-import { fetchFootyStatsMatches, mergeWithConvexData, deriveLeaguesFromMatches } from '@/lib/footystats';
+import { deriveLeaguesFromMatches } from '@/lib/footystats';
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
@@ -17,23 +17,15 @@ const empty = {
     lastUpdated: new Date().toISOString(),
 };
 
+// Stats computed from Convex matches (kept in sync with the proxy by the cron).
 export async function GET() {
     try {
-        // Matches + leagues come from the proxy (same as mobile).
-        const footyMatches = await fetchFootyStatsMatches();
-
-        // Overlay Convex metadata (match types, results) when available.
-        let matchesList: MatchData[] = footyMatches;
-        if (convex) {
-            try {
-                const convexMatches = await convex.query(api.matches.getAll, { limit: 1000 });
-                matchesList = mergeWithConvexData(footyMatches, convexMatches as MatchData[]);
-            } catch (e) {
-                console.warn('[API Stats] Convex overlay failed, using proxy only:', e);
-            }
+        if (!convex) {
+            return NextResponse.json(empty);
         }
 
-        const leaguesList = deriveLeaguesFromMatches(footyMatches);
+        const matchesList = await convex.query(api.matches.getAll, { limit: 1000 }) as MatchData[];
+        const leaguesList = deriveLeaguesFromMatches(matchesList);
 
         const totalMatches = matchesList.length;
         const totalLeagues = leaguesList.length;
@@ -41,9 +33,10 @@ export async function GET() {
         const paidTips = matchesList.filter((m) => m.matchType === 'paid').length;
         const vipTips = matchesList.filter((m) => m.matchType === 'vip').length;
 
-        const historyMatches = matchesList.filter((m) => m.result);
-        const wins = historyMatches.filter((m) => m.result === 'win').length;
-        const winRate = historyMatches.length > 0 ? Math.round((wins / historyMatches.length) * 100) : 0;
+        // Win rate = finished matches the home side won (mirrors the mobile Wins screen).
+        const finished = matchesList.filter((m) => m.homeScore !== undefined && m.awayScore !== undefined);
+        const homeWins = finished.filter((m) => (m.homeScore as number) > (m.awayScore as number)).length;
+        const winRate = finished.length > 0 ? Math.round((homeWins / finished.length) * 100) : 0;
 
         return NextResponse.json({
             totalLeagues,

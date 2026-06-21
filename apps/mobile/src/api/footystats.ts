@@ -1,9 +1,18 @@
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '@trophy-games/backend';
+
 const FOOTYSTATS_BASE_URL = 'http://us3.bot-hosting.net:20562';
 
 // FootyStats serves team/league logos from this CDN. The match-stats endpoint
 // returns either a full URL (in team_a_stats.image) or a relative path like
 // "teams/oman.png" (in home_image) — normalize both to an absolute CDN URL.
 const FOOTYSTATS_CDN = 'https://cdn.footystats.org/img';
+
+// Match lists are read from Convex (kept fresh by a server-side sync job), which
+// is far faster than hitting the proxy on every screen. Match *details* are
+// still fetched on demand from the proxy below.
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convexClient = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
 function resolveLogo(...candidates: (unknown)[]): string | undefined {
   for (const c of candidates) {
@@ -12,34 +21,6 @@ function resolveLogo(...candidates: (unknown)[]): string | undefined {
     }
   }
   return undefined;
-}
-
-interface FootyStatsRawMatch {
-  id: number;
-  homeID: number;
-  awayID: number;
-  competition_id: number;
-  home_name: string;
-  away_name: string;
-  homeGoalCount: number | null;
-  awayGoalCount: number | null;
-  status: string;
-  odds_ft_1: number | null;
-  odds_ft_x: number | null;
-  odds_ft_2: number | null;
-  odds_ft_over25: number | null;
-  odds_ft_under25: number | null;
-  date_unix: number;
-  home_ppg: number | null;
-  away_ppg: number | null;
-}
-
-interface FootyStatsLeagueGroup {
-  title: string;
-  country: string;
-  name: string;
-  iso: string;
-  matches: FootyStatsRawMatch[];
 }
 
 export interface AppMatch {
@@ -166,65 +147,42 @@ export interface MatchDetailData {
   };
 }
 
-interface FootyStatsResponse {
-  success: boolean;
-  date?: string;
-  data?: {
-    success: boolean;
-    data?: FootyStatsLeagueGroup[];
-  };
-  error?: string;
-}
-
-interface FootyStatsMatchStatsResponse {
-  success: boolean;
-  match_id?: string;
-  data?: Record<string, unknown>;
-  error?: string;
-}
-
-function toAppMatch(raw: FootyStatsRawMatch, league: FootyStatsLeagueGroup): AppMatch {
-  const scoresAvailable = raw.status !== 'incomplete';
+// Map a Convex match document to the AppMatch shape used across the screens.
+function convexToAppMatch(d: any): AppMatch {
   return {
-    id: String(raw.id),
-    league: league.title,
-    country: league.country,
-    timestamp: new Date(raw.date_unix * 1000).toISOString(),
-    homeTeam: raw.home_name,
-    awayTeam: raw.away_name,
-    homeScore: (scoresAvailable && raw.homeGoalCount != null) ? raw.homeGoalCount : undefined,
-    awayScore: (scoresAvailable && raw.awayGoalCount != null) ? raw.awayGoalCount : undefined,
-    // The /matches list endpoint returns no logo fields — only the /match-stats
-    // endpoint carries images. List cards fall back to team initials.
-    homeTeamLogo: undefined,
-    awayTeamLogo: undefined,
-    leagueLogo: undefined,
-    status: raw.status === 'incomplete' ? 'Scheduled' : raw.status === 'complete' ? 'Finished' : raw.status,
-    odds: raw.odds_ft_1 ? {
-      home: String(raw.odds_ft_1),
-      draw: String(raw.odds_ft_x ?? ''),
-      away: String(raw.odds_ft_2 ?? ''),
+    id: d.id,
+    league: d.league,
+    country: d.country ?? '',
+    timestamp: d.timestamp,
+    homeTeam: d.homeTeam,
+    awayTeam: d.awayTeam,
+    homeScore: d.homeScore,
+    awayScore: d.awayScore,
+    homeTeamLogo: d.homeTeamLogo,
+    awayTeamLogo: d.awayTeamLogo,
+    leagueLogo: d.leagueLogo,
+    status: d.status,
+    odds: d.odds ? {
+      home: String(d.odds.home ?? ''),
+      draw: String(d.odds.draw ?? ''),
+      away: String(d.odds.away ?? ''),
     } : undefined,
-    homePPG: raw.home_ppg ?? undefined,
-    awayPPG: raw.away_ppg ?? undefined,
-  };
+    homePPG: undefined,
+    awayPPG: undefined,
+    // Overlay fields the screens also read (win rate / AI insight / tier).
+    ...(d.aiPrediction ? { aiPrediction: d.aiPrediction } : {}),
+    ...(d.matchType ? { matchType: d.matchType } : {}),
+  } as AppMatch;
 }
 
 export async function fetchMatches(date?: string): Promise<AppMatch[]> {
-  const params = new URLSearchParams({ tz: 'WAT' });
-  if (date) params.set('date', date);
+  if (!convexClient) throw new Error('Convex client not initialized');
 
-  const res = await fetch(`${FOOTYSTATS_BASE_URL}/matches?${params}`);
-  if (!res.ok) throw new Error(`FootyStats API HTTP ${res.status}`);
+  const docs = date
+    ? await convexClient.query(api.matches.getByDate, { date })
+    : await convexClient.query(api.matches.getAll, { limit: 500 });
 
-  const json: FootyStatsResponse = await res.json();
-  if (!json.success || !json.data?.success || !json.data?.data) {
-    throw new Error(json.error || 'FootyStats returned unsuccessful response');
-  }
-
-  return json.data.data.flatMap(group =>
-    group.matches.map(match => toAppMatch(match, group))
-  );
+  return (docs ?? []).map(convexToAppMatch);
 }
 
 export async function fetchMatchStats(matchId: string): Promise<MatchDetailData> {

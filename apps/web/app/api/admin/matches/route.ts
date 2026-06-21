@@ -1,29 +1,22 @@
 import { NextResponse } from 'next/server';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
-import { MatchData } from '@trophy-games/shared';
-import { fetchFootyStatsMatches, mergeWithConvexData } from '@/lib/footystats';
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
-// GET - Matches come from the FootyStats proxy (same source as the mobile app).
-// Convex is used only as an overlay for AI predictions and match-type tags.
+// GET - Matches are read from Convex, which a server-side cron keeps in sync
+// with the FootyStats proxy. Same source the mobile app reads from.
 export async function GET() {
+    if (!convex) {
+        return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
+    }
+
     try {
-        const footyMatches = await fetchFootyStatsMatches();
-        console.log(`[Admin Matches API] Loaded ${footyMatches.length} matches from FootyStats`);
-
-        if (!convex) {
-            return NextResponse.json(footyMatches);
-        }
-
-        // Overlay AI predictions / match types stored in Convex.
-        const convexMatches = await convex.query(api.matches.getAll, { limit: 1000 });
-        const merged = mergeWithConvexData(footyMatches, convexMatches as MatchData[]);
-        return NextResponse.json(merged);
-    } catch (footyError) {
-        console.error('[Admin Matches API] FootyStats failed:', footyError);
+        const matches = await convex.query(api.matches.getAll, { limit: 1000 });
+        return NextResponse.json(matches);
+    } catch (error) {
+        console.error('[Admin Matches API] Failed to fetch matches:', error);
         return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
     }
 }

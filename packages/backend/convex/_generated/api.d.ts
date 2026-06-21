@@ -9,7 +9,9 @@
  */
 
 import type * as alerts from "../alerts.js";
+import type * as crons from "../crons.js";
 import type * as devices from "../devices.js";
+import type * as footystats from "../footystats.js";
 import type * as matches from "../matches.js";
 import type * as tokens from "../tokens.js";
 
@@ -21,7 +23,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
+  crons: typeof crons;
   devices: typeof devices;
+  footystats: typeof footystats;
   matches: typeof matches;
   tokens: typeof tokens;
 }>;

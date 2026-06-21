@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -518,5 +518,66 @@ export const saveAll = mutation({
                 }
             }
         }
+    },
+});
+
+// Bulk upsert from the FootyStats sync job. Updates live fields (scores,
+// status, odds, timestamp) while preserving the admin overlay set in the
+// dashboard (matchType, aiPrediction, result, isHistory, isTrending).
+export const bulkUpsert = internalMutation({
+    args: {
+        matches: v.array(proxyMatchInput),
+    },
+    handler: async (ctx, args) => {
+        const existingAll = await ctx.db.query("matches").collect();
+        const byId = new Map(existingAll.map((m) => [m.id, m]));
+        const now = new Date().toISOString();
+
+        let inserted = 0;
+        let updated = 0;
+
+        for (const m of args.matches) {
+            const matchDate = m.timestamp ? m.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
+            const score = m.score || (m.homeScore != null && m.awayScore != null ? `${m.homeScore}-${m.awayScore}` : '0-0');
+            const existing = byId.get(m.id);
+
+            if (existing) {
+                // Live fields only — overlay fields are intentionally left untouched.
+                await ctx.db.patch(existing._id, {
+                    league: m.league,
+                    leagueId: m.leagueId,
+                    leagueLogo: m.leagueLogo,
+                    homeTeam: m.homeTeam,
+                    homeTeamId: m.homeTeamId,
+                    homeTeamLogo: m.homeTeamLogo,
+                    awayTeam: m.awayTeam,
+                    awayTeamId: m.awayTeamId,
+                    awayTeamLogo: m.awayTeamLogo,
+                    country: m.country,
+                    countryFlag: m.countryFlag,
+                    timestamp: m.timestamp,
+                    status: m.status,
+                    score,
+                    homeScore: m.homeScore,
+                    awayScore: m.awayScore,
+                    odds: m.odds,
+                    matchDate,
+                    updatedAt: now,
+                });
+                updated++;
+            } else {
+                await ctx.db.insert("matches", {
+                    ...m,
+                    score,
+                    matchDate,
+                    isHistory: false,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+                inserted++;
+            }
+        }
+
+        return { inserted, updated, total: args.matches.length };
     },
 });

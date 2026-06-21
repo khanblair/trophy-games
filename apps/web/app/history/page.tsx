@@ -33,6 +33,7 @@ export default function HistoryPage() {
     const [loading, setLoading] = useState(true);
     const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+    const [leagueFilter, setLeagueFilter] = useState('All');
     const [search, setSearch] = useState('');
 
     const loadHistory = useCallback(async () => {
@@ -54,6 +55,8 @@ export default function HistoryPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadHistory(); }, [loadHistory]);
 
+    const uniqueLeagues = ['All', ...Array.from(new Set(matches.map(m => m.league))).sort()];
+
     const filteredHistory = matches.filter(m => {
         const q = search.toLowerCase();
         const matchesSearch = !search ||
@@ -62,12 +65,16 @@ export default function HistoryPage() {
             m.league.toLowerCase().includes(q);
         const matchesOutcome = outcomeFilter === 'all' || outcomeOf(m) === outcomeFilter;
         const matchesType = typeFilter === 'all' || m.matchType === typeFilter;
-        return matchesSearch && matchesOutcome && matchesType;
+        const matchesLeague = leagueFilter === 'All' || m.league === leagueFilter;
+        return matchesSearch && matchesOutcome && matchesType && matchesLeague;
     });
 
+    // Mirror the mobile Wins screen: "win" = home side won, strike rate = wins / total.
+    const total = matches.length;
     const homeWins = matches.filter(m => outcomeOf(m) === 'home').length;
     const awayWins = matches.filter(m => outcomeOf(m) === 'away').length;
     const draws = matches.filter(m => outcomeOf(m) === 'draw').length;
+    const strikeRate = total > 0 ? Math.round((homeWins / total) * 100) : 0;
 
     const outcomeBadge = (m: Match) => {
         const o = outcomeOf(m);
@@ -103,8 +110,8 @@ export default function HistoryPage() {
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Match History</h1>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Completed matches from the data feed — the same results shown in the mobile Wins screen.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Proven Results</h1>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Completed matches from Convex — the same results shown in the mobile Wins screen.</p>
                 </div>
                 <button onClick={loadHistory} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
                     <RefreshCw size={14} />Refresh
@@ -113,9 +120,9 @@ export default function HistoryPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {([
-                    { label: 'Completed', value: matches.length, color: 'text-zinc-900 dark:text-zinc-50', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-                    { label: 'Home Wins', value: homeWins, color: 'text-brand-green', bg: 'bg-brand-green/10 dark:bg-brand-green/10' },
-                    { label: 'Away Wins', value: awayWins, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                    { label: 'Strike Rate', value: `${strikeRate}%`, color: 'text-brand-green', bg: 'bg-brand-green/10 dark:bg-brand-green/10' },
+                    { label: 'Wins / Total', value: `${homeWins}/${total}`, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                    { label: 'Away Wins', value: awayWins, color: 'text-zinc-900 dark:text-zinc-50', bg: 'bg-zinc-100 dark:bg-zinc-800' },
                     { label: 'Draws', value: draws, color: 'text-zinc-500', bg: 'bg-zinc-50 dark:bg-zinc-900/40' },
                 ] as const).map(stat => (
                     <div key={stat.label} className={`${stat.bg} rounded-xl p-4`}>
@@ -137,6 +144,11 @@ export default function HistoryPage() {
                     <span className="text-xs text-zinc-500 py-1.5">Type:</span>
                     {(['all', 'free', 'paid', 'vip'] as TypeFilter[]).map(f => (
                         <button key={f} onClick={() => setTypeFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${typeFilter === f ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>{f}</button>
+                    ))}
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                    {uniqueLeagues.map(l => (
+                        <button key={l} onClick={() => setLeagueFilter(l)} className={`flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${leagueFilter === l ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>{l}</button>
                     ))}
                 </div>
             </div>
