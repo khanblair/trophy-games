@@ -156,10 +156,11 @@ export default function LeaguesPage() {
                         const counts = getLeagueMatchCounts(league.name);
 
                         return (
-                            <div
-                                key={`${league.id}-${league.name}-${i}`}
-                                className="group p-5 rounded-2xl border border-zinc-200 bg-white hover:border-blue-500/50 hover:shadow-lg transition-all dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-500/50"
-                            >
+                                <Link
+                                    key={`${league.id}-${league.name}-${i}`}
+                                    href={`/matches?league=${encodeURIComponent(league.name)}`}
+                                    className="group block p-5 rounded-2xl border border-zinc-200 bg-white hover:border-blue-500/50 hover:shadow-lg transition-all dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-500/50"
+                                >
                                 <div className="flex items-start justify-between">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 overflow-hidden">
                                         {league.logo ? (
@@ -202,14 +203,9 @@ export default function LeaguesPage() {
                                 </div>
                                 <div className="mt-6 flex items-center justify-between border-t border-zinc-100 pt-4 dark:border-zinc-800">
                                     <span className="text-xs text-zinc-400">{league.matchCount ?? counts.total} matches</span>
-                                    <Link
-                                        href="/matches"
-                                        className="text-blue-600 dark:text-blue-500 hover:translate-x-1 transition-transform"
-                                    >
-                                        <ChevronRight size={18} />
-                                    </Link>
+                                    <ChevronRight size={18} className="text-blue-600 dark:text-blue-500 group-hover:translate-x-1 transition-transform" />
                                 </div>
-                            </div>
+                            </Link>
                         );
                     })}
                 </div>

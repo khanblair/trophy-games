@@ -44,6 +44,21 @@ export default defineSchema({
         })),
         detailedOdds: v.optional(v.any()),
         h2h: v.optional(v.any()),
+        // Rich detail fields from FootyStats /matches and /match-stats
+        htHomeScore: v.optional(v.number()),
+        htAwayScore: v.optional(v.number()),
+        homeXg: v.optional(v.number()),
+        awayXg: v.optional(v.number()),
+        stadium: v.optional(v.string()),
+        attendance: v.optional(v.number()),
+        tvStations: v.optional(v.array(v.string())),
+        preview: v.optional(v.string()),
+        potentials: v.optional(v.any()),
+        stats: v.optional(v.any()),
+        goals: v.optional(v.any()),
+        homeLineup: v.optional(v.any()),
+        awayLineup: v.optional(v.any()),
+        oddsComparison: v.optional(v.any()),
         // History / result tracking
         result: v.optional(v.union(v.literal('win'), v.literal('lose'), v.literal('draw'))),
         matchDate: v.optional(v.string()), // YYYY-MM-DD
@@ -114,4 +129,27 @@ export default defineSchema({
         createdAt: v.string(),
         readBy: v.optional(v.array(v.string())), // array of deviceIds that have read it (if global) or boolean if targeted
     }).index("by_device_id", ["deviceId"]),
+
+    // AI Analysis Results from DeepSeek
+    analysisResults: defineTable({
+        date: v.string(), // YYYY-MM-DD
+        analysisType: v.union(v.literal("daily"), v.literal("weekly")),
+        status: v.union(v.literal("pending"), v.literal("verified"), v.literal("approved"), v.literal("rejected")),
+        freeRecommendations: v.array(v.any()),
+        paidRecommendations: v.array(v.any()),
+        vipRecommendations: v.array(v.any()),
+        verificationNotes: v.optional(v.array(v.string())),
+        removedMatches: v.optional(v.array(v.any())),
+        confidenceAdjustment: v.optional(v.number()),
+        generatedAt: v.string(),
+        verifiedAt: v.optional(v.string()),
+        approvedAt: v.optional(v.string()),
+        approvedBy: v.optional(v.string()),
+        model: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.optional(v.string()),
+    })
+        .index("by_date", ["date"])
+        .index("by_status", ["status"])
+        .index("by_analysis_type", ["analysisType"]),
 });

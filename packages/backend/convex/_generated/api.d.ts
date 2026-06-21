@@ -9,6 +9,7 @@
  */
 
 import type * as alerts from "../alerts.js";
+import type * as analysis from "../analysis.js";
 import type * as crons from "../crons.js";
 import type * as devices from "../devices.js";
 import type * as footystats from "../footystats.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
+  analysis: typeof analysis;
   crons: typeof crons;
   devices: typeof devices;
   footystats: typeof footystats;

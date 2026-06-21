@@ -7,7 +7,8 @@ import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
-import { fetchMatchStats } from '../../api/footystats';
+import { getCountryFlagUrl } from '../../lib/flags';
+// Mobile reads ONLY from Convex — no direct FootyStats API calls.
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -17,6 +18,15 @@ const { width } = Dimensions.get('window');
 const TeamLogo = ({ uri, name, textColor }: { uri?: string; name: string; textColor: string }) => {
     const [failed, setFailed] = useState(false);
     const initials = name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
+    const flagUri = !uri || failed ? getCountryFlagUrl(name) : undefined;
+
+    if (flagUri) {
+        return (
+            <View style={logoStyles.flagBox}>
+                <Image source={{ uri: flagUri }} style={logoStyles.flag} />
+            </View>
+        );
+    }
     if (uri && !failed) {
         return <Image source={{ uri }} style={logoStyles.img} onError={() => setFailed(true)} />;
     }
@@ -25,6 +35,8 @@ const TeamLogo = ({ uri, name, textColor }: { uri?: string; name: string; textCo
 
 const logoStyles = StyleSheet.create({
     img: { width: 46, height: 46, resizeMode: 'contain' },
+    flagBox: { width: 46, height: 46, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.08)', alignItems: 'center', justifyContent: 'center' },
+    flag: { width: 46, height: 30, resizeMode: 'cover' },
     initials: { fontSize: 18, fontWeight: '800', letterSpacing: 1 },
 });
 
@@ -42,7 +54,7 @@ export default function MatchDetailScreen() {
         const loadMatch = async () => {
             setLoading(true);
 
-            // 1. Instant placeholder from the list data passed via navigation params.
+            // 1. Start with instant placeholder from navigation params.
             let base: any = null;
             if (matchData) {
                 try {
@@ -53,65 +65,29 @@ export default function MatchDetailScreen() {
                 }
             }
 
-            // 2. Always fetch full stats from FootyStats for numeric IDs. This is
-            //    the only endpoint that carries logos, H2H, form, standings, and
-            //    detailed odds — the list payload has none of it.
-            let enriched: any = base;
-            const isNumericId = /^\d+$/.test(id as string);
-            if (isNumericId) {
+            // 2. Query Convex for the authoritative match record (fast, single lookup).
+            //    This gives us matchType, AI predictions, detailedOdds, potentials,
+            //    stats, goals, lineups, and any other rich fields the sync job stored.
+            if (convex) {
                 try {
-                    const stats = await fetchMatchStats(id as string);
-                    // Overlay stats on the placeholder. Keep league/country from the
-                    // list data (match-stats has no clean league title), and prefer
-                    // any non-empty field from the richer stats payload.
-                    enriched = {
-                        ...base,
-                        ...Object.fromEntries(
-                            Object.entries(stats).filter(([, v]) => v !== undefined && v !== '')
-                        ),
-                        league: base?.league || stats.league,
-                        country: base?.country || stats.country,
-                    };
-                    if (!cancelled) setMatch(enriched);
-                    console.log(`[Match Detail] Enriched match ${id} from FootyStats`);
-                } catch (footyError) {
-                    console.warn('[Match Detail] FootyStats stats failed:', footyError);
-                }
-            }
-
-            // 3. Fall back to Convex if we have nothing at all.
-            if (!enriched && convex) {
-                try {
-                    const matches = await convex.query(api.matches.getAll, { limit: 500 });
-                    enriched = matches.find((m: any) => m.id === id) || null;
-                    if (!cancelled) setMatch(enriched);
-                    console.log(`[Match Detail] Found match ${id} from Convex`);
+                    const convexMatch = await convex.query(api.matches.getById, { matchId: id as string });
+                    if (convexMatch) {
+                        const enriched = {
+                            ...base,
+                            ...Object.fromEntries(
+                                Object.entries(convexMatch).filter(([, v]) => v !== undefined && v !== '')
+                            ),
+                            // Keep list-data league/country if Convex is missing them
+                            league: convexMatch.league || base?.league,
+                            country: convexMatch.country || base?.country,
+                        };
+                        if (!cancelled) setMatch(enriched);
+                        console.log(`[Match Detail] Loaded match ${id} from Convex`);
+                    } else if (!base) {
+                        console.warn(`[Match Detail] Match ${id} not found in Convex`);
+                    }
                 } catch (convexError) {
                     console.warn('[Match Detail] Convex lookup failed:', convexError);
-                }
-            }
-
-            // 4. Merge AI prediction from Convex if we don't already have one.
-            if (enriched && convex && !enriched.aiPrediction) {
-                try {
-                    const convexMatches = await convex.query(api.matches.getAll, { limit: 500 });
-                    const convexMatch = convexMatches.find((m: any) =>
-                        m.homeTeam === enriched.homeTeam &&
-                        m.awayTeam === enriched.awayTeam
-                    );
-                    if (convexMatch?.aiPrediction && !cancelled) {
-                        setMatch({
-                            ...enriched,
-                            aiPrediction: convexMatch.aiPrediction,
-                            matchType: convexMatch.matchType || enriched.matchType,
-                            isTrending: convexMatch.isTrending ?? enriched.isTrending,
-                            referee: enriched.referee || convexMatch.referee,
-                            weather: enriched.weather || convexMatch.weather,
-                        });
-                        console.log(`[Match Detail] Merged AI prediction from Convex for ${id}`);
-                    }
-                } catch (mergeError) {
-                    console.warn('[Match Detail] Failed to merge Convex AI data:', mergeError);
                 }
             }
 

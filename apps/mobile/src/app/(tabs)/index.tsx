@@ -6,7 +6,8 @@ import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
-import { fetchMatches } from '../../api/footystats';
+// Mobile reads ONLY from Convex — the background cron sync fetches FootyStats
+// data every 5 minutes and upserts it into Convex. No direct API calls from mobile.
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -31,39 +32,27 @@ export default function FreeTipsScreen() {
             setLoading(true);
         }
 
-        try {
-            const footyMatches = await fetchMatches(selectedDate);
-            setMatches(footyMatches);
-            setApiSource('footystats');
-            const leagueNames = [...new Set(footyMatches.map(m => m.league))].map(name => ({ name, id: name }));
-            setLeagues(leagueNames);
-            console.log(`[Home Screen] Loaded ${footyMatches.length} matches from FootyStats`);
-        } catch (footyError) {
-            console.warn('[Home Screen] FootyStats failed, falling back to Convex:', footyError);
-            if (!convex) {
-                console.error('[Convex] Convex client not initialized');
-                setMatches([]);
-                setLeagues([]);
-                setLoading(false);
-                setRefreshing(false);
-                return;
-            }
+        // Mobile reads ONLY from Convex. The background cron sync fetches
+        // FootyStats data every 5 minutes and upserts it into Convex.
+        if (convex) {
             try {
-                const freeMatches = await convex.query(api.matches.get, {
+                const freeMatches = await convex.query(api.matches.getByTypeAndDate, {
                     matchType: 'free',
+                    date: selectedDate,
                     limit: 100
                 });
                 setMatches(freeMatches || []);
                 setApiSource('convex');
-                console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex`);
-                if (convex) {
-                    convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
-                }
+                console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex for ${selectedDate}`);
+                convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
             } catch (convexError) {
-                console.error('[Home Screen] Both sources failed:', convexError);
+                console.warn('[Home Screen] Convex failed:', convexError);
                 setMatches([]);
                 setLeagues([]);
             }
+        } else {
+            setMatches([]);
+            setLeagues([]);
         }
 
         setLoading(false);
@@ -75,10 +64,8 @@ export default function FreeTipsScreen() {
     }, [loadData]);
 
     const filteredMatches = matches.filter(m => {
-        const matchDate = new Date(m.timestamp).toISOString().split('T')[0];
-        const matchesDate = matchDate === selectedDate;
         const leagueMatch = selectedLeague === 'All' || m.league === selectedLeague;
-        return matchesDate && leagueMatch;
+        return leagueMatch;
     });
 
     const onRefresh = useCallback(() => {

@@ -3,13 +3,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Timer, Trophy, TrendingUp, CheckCircle2, BrainCircuit, Cpu, Loader2 } from 'lucide-react';
+import { Timer, Trophy, TrendingUp, Loader2 } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
-import { analyzeMatch, AICallMetadata } from '@/lib/ai';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
-import { ModelSelector } from './ModelSelector';
-import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
 
 
 interface MatchDetailModalProps {
@@ -22,10 +19,6 @@ type Tab = 'Overview' | 'Odds';
 
 export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
-    const [analyzing, setAnalyzing] = useState(false);
-    const [localPrediction, setLocalPrediction] = useState(match?.aiPrediction || null);
-    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
-    const [lastCallMetadata, setLastCallMetadata] = useState<AICallMetadata | null>(null);
     const [details, setDetails] = useState<Partial<MatchData> | null>(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
 
@@ -33,8 +26,7 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
     const matchId = match?.id;
     useEffect(() => {
         if (!isOpen || !matchId) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setDetails(null);
+            setDetails(null); // eslint-disable-line react-hooks/set-state-in-effect
             return;
         }
         let cancelled = false;
@@ -49,9 +41,6 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
 
     if (!match) return null;
 
-    // Use local prediction if available (after just generating), otherwise use match data
-    const aiPred = localPrediction || match.aiPrediction;
-
     // Merge: proxy details fill in the rich fields/logos, list data stays
     // authoritative for the basics (teams, league, status, score, odds).
     const m: MatchData = {
@@ -65,7 +54,6 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
         score: match.score,
         timestamp: match.timestamp,
         matchType: match.matchType,
-        aiPrediction: match.aiPrediction,
         odds: match.odds || details?.odds,
         homeScore: match.homeScore ?? details?.homeScore,
         awayScore: match.awayScore ?? details?.awayScore,
@@ -75,48 +63,6 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
         { id: 'Overview', icon: Trophy, label: 'Overview' },
         { id: 'Odds', icon: TrendingUp, label: 'Odds' },
     ];
-
-    const handleAnalyze = async () => {
-        setAnalyzing(true);
-        setLastCallMetadata(null);
-        
-        try {
-            const result = await analyzeMatch(match, selectedModel);
-            
-            // Store metadata about which model was actually used
-            if (result.metadata) {
-                setLastCallMetadata(result.metadata);
-            }
-            
-            // Save to Convex via API route
-            await fetch('/api/admin/save-prediction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    matchId: match.id,
-                    aiPrediction: {
-                        prediction: result.prediction,
-                        confidence: result.confidence,
-                        reasoning: result.reasoning,
-                        suggestedBet: result.suggestedBet,
-                    }
-                })
-            });
-            
-            // Update local state to show the prediction immediately
-            setLocalPrediction({
-                prediction: result.prediction,
-                confidence: result.confidence,
-                reasoning: result.reasoning,
-                suggestedBet: result.suggestedBet,
-                generatedAt: new Date().toISOString()
-            });
-        } catch (e) {
-            console.error('Failed to save AI prediction:', e);
-        }
-        
-        setAnalyzing(false);
-    };
 
     return (
         <Modal
@@ -161,6 +107,11 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                     {m.score || '0-0'}
                                 </div>
                                 <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Score</div>
+                                {(m.htHomeScore !== undefined && m.htAwayScore !== undefined) && (
+                                    <div className="text-zinc-500 text-[10px]">
+                                        HT {m.htHomeScore} - {m.htAwayScore}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Away Team */}
@@ -290,6 +241,73 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                 </div>
                             )}
 
+                            {/* Bookmaker Odds Comparison — professional grid */}
+                            {m.oddsComparison && m.oddsComparison.length > 0 && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                                    <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+                                        <span className="text-xs font-bold text-zinc-500 uppercase">Odds Comparison</span>
+                                    </div>
+                                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                        {m.oddsComparison.map((market, mi) => {
+                                            // Gather every unique bookie across all selections in this market
+                                            const allBookies = Array.from(
+                                                new Set(market.selections.flatMap(s => s.odds.map(o => o.bookie)))
+                                            );
+                                            return (
+                                                <div key={mi} className="p-4">
+                                                    <div className="text-xs font-bold text-zinc-500 uppercase mb-3">{market.market}</div>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-sm">
+                                                            <thead>
+                                                                <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                                                    <th className="text-left py-2 pr-4 text-xs font-semibold text-zinc-400 uppercase">Selection</th>
+                                                                    {allBookies.map(b => (
+                                                                        <th key={b} className="text-center py-2 px-2 text-xs font-semibold text-zinc-400 uppercase min-w-[72px]">{b}</th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {market.selections.map((sel, si) => {
+                                                                    // Find the highest odds for this selection to highlight
+                                                                    const values = sel.odds.map(o => parseFloat(o.value)).filter(v => !isNaN(v));
+                                                                    const best = values.length > 0 ? Math.max(...values) : null;
+                                                                    return (
+                                                                        <tr key={si} className="border-b border-zinc-50 dark:border-zinc-800/30 last:border-0">
+                                                                            <td className="py-2.5 pr-4 font-medium text-zinc-700 dark:text-zinc-300">{sel.name}</td>
+                                                                            {allBookies.map(b => {
+                                                                                const odd = sel.odds.find(o => o.bookie === b);
+                                                                                const val = odd ? parseFloat(odd.value) : null;
+                                                                                const isBest = val !== null && best !== null && val === best;
+                                                                                return (
+                                                                                    <td key={b} className="py-2.5 px-2 text-center">
+                                                                                        {odd ? (
+                                                                                            <span className={cn(
+                                                                                                'inline-block px-2 py-0.5 rounded-md text-xs font-bold',
+                                                                                                isBest
+                                                                                                    ? 'bg-brand-green/10 text-brand-green'
+                                                                                                    : 'text-zinc-600 dark:text-zinc-400'
+                                                                                            )}>
+                                                                                                {odd.value}
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="text-zinc-300 dark:text-zinc-700">—</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                );
+                                                                            })}
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* H2H Summary */}
                             {m.h2h?.summary && (
                                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
@@ -393,101 +411,183 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                 </div>
                             )}
 
-                            {/* AI Prediction Section */}
-                            <div className="md:col-span-2">
-                                {aiPred ? (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
-                                                <BrainCircuit size={16} className="text-purple-500" />
-                                                AI Prediction
-                                                <span className="text-xs bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
-                                                    {aiPred.confidence}% confidence
-                                                </span>
-                                            </h3>
-                                        </div>
-                                        
-                                        {/* Model Selector & Metadata */}
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex-1">
-                                                <ModelSelector 
-                                                    selectedModel={selectedModel}
-                                                    onModelChange={setSelectedModel}
-                                                    disabled={analyzing}
-                                                />
+                            {/* Preview */}
+                            {m.preview && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Match Preview
+                                    </h3>
+                                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                                        {m.preview}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Potentials */}
+                            {m.potentials && m.potentials.length > 0 && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Match Predictions
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {m.potentials.map((p, i) => (
+                                            <div key={i} className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{p.label}</span>
+                                                {p.percent !== undefined ? (
+                                                    <div className="flex items-center gap-3 flex-1 ml-4">
+                                                        <div className="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-brand-green rounded-full" style={{ width: `${p.percent}%` }} />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-brand-green w-10 text-right">{p.percent}%</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{p.value}</span>
+                                                )}
                                             </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Expected Goals */}
+                            {(m.homeXg !== undefined || m.awayXg !== undefined) && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Expected Goals (xG)
+                                    </h3>
+                                    <div className="flex items-center justify-around">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-black text-brand-green">{(m.homeXg ?? 0).toFixed(2)}</div>
+                                            <div className="text-xs text-zinc-500">{m.homeTeam}</div>
                                         </div>
-                                        {lastCallMetadata && lastCallMetadata.attempts > 1 && (
-                                            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
-                                                <Cpu size={14} />
-                                                <span>
-                                                    Auto-switched to {lastCallMetadata.usedModel.name} after {lastCallMetadata.attempts - 1} failed attempt(s)
-                                                </span>
+                                        <div className="text-xs text-zinc-400 font-bold">xG</div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-black text-zinc-700 dark:text-zinc-300">{(m.awayXg ?? 0).toFixed(2)}</div>
+                                            <div className="text-xs text-zinc-500">{m.awayTeam}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Match Stats */}
+                            {m.stats && m.stats.length > 0 && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Match Stats
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {m.stats.map((s, i) => {
+                                            const total = (s.home + s.away) || 1;
+                                            const homePct = Math.round((s.home / total) * 100);
+                                            return (
+                                                <div key={i}>
+                                                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                                                        <span>{s.home}{s.percent ? '%' : ''}</span>
+                                                        <span>{s.label}</span>
+                                                        <span>{s.away}{s.percent ? '%' : ''}</span>
+                                                    </div>
+                                                    <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-brand-green rounded-full" style={{ width: `${homePct}%` }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Goal Timeline */}
+                            {m.goals && m.goals.length > 0 && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Goals
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {m.goals.map((g, i) => (
+                                            <div key={i} className={`flex items-center gap-3 py-2 ${g.team === 'away' ? 'flex-row-reverse' : ''}`}>
+                                                <div className={`flex-1 ${g.team === 'away' ? 'text-right' : ''}`}>
+                                                    <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{g.scorer} <span className="text-xs text-zinc-400">{g.time}&apos;</span></div>
+                                                    {g.assist && <div className="text-xs text-zinc-500">assist: {g.assist}</div>}
+                                                </div>
                                             </div>
-                                        )}
-                                        <div className="rounded-xl border border-purple-100 bg-purple-50/30 p-4 dark:border-purple-500/20 dark:bg-purple-500/5">
-                                            <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
-                                                {aiPred.prediction}
-                                            </p>
-                                            <div className="mt-3 grid gap-2">
-                                                {aiPred.reasoning?.map((reason: string, i: number) => (
-                                                    <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
-                                                        <CheckCircle2 size={14} className="text-brand-green shrink-0 mt-0.5" />
-                                                        <span>{reason}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Lineups */}
+                            {(m.homeLineup?.length || m.awayLineup?.length) ? (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Starting Lineups
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="text-xs font-bold text-brand-green mb-2 truncate">{m.homeTeam}</div>
+                                            <div className="space-y-1">
+                                                {(m.homeLineup || []).map((p, i) => (
+                                                    <div key={i} className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                                                        {p.number ? `${p.number}. ` : ''}{p.name}
                                                     </div>
                                                 ))}
                                             </div>
-                                            {aiPred.suggestedBet && (
-                                                <div className="mt-3 px-3 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                                                    <span className="font-bold text-blue-600">Pro Tip:</span> {aiPred.suggestedBet}
-                                                </div>
-                                            )}
                                         </div>
-                                        <button
-                                            onClick={handleAnalyze}
-                                            disabled={analyzing}
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50"
-                                        >
-                                            {analyzing ? 'Analyzing...' : 'Re-run AI Analysis'}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider flex items-center gap-2">
-                                            <BrainCircuit size={16} className="text-blue-600" />
-                                            AI Prediction
-                                        </h3>
-                                        
-                                        {/* Model Selector */}
-                                        <ModelSelector 
-                                            selectedModel={selectedModel}
-                                            onModelChange={setSelectedModel}
-                                            disabled={analyzing}
-                                        />
-                                        
-                                        <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 p-6 text-center">
-                                            <p className="text-sm text-zinc-500 mb-3">Generate AI-powered match predictions</p>
-                                            <button
-                                                onClick={handleAnalyze}
-                                                disabled={analyzing}
-                                                className="flex items-center justify-center gap-2 mx-auto px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50"
-                                            >
-                                                {analyzing ? (
-                                                    <>
-                                                        <span className="animate-spin">⟳</span>
-                                                        Analyzing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <BrainCircuit size={16} />
-                                                        Generate Prediction
-                                                    </>
-                                                )}
-                                            </button>
+                                        <div>
+                                            <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-2 truncate">{m.awayTeam}</div>
+                                            <div className="space-y-1">
+                                                {(m.awayLineup || []).map((p, i) => (
+                                                    <div key={i} className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                                                        {p.number ? `${p.number}. ` : ''}{p.name}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : null}
+
+                            {/* Match Info */}
+                            {(m.stadium || m.attendance || m.tvStations?.length || m.referee || m.weather) && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider mb-3">
+                                        Match Info
+                                    </h3>
+                                    <div className="space-y-2 text-sm">
+                                        {m.stadium && (
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Venue</span>
+                                                <span className="text-zinc-900 dark:text-zinc-50">{m.stadium}</span>
+                                            </div>
+                                        )}
+                                        {m.attendance && (
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Attendance</span>
+                                                <span className="text-zinc-900 dark:text-zinc-50">{m.attendance.toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        {m.tvStations && m.tvStations.length > 0 && (
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">TV</span>
+                                                <span className="text-zinc-900 dark:text-zinc-50 text-right">{m.tvStations.join(', ')}</span>
+                                            </div>
+                                        )}
+                                        {m.referee && (
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Referee</span>
+                                                <span className="text-zinc-900 dark:text-zinc-50">{m.referee}</span>
+                                            </div>
+                                        )}
+                                        {m.weather && (
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Weather</span>
+                                                <span className="text-zinc-900 dark:text-zinc-50">{m.weather}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+
                         </div>
                     )}
 
@@ -545,8 +645,90 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
                                 </div>
                             )}
 
+                            {m.detailedOdds.ft['ah'] && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                    <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+                                        <span className="text-xs font-bold text-zinc-500 uppercase">
+                                            Asian Handicap (Line: {m.detailedOdds.ft['ah'].line})
+                                        </span>
+                                    </div>
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs uppercase text-zinc-500 font-semibold">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left">Market</th>
+                                                <th className="px-4 py-3 text-center text-brand-green">Home</th>
+                                                <th className="px-4 py-3 text-center text-zinc-600">Line</th>
+                                                <th className="px-4 py-3 text-center text-red-600">Away</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                            <tr className="bg-white dark:bg-zinc-900/20">
+                                                <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">AH</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{m.detailedOdds.ft['ah'].home}</td>
+                                                <td className="px-4 py-3 text-center font-bold">{m.detailedOdds.ft['ah'].line}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{m.detailedOdds.ft['ah'].away}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {m.detailedOdds.ht?.['1x2'] && (m.detailedOdds.ht['1x2'].home || m.detailedOdds.ht['1x2'].draw || m.detailedOdds.ht['1x2'].away) && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                    <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+                                        <span className="text-xs font-bold text-zinc-500 uppercase">Half Time Odds</span>
+                                    </div>
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs uppercase text-zinc-500 font-semibold">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left">Market</th>
+                                                <th className="px-4 py-3 text-center text-brand-green">Home</th>
+                                                <th className="px-4 py-3 text-center text-zinc-600">Draw</th>
+                                                <th className="px-4 py-3 text-center text-red-600">Away</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                            <tr className="bg-white dark:bg-zinc-900/20">
+                                                <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">HT 1X2</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{m.detailedOdds.ht['1x2'].home}</td>
+                                                <td className="px-4 py-3 text-center font-bold">{m.detailedOdds.ht['1x2'].draw}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{m.detailedOdds.ht['1x2'].away}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {m.detailedOdds.ht?.['ou'] && (
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                    <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800">
+                                        <span className="text-xs font-bold text-zinc-500 uppercase">
+                                            HT Over/Under (Line: {m.detailedOdds.ht['ou'].line})
+                                        </span>
+                                    </div>
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs uppercase text-zinc-500 font-semibold">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left">Market</th>
+                                                <th className="px-4 py-3 text-center text-red-600">Over</th>
+                                                <th className="px-4 py-3 text-center text-zinc-600">Line</th>
+                                                <th className="px-4 py-3 text-center text-brand-green">Under</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                            <tr className="bg-white dark:bg-zinc-900/20">
+                                                <td className="px-4 py-3 font-bold text-zinc-700 dark:text-zinc-300">HT O/U</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-red-500/10 text-red-700 dark:text-red-400">{m.detailedOdds.ht['ou'].over}</td>
+                                                <td className="px-4 py-3 text-center font-bold">{m.detailedOdds.ht['ou'].line}</td>
+                                                <td className="px-4 py-3 text-center font-bold bg-brand-green/10 text-brand-green dark:text-brand-green/80">{m.detailedOdds.ht['ou'].under}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
                             <p className="text-xs text-zinc-400 text-center">
-                                Odds from The Odds API (Free Tier)
+                                Odds from FootyStats Proxy
                             </p>
                         </div>
                     )}

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, Minus, RefreshCw } from 'lucide-react';
+import { MatchData } from '@trophy-games/shared';
+import { MatchDetailModal } from '@/components/MatchDetailModal';
 
 interface Match {
     id: string;
@@ -35,6 +37,8 @@ export default function HistoryPage() {
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [leagueFilter, setLeagueFilter] = useState('All');
     const [search, setSearch] = useState('');
+    const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
 
     const loadHistory = useCallback(async () => {
         setLoading(true);
@@ -173,8 +177,12 @@ export default function HistoryPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                {filteredHistory.map(match => (
-                                    <tr key={match.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                                {filteredHistory.map((match, i) => (
+                                    <tr
+                                        key={`${match.id}-${i}`}
+                                        onClick={() => { setSelectedMatch(match); setIsDetailOpen(true); }}
+                                        className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                                    >
                                         <td className="px-4 py-3 text-zinc-500 whitespace-nowrap text-xs">{new Date(match.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
                                         <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50 max-w-28 truncate text-xs">{match.league}</td>
                                         <td className="px-4 py-3 text-right font-medium text-zinc-900 dark:text-zinc-50 text-xs">{match.homeTeam}</td>
@@ -191,6 +199,13 @@ export default function HistoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Full match details (loads stats/H2H/form from the API on open) */}
+            <MatchDetailModal
+                isOpen={isDetailOpen}
+                onClose={() => setIsDetailOpen(false)}
+                match={selectedMatch as unknown as MatchData | null}
+            />
         </div>
     );
 }

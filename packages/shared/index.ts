@@ -79,6 +79,22 @@ export interface MatchData {
     createdAt?: string;
     updatedAt?: string;
     createdBy?: string;
+
+    // --- Rich detail fields (from FootyStats match-stats) ---
+    htHomeScore?: number;
+    htAwayScore?: number;
+    homeXg?: number;
+    awayXg?: number;
+    stadium?: string;
+    attendance?: number;
+    tvStations?: string[];
+    preview?: string;
+    potentials?: { label: string; percent?: number; value?: string }[];
+    stats?: { label: string; home: number; away: number; percent?: boolean }[];
+    goals?: { time: string; team: 'home' | 'away'; scorer: string; assist?: string; type?: string }[];
+    homeLineup?: { name: string; number?: number; events?: { type: string; time: string }[] }[];
+    awayLineup?: { name: string; number?: number; events?: { type: string; time: string }[] }[];
+    oddsComparison?: { market: string; selections: { name: string; odds: { bookie: string; value: string }[] }[] }[];
 }
 
 export interface LeagueInfo {

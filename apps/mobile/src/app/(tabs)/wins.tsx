@@ -6,7 +6,7 @@ import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
-import { fetchMatches } from '../../api/footystats';
+// Mobile reads ONLY from Convex — no direct FootyStats API calls.
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -39,38 +39,19 @@ export default function WinsScreen() {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
-        try {
-            const footyMatches = await fetchMatches();
-            const completed = footyMatches
-                .filter(m => m.status === 'Finished')
-                .map(m => ({
-                    ...m,
-                    result: m.homeScore !== undefined && m.awayScore !== undefined
-                        ? (m.homeScore > m.awayScore ? 'win' : m.awayScore > m.homeScore ? 'lose' : 'draw')
-                        : undefined,
-                    matchDate: m.timestamp.split('T')[0],
-                }));
-            setMatches(completed);
-            setApiSource('footystats');
-            console.log(`[Wins Screen] Loaded ${completed.length} completed matches from FootyStats`);
-        } catch (footyError) {
-            console.warn('[Wins Screen] FootyStats failed, falling back to Convex:', footyError);
-            if (!convex) {
-                console.error('[Convex] Convex client not initialized');
-                setMatches([]);
-                setLoading(false);
-                setRefreshing(false);
-                return;
-            }
+        // Mobile reads ONLY from Convex.
+        if (convex) {
             try {
                 const historyData = await convex.query(api.matches.getHistory, { limit: 200 });
                 setMatches(historyData || []);
                 setApiSource('convex');
                 console.log(`[Wins Screen] Loaded ${historyData?.length || 0} matches from Convex`);
             } catch (convexError) {
-                console.error('[Wins Screen] Both sources failed:', convexError);
+                console.warn('[Wins Screen] Convex failed:', convexError);
                 setMatches([]);
             }
+        } else {
+            setMatches([]);
         }
 
         setLoading(false);

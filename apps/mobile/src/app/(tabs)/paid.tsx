@@ -7,7 +7,7 @@ import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
-import { fetchMatches } from '../../api/footystats';
+// Mobile reads ONLY from Convex — no direct FootyStats API calls.
 import * as Application from 'expo-application';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
@@ -49,12 +49,10 @@ export default function PaidTipsScreen() {
 
     const filteredMatches = useMemo(() => {
         return matches.filter(match => {
-            const matchDate = match.timestamp?.split('T')[0];
-            const dateMatch = matchDate === selectedDate;
             const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
-            return dateMatch && leagueMatch;
+            return leagueMatch;
         });
-    }, [matches, selectedDate, selectedLeague]);
+    }, [matches, selectedLeague]);
 
     useEffect(() => {
         const init = async () => {
@@ -81,30 +79,22 @@ export default function PaidTipsScreen() {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
-        try {
-            const footyMatches = await fetchMatches(selectedDate);
-            setMatches(footyMatches);
-            console.log(`[Paid Screen] Loaded ${footyMatches.length} matches from FootyStats`);
-        } catch (footyError) {
-            console.warn('[Paid Screen] FootyStats failed, falling back to Convex:', footyError);
-            if (!convex) {
-                console.error('[Convex] Convex client not initialized');
-                setMatches([]);
-                setLoading(false);
-                setRefreshing(false);
-                return;
-            }
+        // Mobile reads ONLY from Convex.
+        if (convex) {
             try {
-                const paidMatches = await convex.query(api.matches.get, {
+                const paidMatches = await convex.query(api.matches.getByTypeAndDate, {
                     matchType: 'paid',
+                    date: selectedDate,
                     limit: 100
                 });
                 setMatches(paidMatches || []);
-                console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex`);
+                console.log(`[Paid Screen] Loaded ${paidMatches?.length || 0} paid matches from Convex for ${selectedDate}`);
             } catch (convexError) {
-                console.error('[Paid Screen] Both sources failed:', convexError);
+                console.warn('[Paid Screen] Convex failed:', convexError);
                 setMatches([]);
             }
+        } else {
+            setMatches([]);
         }
 
         setLoading(false);

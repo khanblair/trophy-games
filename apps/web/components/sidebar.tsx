@@ -12,6 +12,7 @@ import {
     X,
     Key,
     Users,
+    Brain,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -24,6 +25,7 @@ const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Matches', href: '/matches', icon: Swords },
     { name: 'Leagues', href: '/leagues', icon: Trophy },
+    { name: 'AI Analysis', href: '/analysis', icon: Brain },
     { name: 'History', href: '/history', icon: Database },
 ];
 

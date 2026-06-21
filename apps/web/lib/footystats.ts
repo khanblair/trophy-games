@@ -206,43 +206,145 @@ export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partia
     away: String(d.odds_ft_2 ?? ''),
   } : undefined;
 
+  const ftOu = d.odds_ft_over25 || d.odds_ft_under25 ? {
+    over: String(d.odds_ft_over25 ?? ''),
+    under: String(d.odds_ft_under25 ?? ''),
+    line: '2.5',
+  } : undefined;
+
+  const ht1x2 = d.odds_1st_half_result_1 ? {
+    home: String(d.odds_1st_half_result_1 ?? ''),
+    draw: String(d.odds_1st_half_result_x ?? ''),
+    away: String(d.odds_1st_half_result_2 ?? ''),
+  } : undefined;
+
+  const htOu = d.odds_1st_half_over05 || d.odds_1st_half_under05 ? {
+    over: String(d.odds_1st_half_over05 ?? ''),
+    under: String(d.odds_1st_half_under05 ?? ''),
+    line: '0.5',
+  } : undefined;
+
+  const ah = d.odds_dnb_1 ? {
+    home: String(d.odds_dnb_1 ?? ''),
+    away: String(d.odds_dnb_2 ?? ''),
+    line: '0',
+  } : undefined;
+
   const detailedOdds = odds1x2 ? {
     ft: {
       '1x2': odds1x2,
-      ou: d.odds_ft_over25 || d.odds_ft_under25 ? {
-        over: String(d.odds_ft_over25 ?? ''),
-        under: String(d.odds_ft_under25 ?? ''),
-        line: '2.5',
-      } : undefined,
-      ah: d.odds_dnb_1 ? {
-        home: String(d.odds_dnb_1 ?? ''),
-        away: String(d.odds_dnb_2 ?? ''),
-        line: '0',
-      } : undefined,
+      ou: ftOu,
+      ah,
     },
-    ht: d.odds_1st_half_result_1 ? {
-      '1x2': {
-        home: String(d.odds_1st_half_result_1 ?? ''),
-        draw: String(d.odds_1st_half_result_x ?? ''),
-        away: String(d.odds_1st_half_result_2 ?? ''),
-      },
-      ou: d.odds_1st_half_over05 || d.odds_1st_half_under05 ? {
-        over: String(d.odds_1st_half_over05 ?? ''),
-        under: String(d.odds_1st_half_under05 ?? ''),
-        line: '0.5',
-      } : undefined,
+    ht: ht1x2 ? {
+      '1x2': ht1x2,
+      ou: htOu,
     } : undefined,
   } : undefined;
 
+  // --- Match stats (possession, shots, etc.) — only for played matches ---
+  const num = (v: unknown) => Number(v ?? -1);
+  const statDefs: { label: string; a: unknown; b: unknown; percent?: boolean }[] = [
+    { label: 'Possession', a: d.team_a_possession, b: d.team_b_possession, percent: true },
+    { label: 'Shots', a: d.team_a_shots, b: d.team_b_shots },
+    { label: 'Shots on Target', a: d.team_a_shotsOnTarget, b: d.team_b_shotsOnTarget },
+    { label: 'Shots off Target', a: d.team_a_shotsOffTarget, b: d.team_b_shotsOffTarget },
+    { label: 'Corners', a: d.team_a_corners, b: d.team_b_corners },
+    { label: 'Fouls', a: d.team_a_fouls, b: d.team_b_fouls },
+    { label: 'Offsides', a: d.team_a_offsides, b: d.team_b_offsides },
+    { label: 'Yellow Cards', a: d.team_a_yellow_cards, b: d.team_b_yellow_cards },
+    { label: 'Red Cards', a: d.team_a_red_cards, b: d.team_b_red_cards },
+    { label: 'Dangerous Attacks', a: d.team_a_dangerous_attacks, b: d.team_b_dangerous_attacks },
+    { label: 'Attacks', a: d.team_a_attacks, b: d.team_b_attacks },
+  ];
+  const stats = statDefs
+    .filter(s => num(s.a) >= 0 && num(s.b) >= 0 && (num(s.a) > 0 || num(s.b) > 0))
+    .map(s => ({ label: s.label, home: num(s.a), away: num(s.b), percent: s.percent }));
+
+  const homeXg = Number(d.team_a_xg ?? 0);
+  const awayXg = Number(d.team_b_xg ?? 0);
+
+  // --- Pre-match probability potentials ---
+  const pct = (v: unknown) => {
+    const n = Number(v ?? -1);
+    return n >= 0 && n <= 100 ? n : undefined;
+  };
+  const potentials: { label: string; percent?: number; value?: string }[] = [
+    { label: 'BTTS', percent: pct(d.btts_potential) },
+    { label: 'Over 1.5', percent: pct(d.o15_potential) },
+    { label: 'Over 2.5', percent: pct(d.o25_potential) },
+    { label: 'Over 3.5', percent: pct(d.o35_potential) },
+    { label: 'Corners o9.5', percent: pct(d.corners_potential) },
+    { label: 'Cards', percent: pct(d.cards_potential) },
+  ].filter(p => p.percent !== undefined);
+  if (Number(d.avg_potential ?? 0) > 0) {
+    potentials.push({ label: 'Avg Goals', value: String(d.avg_potential) });
+  }
+
+  // --- Goal timeline ---
+  const rawGoals = (d.goal_events ?? []) as any[];
+  const goals = rawGoals
+    .filter(g => g && g.known_as)
+    .map(g => ({
+      time: String(g.time ?? '') + (g.extra ? `+${g.extra}` : ''),
+      team: g.teamIS === 'b' ? 'away' as const : 'home' as const,
+      scorer: String(g.known_as),
+      assist: (g.assist_known_as && g.assist_known_as !== 'No Assist') ? String(g.assist_known_as) : undefined,
+      type: g.type ? String(g.type) : undefined,
+    }));
+
+  // --- Lineups ---
+  const rawLineups = (d.lineups ?? {}) as Record<string, unknown>;
+  const mapLineup = (arr: unknown) =>
+    (Array.isArray(arr) ? arr : [])
+      .filter((p: any) => p && p.known_as)
+      .map((p: any) => ({
+        name: String(p.known_as),
+        number: Number(p.shirt_number ?? 0) || undefined,
+        events: (Array.isArray(p.player_events) ? p.player_events : []).map((e: any) => ({
+          type: String(e.event_type ?? ''),
+          time: String(e.event_time ?? ''),
+        })),
+      }));
+  const homeLineup = mapLineup(rawLineups.team_a);
+  const awayLineup = mapLineup(rawLineups.team_b);
+
+  // --- Bookmaker odds comparison ---
+  const rawOC = (d.odds_comparison ?? {}) as Record<string, Record<string, Record<string, string>>>;
+  const oddsComparison = Object.entries(rawOC)
+    .map(([market, selections]) => ({
+      market,
+      selections: Object.entries(selections || {}).map(([name, bookies]) => ({
+        name,
+        odds: Object.entries(bookies || {}).map(([bookie, value]) => ({ bookie, value: String(value) })),
+      })).filter(s => s.odds.length > 0),
+    }))
+    .filter(m => m.selections.length > 0);
+
+  // --- HT score ---
+  const htHome = Number(d.ht_goals_team_a ?? -1);
+  const htAway = Number(d.ht_goals_team_b ?? -1);
+
+  // --- Venue / broadcast / preview ---
+  const competitionName = String((d.competition_stats as any)?.english_name ?? (d.competition_stats as any)?.name ?? '');
+  const stadium = String(d.stadium_name ?? '').trim();
+  const stadiumLoc = String(d.stadium_location ?? '').trim();
+  const attendance = Number(d.attendance ?? -1);
+  const tvStations = (Array.isArray(d.tv_stations) ? d.tv_stations : [])
+    .map((t: unknown) => String(t)).filter(Boolean);
+  const preview = String(d.gpt_en ?? '').trim();
+
   return {
     id: matchId,
-    league: String(d.home_name ?? ''),
+    league: competitionName || String(d.home_name ?? ''),
     country: String(teamAStats.country ?? ''),
     timestamp,
     homeTeam: String(d.home_name ?? ''),
     awayTeam: String(d.away_name ?? ''),
     homeScore: scoresAvailable ? (Number(d.homeGoalCount ?? 0) || undefined) : undefined,
     awayScore: scoresAvailable ? (Number(d.awayGoalCount ?? 0) || undefined) : undefined,
+    htHomeScore: scoresAvailable && htHome >= 0 ? htHome : undefined,
+    htAwayScore: scoresAvailable && htAway >= 0 ? htAway : undefined,
     homeTeamLogo: resolveLogo(teamAStats.image, d.home_image),
     awayTeamLogo: resolveLogo(teamBStats.image, d.away_image),
     homeStanding: Number(teamAStats.table_position ?? 0) || undefined,
@@ -253,6 +355,18 @@ export async function fetchFootyStatsMatchStats(matchId: string): Promise<Partia
     awayForm: awayForm || undefined,
     homeCorners: homeCorners >= 0 ? homeCorners : undefined,
     awayCorners: awayCorners >= 0 ? awayCorners : undefined,
+    homeXg: homeXg > 0 ? homeXg : undefined,
+    awayXg: awayXg > 0 ? awayXg : undefined,
+    stadium: stadium ? (stadiumLoc ? `${stadium}, ${stadiumLoc}` : stadium) : undefined,
+    attendance: attendance > 0 ? attendance : undefined,
+    tvStations: tvStations.length > 0 ? tvStations : undefined,
+    preview: preview || undefined,
+    potentials: potentials.length > 0 ? potentials : undefined,
+    stats: stats.length > 0 ? stats : undefined,
+    goals: goals.length > 0 ? goals : undefined,
+    homeLineup: homeLineup.length > 0 ? homeLineup : undefined,
+    awayLineup: awayLineup.length > 0 ? awayLineup : undefined,
+    oddsComparison: oddsComparison.length > 0 ? oddsComparison : undefined,
     h2h: h2hSummary.totalMatches ? {
       isGenerated: false,
       summary: {
@@ -283,13 +397,13 @@ export function mergeWithConvexData(
     convexMap.set(key, cm);
   }
 
-  // Add footy matches first
+  // Add footy matches first, merging with Convex metadata when available
   for (const fm of footyMatches) {
     const key = `${fm.homeTeam}|${fm.awayTeam}|${fm.league}|${fm.matchDate}`;
     const convexMatch = convexMap.get(key);
 
     if (convexMatch) {
-      // Merge: footy for live data, convex for metadata
+      // Merge: footy for live data, convex for metadata (matchType, AI, etc.)
       merged.set(fm.id, {
         ...fm,
         matchType: convexMatch.matchType || fm.matchType,
@@ -320,7 +434,12 @@ export function mergeWithConvexData(
     }
   }
 
-  // Proxy is the source of truth — Convex-only matches are intentionally
-  // dropped so web shows exactly the same matches as the mobile app.
+  // Append Convex-only matches (e.g. matches tagged by admin that FootyStats
+  // no longer returns — these MUST appear so the dashboard stays in sync
+  // with the mobile app, which queries Convex directly by matchType).
+  for (const cm of convexMap.values()) {
+    merged.set(cm.id, cm);
+  }
+
   return Array.from(merged.values());
 }

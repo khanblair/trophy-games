@@ -5,9 +5,10 @@ const crons = cronJobs();
 
 // Keep the matches table fresh from the FootyStats proxy so the apps can read
 // from Convex (fast) instead of hitting the proxy directly (slow).
+// Runs every 5 minutes — same interval the old GitHub Actions workflow used.
 crons.interval(
     "sync-footystats-matches",
-    { minutes: 15 },
+    { minutes: 5 },
     internal.footystats.syncMatches,
     {},
 );

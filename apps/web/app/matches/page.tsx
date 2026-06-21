@@ -1,30 +1,50 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Cpu } from 'lucide-react';
+import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
-import { analyzeMatch, AIAnalysis, AICallMetadata } from '@/lib/ai';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
-import { ModelSelector } from '@/components/ModelSelector';
 import { cn } from '@/lib/utils';
-import { DEFAULT_MODEL, AIModel } from '@/app/constants/models';
+
+// Win probability implied by the bookmaker odds (from the API), normalised to
+// remove the margin so the three outcomes sum to ~100%.
+function impliedProbabilities(odds?: { home?: string; draw?: string; away?: string }) {
+    if (!odds) return null;
+    const h = parseFloat(odds.home || '');
+    const d = parseFloat(odds.draw || '');
+    const a = parseFloat(odds.away || '');
+    if (!(h > 1)) return null;
+    const ih = 1 / h;
+    const id = d > 1 ? 1 / d : 0;
+    const ia = a > 1 ? 1 / a : 0;
+    const sum = ih + id + ia;
+    if (sum <= 0) return null;
+    return {
+        home: Math.round((ih / sum) * 100),
+        draw: id ? Math.round((id / sum) * 100) : 0,
+        away: ia ? Math.round((ia / sum) * 100) : 0,
+    };
+}
 
 
 export default function MatchesPage() {
     const [matches, setMatches] = useState<MatchData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-    const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
     const [updatingId, setUpdatingId] = useState<string | null>(null);
-    const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
-    const [analysisMetadata, setAnalysisMetadata] = useState<Record<string, AICallMetadata>>({});
+
+    // Read league prefill from URL (client-side, avoid useSearchParams Suspense issue)
+    const getPrefillLeague = () => {
+        if (typeof window === 'undefined') return '';
+        const params = new URLSearchParams(window.location.search);
+        return params.get('league') || '';
+    };
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Live' | 'Finished' | 'Scheduled'>('All');
     const [typeFilter, setTypeFilter] = useState<'All' | 'free' | 'paid' | 'vip' | 'unassigned'>('All');
-    const [selectedLeague, setSelectedLeague] = useState('All');
-    const [dateFilter, setDateFilter] = useState('');
+    const [selectedLeague, setSelectedLeague] = useState(getPrefillLeague() || 'All');
+    const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
 
     // Modal States
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
@@ -36,14 +56,6 @@ export default function MatchesPage() {
             const data = await res.json();
             if (Array.isArray(data)) {
                 setMatches(data);
-
-                const existingAnalyses: Record<string, AIAnalysis> = {};
-                data.forEach((match: MatchData) => {
-                    if (match.aiPrediction) {
-                        existingAnalyses[match.id] = match.aiPrediction;
-                    }
-                });
-                setAnalyses(existingAnalyses);
             }
         } catch (error) {
             console.error('Failed to fetch matches:', error);
@@ -63,69 +75,35 @@ export default function MatchesPage() {
 
     // Tag a proxy match as free/paid/vip. Sends the full match so Convex can
     // upsert it (matches originate from the FootyStats proxy, not Convex).
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
     const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip' | 'unassigned') => {
         const match = matches.find(m => m.id === matchId);
         setUpdatingId(matchId);
+        setErrorMsg(null);
         try {
-            await fetch('/api/admin/match-type', {
+            const res = await fetch('/api/admin/match-type', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ matchId, matchType, match })
             });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
             setMatches(prev => prev.map(m =>
                 m.id === matchId ? { ...m, matchType } : m
             ));
-        } catch (e) {
+        } catch (e: any) {
             console.error('Update failed', e);
+            setErrorMsg(e.message || 'Failed to update match type');
+            setTimeout(() => setErrorMsg(null), 4000);
         }
         setUpdatingId(null);
     };
 
-    const handleAnalyze = async (e: React.MouseEvent, match: MatchData) => {
-        e.stopPropagation();
-        setAnalyzingId(match.id);
-        
-        try {
-            const result = await analyzeMatch(match, selectedModel);
-            
-            // Store metadata if model failover occurred
-            if (result.metadata) {
-                setAnalysisMetadata(prev => ({ ...prev, [match.id]: result.metadata! }));
-            }
-            
-            setAnalyses(prev => ({ ...prev, [match.id]: result }));
-
-            if (selectedMatch?.id === match.id) {
-                setSelectedMatch(prev => prev ? { ...prev, aiPrediction: result } : null);
-            }
-
-            // Save to Convex via API route (upserts the proxy match if needed)
-            await fetch('/api/admin/save-prediction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    matchId: match.id,
-                    match,
-                    aiPrediction: {
-                        prediction: result.prediction,
-                        confidence: result.confidence,
-                        reasoning: result.reasoning,
-                        suggestedBet: result.suggestedBet,
-                    }
-                })
-            });
-        } catch (err) {
-            console.error('[AI] Failed to analyze:', err);
-        }
-
-        setAnalyzingId(null);
-    };
-
     const handleOpenModal = (match: MatchData) => {
-        const matchWithAnalysis = analyses[match.id]
-            ? { ...match, aiPrediction: analyses[match.id] }
-            : match;
-        setSelectedMatch(matchWithAnalysis);
+        setSelectedMatch(match);
         setIsDetailModalOpen(true);
     };
 
@@ -179,26 +157,12 @@ export default function MatchesPage() {
                 </div>
             </div>
 
-            {/* AI Model Selector */}
-            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center gap-2 text-zinc-500">
-                    <Cpu size={18} />
-                    <span className="text-sm font-medium">AI Model for Analysis:</span>
+            {/* Error Toast */}
+            {errorMsg && (
+                <div className="rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+                    {errorMsg}
                 </div>
-                <div className="w-64">
-                    <ModelSelector 
-                        selectedModel={selectedModel}
-                        onModelChange={setSelectedModel}
-                        disabled={analyzingId !== null}
-                    />
-                </div>
-                {Object.values(analysisMetadata).some(m => m.attempts > 1) && (
-                    <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg">
-                        <AlertCircle size={14} />
-                        <span>Auto-failover active - some analyses switched models due to rate limits</span>
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -328,8 +292,8 @@ export default function MatchesPage() {
             ) : (
                 <div className="grid gap-6 overflow-hidden">
                     {filteredMatches.map((match, i) => {
-                        const analysis = analyses[match.id];
-                        const isAnalyzing = analyzingId === match.id;
+                        const aiData = match.aiPrediction;
+                        const probs = impliedProbabilities(match.odds);
 
                         return (
                             <div
@@ -440,62 +404,19 @@ export default function MatchesPage() {
                                                 </button>
                                             </div>
                                         </div>
-
-                                        {/* AI Analysis */}
-                                        <div className="flex gap-2 pt-2">
-                                            <button
-                                                onClick={(e) => handleAnalyze(e, match)}
-                                                disabled={isAnalyzing}
-                                                className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-                                            >
-                                                {isAnalyzing ? (
-                                                    <Loader2 size={12} className="animate-spin" />
-                                                ) : (
-                                                    <BrainCircuit size={12} />
-                                                )}
-                                                {analysis ? 'Re-analyze' : 'Analyze'}
-                                            </button>
-                                        </div>
                                     </div>
 
-                                    {/* Analysis / Odds */}
+                                    {/* Insights from the API (odds-implied probabilities + stored AI verdict) */}
                                     <div className="p-6 md:flex-1 bg-zinc-50/50 dark:bg-zinc-900/20">
-                                        {!analysis && !match.aiPrediction && !isAnalyzing ? (
-                                            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-zinc-400">
-                                                <div className="h-12 w-12 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-100 dark:border-zinc-700">
-                                                    <Zap size={24} />
-                                                </div>
-                                                <p className="text-sm max-w-[200px]">Click the Analyze button to generate AI insights.</p>
-                                            </div>
-                                        ) : isAnalyzing ? (
-                                            <div className="space-y-4 animate-pulse">
-                                                <div className="h-4 w-1/4 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                                                <div className="h-20 w-full bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
-                                                <div className="flex gap-2">
-                                                    <div className="h-8 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
-                                                    <div className="h-8 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            (() => {
-                                                const aiData = analysis || match.aiPrediction;
-                                                const metadata = analysisMetadata[match.id];
-                                                return aiData ? (
+                                        {aiData ? (
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
                                                         <TrendingUp size={16} className="text-blue-600" />
                                                         AI Match Verdict
                                                     </h4>
-                                                    <div className="flex items-center gap-2">
-                                                        {metadata && metadata.attempts > 1 && (
-                                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                                                Auto-switched
-                                                            </span>
-                                                        )}
-                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold dark:bg-blue-500/10">
-                                                            {aiData.confidence}% CONFIDENCE
-                                                        </div>
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold dark:bg-blue-500/10">
+                                                        {aiData.confidence}% CONFIDENCE
                                                     </div>
                                                 </div>
 
@@ -506,8 +427,8 @@ export default function MatchesPage() {
                                                 </div>
 
                                                 <div className="grid gap-2">
-                                                    {aiData.reasoning?.map((reason: string, i: number) => (
-                                                        <div key={i} className="flex items-start gap-2 text-xs text-zinc-500">
+                                                    {aiData.reasoning?.map((reason: string, ri: number) => (
+                                                        <div key={ri} className="flex items-start gap-2 text-xs text-zinc-500">
                                                             <CheckCircle2 size={14} className="text-brand-green shrink-0 mt-0.5" />
                                                             <span>{reason}</span>
                                                         </div>
@@ -522,8 +443,46 @@ export default function MatchesPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                                ) : null;
-                                            })()
+                                        ) : probs ? (
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                                                    <TrendingUp size={16} className="text-blue-600" />
+                                                    Match Insights
+                                                </h4>
+                                                <p className="text-xs text-zinc-500">Win probability implied by the bookmaker odds.</p>
+                                                <div className="space-y-2.5">
+                                                    {[
+                                                        { label: match.homeTeam, val: probs.home, color: 'bg-brand-green' },
+                                                        { label: 'Draw', val: probs.draw, color: 'bg-zinc-400' },
+                                                        { label: match.awayTeam, val: probs.away, color: 'bg-blue-500' },
+                                                    ].map((row) => (
+                                                        <div key={row.label} className="space-y-1">
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate pr-2">{row.label}</span>
+                                                                <span className="font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{row.val}%</span>
+                                                            </div>
+                                                            <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                                                                <div className={cn('h-full rounded-full', row.color)} style={{ width: `${row.val}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-100 text-zinc-700 text-xs dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                                                    <CheckCircle2 size={14} className="text-brand-green" />
+                                                    <span className="font-bold">Favored:</span>
+                                                    {(() => {
+                                                        const best = Math.max(probs.home, probs.draw, probs.away);
+                                                        return best === probs.home ? match.homeTeam : best === probs.away ? match.awayTeam : 'Draw';
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-zinc-400">
+                                                <div className="h-12 w-12 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-100 dark:border-zinc-700">
+                                                    <Zap size={24} />
+                                                </div>
+                                                <p className="text-sm max-w-[200px]">No insights available for this match yet.</p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

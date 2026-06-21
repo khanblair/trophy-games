@@ -119,6 +119,23 @@ export const getByDate = query({
     },
 });
 
+// Get matches by matchType AND date — used by mobile list screens so they
+// only fetch the matches for the selected day instead of all matches of a type.
+export const getByTypeAndDate = query({
+    args: {
+        matchType: v.union(v.literal('free'), v.literal('paid'), v.literal('vip'), v.literal('unassigned')),
+        date: v.string(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.query("matches")
+            .withIndex("by_match_type", (q) => q.eq("matchType", args.matchType))
+            .filter((q) => q.eq(q.field("matchDate"), args.date))
+            .order("desc")
+            .take(args.limit || 100);
+    },
+});
+
 export const getHistory = query({
     args: {
         limit: v.optional(v.number()),
@@ -449,6 +466,40 @@ export const toggleTrending = mutation({
     },
 });
 
+// Enrich a match with rich data from FootyStats /match-stats endpoint.
+// Called by the web API after fetching detailed stats so mobile can read
+// them from Convex without hitting the FootyStats API directly.
+export const enrichMatch = mutation({
+    args: {
+        matchId: v.string(),
+        data: v.any(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("matches")
+            .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
+            .unique();
+
+        if (!existing) {
+            throw new Error(`Match ${args.matchId} not found in Convex`);
+        }
+
+        const updates: any = {
+            updatedAt: new Date().toISOString(),
+        };
+
+        // Only set fields that are actually provided (non-null / non-undefined)
+        for (const [key, value] of Object.entries(args.data)) {
+            if (value !== undefined && value !== null) {
+                updates[key] = value;
+            }
+        }
+
+        await ctx.db.patch(existing._id, updates);
+        return { success: true };
+    },
+});
+
 // Delete a league
 export const deleteLeague = mutation({
     args: {
@@ -494,10 +545,14 @@ export const saveAll = mutation({
                 .unique();
 
             if (existing) {
-                // Preserve existing result/isHistory when updating
+                // Preserve admin overlay fields (matchType, aiPrediction, result,
+                // isHistory, isTrending) when syncing live data from the proxy.
                 const updated = { ...existing, ...matchWithDate };
+                if (existing.matchType && !matchWithDate.matchType) updated.matchType = existing.matchType;
+                if (existing.aiPrediction && !matchWithDate.aiPrediction) updated.aiPrediction = existing.aiPrediction;
                 if (existing.result && !matchWithDate.result) updated.result = existing.result;
                 if (existing.isHistory && !matchWithDate.isHistory) updated.isHistory = existing.isHistory;
+                if (existing.isTrending && !matchWithDate.isTrending) updated.isTrending = existing.isTrending;
                 await ctx.db.patch(existing._id, updated);
             } else {
                 await ctx.db.insert("matches", matchWithDate);
@@ -524,13 +579,13 @@ export const saveAll = mutation({
 // Bulk upsert from the FootyStats sync job. Updates live fields (scores,
 // status, odds, timestamp) while preserving the admin overlay set in the
 // dashboard (matchType, aiPrediction, result, isHistory, isTrending).
-export const bulkUpsert = internalMutation({
+// Uses v.any() so the cron sync can pass rich fields (detailedOdds, potentials,
+// stats, etc.) without being blocked by the strict proxyMatchInput validator.
+export const bulkUpsert = mutation({
     args: {
-        matches: v.array(proxyMatchInput),
+        matches: v.array(v.any()),
     },
     handler: async (ctx, args) => {
-        const existingAll = await ctx.db.query("matches").collect();
-        const byId = new Map(existingAll.map((m) => [m.id, m]));
         const now = new Date().toISOString();
 
         let inserted = 0;
@@ -539,31 +594,29 @@ export const bulkUpsert = internalMutation({
         for (const m of args.matches) {
             const matchDate = m.timestamp ? m.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
             const score = m.score || (m.homeScore != null && m.awayScore != null ? `${m.homeScore}-${m.awayScore}` : '0-0');
-            const existing = byId.get(m.id);
+            // Per-id index lookup (not a whole-table scan). `.first()` tolerates
+            // any legacy duplicates; OCC ensures concurrent syncs don't double-insert.
+            const existing = await ctx.db
+                .query("matches")
+                .withIndex("by_match_id", (q) => q.eq("id", m.id))
+                .first();
 
             if (existing) {
-                // Live fields only — overlay fields are intentionally left untouched.
-                await ctx.db.patch(existing._id, {
-                    league: m.league,
-                    leagueId: m.leagueId,
-                    leagueLogo: m.leagueLogo,
-                    homeTeam: m.homeTeam,
-                    homeTeamId: m.homeTeamId,
-                    homeTeamLogo: m.homeTeamLogo,
-                    awayTeam: m.awayTeam,
-                    awayTeamId: m.awayTeamId,
-                    awayTeamLogo: m.awayTeamLogo,
-                    country: m.country,
-                    countryFlag: m.countryFlag,
-                    timestamp: m.timestamp,
-                    status: m.status,
+                // Merge: update live data fields but preserve admin overlays.
+                // We spread `m` first so new rich fields are included, then
+                // explicitly preserve overlay fields that might be missing in `m`.
+                const updates: any = {
+                    ...m,
                     score,
-                    homeScore: m.homeScore,
-                    awayScore: m.awayScore,
-                    odds: m.odds,
                     matchDate,
                     updatedAt: now,
-                });
+                };
+                if (existing.matchType && !m.matchType) updates.matchType = existing.matchType;
+                if (existing.aiPrediction && !m.aiPrediction) updates.aiPrediction = existing.aiPrediction;
+                if (existing.result && !m.result) updates.result = existing.result;
+                if (existing.isHistory && !m.isHistory) updates.isHistory = existing.isHistory;
+                if (existing.isTrending && !m.isTrending) updates.isTrending = existing.isTrending;
+                await ctx.db.patch(existing._id, updates);
                 updated++;
             } else {
                 await ctx.db.insert("matches", {
@@ -579,5 +632,44 @@ export const bulkUpsert = internalMutation({
         }
 
         return { inserted, updated, total: args.matches.length };
+    },
+});
+
+// One-off cleanup: remove duplicate match documents that share the same
+// FootyStats `id`, keeping the doc that carries the admin overlay (AI
+// prediction / result / tier), otherwise the oldest. Safe to run repeatedly.
+export const dedupeMatches = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const all = await ctx.db.query("matches").collect();
+
+        const groups = new Map<string, typeof all>();
+        for (const m of all) {
+            const arr = groups.get(m.id) ?? [];
+            arr.push(m);
+            groups.set(m.id, arr);
+        }
+
+        const overlayScore = (d: typeof all[number]) =>
+            (d.aiPrediction ? 1 : 0) +
+            (d.result ? 1 : 0) +
+            (d.matchType && d.matchType !== 'unassigned' ? 1 : 0) +
+            (d.isHistory ? 1 : 0);
+
+        let deleted = 0;
+        let dupGroups = 0;
+
+        for (const docs of groups.values()) {
+            if (docs.length <= 1) continue;
+            dupGroups++;
+            // Best keeper first: most overlay data, then oldest.
+            docs.sort((a, b) => overlayScore(b) - overlayScore(a) || a._creationTime - b._creationTime);
+            for (let i = 1; i < docs.length; i++) {
+                await ctx.db.delete(docs[i]._id);
+                deleted++;
+            }
+        }
+
+        return { totalRows: all.length, distinctIds: groups.size, dupGroups, deleted };
     },
 });

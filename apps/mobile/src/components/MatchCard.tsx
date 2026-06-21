@@ -1,10 +1,20 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Lock } from 'lucide-react-native';
 import { useState } from 'react';
+import { getCountryFlagUrl } from '../lib/flags';
 
 const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
     const [failed, setFailed] = useState(false);
     const initials = name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
+    const flagUri = !uri || failed ? getCountryFlagUrl(name) : undefined;
+
+    if (flagUri) {
+        return (
+            <View style={badgeStyles.flagBox}>
+                <Image source={{ uri: flagUri }} style={badgeStyles.flag} />
+            </View>
+        );
+    }
     if (uri && !failed) {
         return <Image source={{ uri }} style={badgeStyles.logo} onError={() => setFailed(true)} />;
     }
@@ -13,6 +23,8 @@ const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
 
 const badgeStyles = StyleSheet.create({
     logo: { width: 36, height: 36, borderRadius: 18 },
+    flagBox: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.08)', alignItems: 'center', justifyContent: 'center' },
+    flag: { width: 36, height: 24, resizeMode: 'cover' },
     initialsBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center' },
     initials: { fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#888' },
 });
