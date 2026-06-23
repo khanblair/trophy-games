@@ -1,6 +1,7 @@
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import { isEliteLeague } from "./leagues";
 
 // Shared validator for a match coming from the FootyStats proxy (used by the
 // web overlay flows to upsert a proxy match into Convex before tagging it).
@@ -90,10 +91,20 @@ export const getById = query({
         matchId: v.string(),
     },
     handler: async (ctx, args) => {
-        return await ctx.db
+        // Primary lookup: external `id` field (indexed).
+        const byExternalId = await ctx.db
             .query("matches")
             .withIndex("by_match_id", (q) => q.eq("id", args.matchId))
             .unique();
+        if (byExternalId) return byExternalId;
+
+        // Fallback: treat matchId as a Convex document _id (e.g. from history screen).
+        try {
+            const byDocId = await ctx.db.get(args.matchId as any);
+            return byDocId ?? null;
+        } catch {
+            return null;
+        }
     },
 });
 
@@ -671,5 +682,83 @@ export const dedupeMatches = internalMutation({
         }
 
         return { totalRows: all.length, distinctIds: groups.size, dupGroups, deleted };
+    },
+});
+
+// One-off: clear the tip tier on matches that are already finished — you can't
+// tip a played match, so any free/paid/vip tag on a finished match is a mistake.
+export const untagFinishedMatches = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const all = await ctx.db.query("matches").collect();
+        let cleared = 0;
+        for (const m of all) {
+            const finished = m.status === 'Finished' || m.status === 'FT' || m.status === 'complete';
+            if (finished && m.matchType && m.matchType !== 'unassigned') {
+                await ctx.db.patch(m._id, { matchType: 'unassigned', updatedAt: new Date().toISOString() });
+                cleared++;
+            }
+        }
+        return { cleared };
+    },
+});
+
+// Keep only elite competitions and a rolling retention window. Deletes:
+//  - any match whose league is NOT in the elite whitelist (noise), and
+//  - elite matches older than RETENTION_DAYS that aren't flagged as history.
+// Processed one page at a time (cursor-based) so each mutation stays bounded.
+const RETENTION_DAYS = 45;
+
+export const cleanupBatch = internalMutation({
+    args: {
+        cursor: v.union(v.string(), v.null()),
+        batch: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const numItems = args.batch ?? 400;
+        const cutoff = new Date(Date.now() - RETENTION_DAYS * 86400000).toISOString().split('T')[0];
+
+        const { page, isDone, continueCursor } = await ctx.db
+            .query("matches")
+            .order("asc")
+            .paginate({ cursor: args.cursor, numItems });
+
+        let deleted = 0;
+        for (const m of page) {
+            const noise = !isEliteLeague(m.league, m.country);
+            const stale = !m.isHistory && (m.matchDate || '') !== '' && (m.matchDate as string) < cutoff;
+            if (noise || stale) {
+                await ctx.db.delete(m._id);
+                deleted++;
+            }
+        }
+
+        return { scanned: page.length, deleted, cursor: continueCursor, isDone };
+    },
+});
+
+// Full sweep: loops cleanupBatch until the whole table has been processed.
+// Runs on a cron and can be invoked manually via `convex run matches:cleanup`.
+export const cleanup = internalAction({
+    args: {},
+    handler: async (ctx): Promise<{ scanned: number; deleted: number; pages: number }> => {
+        let cursor: string | null = null;
+        let scanned = 0;
+        let deleted = 0;
+        let pages = 0;
+
+        // Safety bound to avoid an infinite loop.
+        for (let i = 0; i < 1000; i++) {
+            const r: { scanned: number; deleted: number; cursor: string | null; isDone: boolean } =
+                await ctx.runMutation(internal.matches.cleanupBatch, { cursor, batch: 400 });
+            scanned += r.scanned;
+            deleted += r.deleted;
+            pages++;
+            cursor = r.cursor;
+            if (r.isDone) break;
+        }
+
+        console.log(`[cleanup] pages ${pages}, scanned ${scanned}, deleted ${deleted}`);
+        return { scanned, deleted, pages };
     },
 });

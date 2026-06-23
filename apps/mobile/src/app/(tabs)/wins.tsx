@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
+import { DatePickerStrip } from '../../components/DatePickerStrip';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 // Mobile reads ONLY from Convex — no direct FootyStats API calls.
@@ -29,7 +30,7 @@ export default function WinsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedLeague, setSelectedLeague] = useState('All');
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [matches, setMatches] = useState<any[]>([]);
     const [apiSource, setApiSource] = useState<'footystats' | 'convex'>('footystats');
 
@@ -62,66 +63,47 @@ export default function WinsScreen() {
         loadData();
     }, [loadData]);
 
+    // Finished matches for the selected date only.
+    const dayMatches = useMemo(() => {
+        return matches.filter(match => {
+            const matchDate = match.matchDate || match.timestamp?.split('T')[0];
+            return matchDate === selectedDate;
+        });
+    }, [matches, selectedDate]);
+
     const uniqueLeagues = useMemo(() => {
-        const leagues = Array.from(new Set(matches.map(m => m.league))).sort();
+        const counts = new Map<string, number>();
+        for (const m of dayMatches) counts.set(m.league, (counts.get(m.league) || 0) + 1);
+        const leagues = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
         return ['All', ...leagues];
-    }, [matches]);
+    }, [dayMatches]);
 
     const filteredMatches = useMemo(() => {
-        return matches.filter(match => {
-            const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
-            if (!selectedDate) return leagueMatch;
-            const matchDate = match.matchDate || match.timestamp?.split('T')[0];
-            return leagueMatch && matchDate === selectedDate;
-        });
-    }, [matches, selectedLeague, selectedDate]);
+        return dayMatches.filter(match => selectedLeague === 'All' || match.league === selectedLeague);
+    }, [dayMatches, selectedLeague]);
 
     const onRefresh = useCallback(async () => {
         await loadData(true);
     }, [loadData]);
 
-    const winCount = matches.filter(m => m.result === 'win').length;
-    const winRate = matches.length > 0 ? Math.round((winCount / matches.length) * 100) : 0;
+    // "Win" = home side won (final score), matching the web History strike rate.
+    const isWin = (m: any) => m.homeScore !== undefined && m.awayScore !== undefined && m.homeScore > m.awayScore;
+    const winCount = dayMatches.filter(isWin).length;
+    const winRate = dayMatches.length > 0 ? Math.round((winCount / dayMatches.length) * 100) : 0;
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
 
             {/* Date strip */}
             <View style={[styles.calendarStrip, { borderBottomColor: themeColors.border }]}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datesContainer}>
-                    <TouchableOpacity
-                        onPress={() => setSelectedDate(null)}
-                        style={[
-                            styles.dateButton,
-                            !selectedDate && { backgroundColor: themeColors.primary }
-                        ]}
-                    >
-                        <Text style={[styles.dayName, { color: !selectedDate ? 'white' : themeColors.textMuted }]}>ALL</Text>
-                        <Text style={[styles.dayDate, { color: !selectedDate ? 'white' : themeColors.text }]}>*</Text>
-                    </TouchableOpacity>
-                    {dates.map((date) => {
-                        const d = new Date(date + 'T12:00:00');
-                        const isSelected = date === selectedDate;
-                        const isToday = date === new Date().toISOString().split('T')[0];
-                        return (
-                            <TouchableOpacity
-                                key={date}
-                                onPress={() => setSelectedDate(date)}
-                                style={[
-                                    styles.dateButton,
-                                    isSelected && { backgroundColor: themeColors.primary }
-                                ]}
-                            >
-                                <Text style={[styles.dayName, { color: isSelected ? 'white' : themeColors.textMuted }]}>
-                                    {isToday ? 'TODAY' : d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                                </Text>
-                                <Text style={[styles.dayDate, { color: isSelected ? 'white' : themeColors.text }]}>
-                                    {d.getDate()}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                <DatePickerStrip
+                    dates={dates}
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                    labelOverrides={{
+                        [new Date().toISOString().split('T')[0]]: 'TODAY',
+                    }}
+                />
             </View>
 
             {/* League filter */}
@@ -160,7 +142,7 @@ export default function WinsScreen() {
                 <View style={styles.statBox}>
                     <TrendingUp size={18} color={themeColors.blue10} />
                     <View>
-                        <Text style={[styles.statValue, { color: themeColors.text }]}>{winCount}/{matches.length}</Text>
+                        <Text style={[styles.statValue, { color: themeColors.text }]}>{winCount}/{dayMatches.length}</Text>
                         <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>WINS / TOTAL</Text>
                     </View>
                 </View>
@@ -193,7 +175,7 @@ export default function WinsScreen() {
                         {filteredMatches.map((match: any) => (
                             <MatchCard
                                 key={match._id || match.id}
-                                matchId={match._id || match.id}
+                                matchId={match.id}
                                 matchData={match}
                                 leagueName={match.league}
                                 leagueLogo={match.leagueLogo}
@@ -217,7 +199,7 @@ export default function WinsScreen() {
                         </View>
                         <Text style={[styles.emptyText, { color: themeColors.text }]}>No Results Yet</Text>
                         <Text style={[styles.emptySubtext, { color: themeColors.textMuted }]}>
-                            {selectedDate ? 'No history for this date.' : 'Results will appear after matches are marked complete.'}
+                            No finished matches for this date.
                         </Text>
                     </View>
                 )}
@@ -229,23 +211,9 @@ export default function WinsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     calendarStrip: {
-        paddingVertical: 10,
-        paddingHorizontal: 14,
         borderBottomWidth: 1,
+        paddingBottom: 2,
     },
-    datesContainer: { gap: 10 },
-    dateButton: {
-        width: 52,
-        height: 62,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-    },
-    dayName: { ...typography.dayText, marginBottom: 3 },
-    dayDate: { ...typography.numText },
     filterSection: { paddingHorizontal: 14, paddingTop: 8 },
     leaguesScroll: { paddingVertical: 4, gap: 8 },
     leagueChip: {

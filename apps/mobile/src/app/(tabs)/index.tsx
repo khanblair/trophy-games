@@ -1,9 +1,10 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Zap } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
+import { DatePickerStrip } from '../../components/DatePickerStrip';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 // Mobile reads ONLY from Convex — the background cron sync fetches FootyStats
@@ -44,7 +45,14 @@ export default function FreeTipsScreen() {
                 setMatches(freeMatches || []);
                 setApiSource('convex');
                 console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex for ${selectedDate}`);
-                convex.query(api.matches.getAllLeagues).then(setLeagues).catch(console.error);
+                // Derive the league chips from the actual matches (not the stale
+                // leagues table), most-matches first so World Cup leads.
+                const counts = new Map<string, number>();
+                for (const m of (freeMatches || [])) counts.set(m.league, (counts.get(m.league) || 0) + 1);
+                const leagueNames = [...counts.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([name]) => ({ name, id: name }));
+                setLeagues(leagueNames);
             } catch (convexError) {
                 console.warn('[Home Screen] Convex failed:', convexError);
                 setMatches([]);
@@ -72,17 +80,15 @@ export default function FreeTipsScreen() {
         loadData(true);
     }, [loadData]);
 
-    const generateDates = () => {
-        const dates = [];
+    const dates = useMemo(() => {
+        const d: string[] = [];
         for (let i = -3; i <= 3; i++) {
             const date = new Date();
             date.setDate(date.getDate() + i);
-            dates.push(date);
+            d.push(date.toISOString().split('T')[0]);
         }
-        return dates;
-    };
-
-    const dates = generateDates();
+        return d;
+    }, []);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -121,37 +127,13 @@ export default function FreeTipsScreen() {
                     </ScrollView>
                 </View>
 
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.datePickerContent}
-                    style={styles.datePicker}
-                >
-                    {dates.map((date) => {
-                        const dateStr = date.toISOString().split('T')[0];
-                        const isSelected = dateStr === selectedDate;
-                        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-                        const dayNum = date.getDate();
-
-                        return (
-                            <TouchableOpacity
-                                key={dateStr}
-                                style={[
-                                    styles.dateButton,
-                                    isSelected && { backgroundColor: themeColors.primary }
-                                ]}
-                                onPress={() => setSelectedDate(dateStr)}
-                            >
-                                <Text style={[styles.dayText, isSelected ? { color: 'white' } : { color: themeColors.textMuted }]}>
-                                    {dayName}
-                                </Text>
-                                <Text style={[styles.numText, isSelected ? { color: 'white' } : { color: themeColors.text }]}>
-                                    {dayNum}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                <View style={styles.dateStripWrapper}>
+                    <DatePickerStrip
+                        dates={dates}
+                        selectedDate={selectedDate}
+                        onSelectDate={setSelectedDate}
+                    />
+                </View>
             </View>
 
             <ScrollView
@@ -237,27 +219,8 @@ const styles = StyleSheet.create({
     leagueChipText: {
         ...typography.chipText,
     },
-    datePicker: {
-        flexGrow: 0,
-    },
-    datePickerContent: {
-        paddingHorizontal: 16,
-        gap: 8,
-    },
-    dateButton: {
-        width: 60,
-        height: 60,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-    },
-    dayText: {
-        ...typography.dayText,
-        marginBottom: 2,
-    },
-    numText: {
-        ...typography.numText,
+    dateStripWrapper: {
+        // No extra paddingHorizontal — the strip manages its own padding
     },
     fixtureList: {
         flex: 1,

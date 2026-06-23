@@ -5,6 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 
 import { MatchCard } from '../../components/MatchCard';
+import { DatePickerStrip } from '../../components/DatePickerStrip';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 // Mobile reads ONLY from Convex — no direct FootyStats API calls.
@@ -264,26 +265,11 @@ export default function PaidTipsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.calendarStrip, { borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datesContainer}>
-                    {dates.map((date) => {
-                        const d = new Date(date + 'T12:00:00');
-                        const isSelected = date === selectedDate;
-                        return (
-                            <TouchableOpacity
-                                key={date}
-                                onPress={() => setSelectedDate(date)}
-                                style={[styles.dateButton, isSelected && { backgroundColor: themeColors.primary }]}
-                            >
-                                <Text style={[styles.dayName, { color: isSelected ? 'white' : themeColors.textMuted }]}>
-                                    {d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                                </Text>
-                                <Text style={[styles.dayDate, { color: isSelected ? 'white' : themeColors.text }]}>
-                                    {d.getDate()}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                <DatePickerStrip
+                    dates={dates}
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                />
             </View>
 
             <View style={styles.filterSection}>
@@ -383,11 +369,7 @@ const styles = StyleSheet.create({
     cancelBtnText: { ...typography.cancelBtn },
     activeBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, justifyContent: 'center' },
     activeBannerText: { ...typography.sectionLabel },
-    calendarStrip: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1 },
-    datesContainer: { gap: 10 },
-    dateButton: { width: 50, height: 62, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    dayName: { ...typography.dayText, marginBottom: 3 },
-    dayDate: { ...typography.numText },
+    calendarStrip: { borderBottomWidth: 1, paddingBottom: 2 },
     filterSection: { paddingHorizontal: 14, paddingTop: 8 },
     leaguesScroll: { paddingVertical: 4, gap: 8 },
     leagueChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
