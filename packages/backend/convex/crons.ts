@@ -13,4 +13,12 @@ crons.interval(
     {},
 );
 
+// Prune non-elite (noise) leagues and stale matches so the DB stays lean.
+crons.interval(
+    "cleanup-matches",
+    { hours: 6 },
+    internal.matches.cleanup,
+    {},
+);
+
 export default crons;

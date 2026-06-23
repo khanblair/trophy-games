@@ -1,6 +1,7 @@
 import { internalAction } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+import { isEliteLeague } from "./leagues";
 
 // FootyStats proxy (same source the app used to hit directly).
 const BASE_URL = "http://us3.bot-hosting.net:20562";
@@ -210,6 +211,8 @@ export const syncMatches = internalAction({
                 const groups: RawGroup[] = json?.data?.data ?? [];
                 const docs: ReturnType<typeof toMatchDoc>[] = [];
                 for (const group of groups) {
+                    // Only ingest the elite competitions — skip the worldwide noise.
+                    if (!isEliteLeague(group.title, group.country)) continue;
                     for (const raw of group.matches ?? []) {
                         docs.push(toMatchDoc(raw, group));
                     }

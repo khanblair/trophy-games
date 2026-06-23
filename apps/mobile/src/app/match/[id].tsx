@@ -2,13 +2,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIn
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { ChevronLeft, BrainCircuit, CheckCircle2, Zap, ShieldCheck, Target, Goal } from 'lucide-react-native';
+import { ChevronLeft, Zap, ShieldCheck, Goal } from 'lucide-react-native';
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 import { getCountryFlagUrl } from '../../lib/flags';
-// Mobile reads ONLY from Convex — no direct FootyStats API calls.
+import { fetchMatchStats } from '../../api/footystats';
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -65,30 +65,48 @@ export default function MatchDetailScreen() {
                 }
             }
 
-            // 2. Query Convex for the authoritative match record (fast, single lookup).
-            //    This gives us matchType, AI predictions, detailedOdds, potentials,
-            //    stats, goals, lineups, and any other rich fields the sync job stored.
+            // 2. Convex record gives the overlay (matchType, scores, status).
+            let merged: any = base;
             if (convex) {
                 try {
                     const convexMatch = await convex.query(api.matches.getById, { matchId: id as string });
                     if (convexMatch) {
-                        const enriched = {
+                        merged = {
                             ...base,
                             ...Object.fromEntries(
                                 Object.entries(convexMatch).filter(([, v]) => v !== undefined && v !== '')
                             ),
-                            // Keep list-data league/country if Convex is missing them
                             league: convexMatch.league || base?.league,
                             country: convexMatch.country || base?.country,
                         };
-                        if (!cancelled) setMatch(enriched);
-                        console.log(`[Match Detail] Loaded match ${id} from Convex`);
-                    } else if (!base) {
-                        console.warn(`[Match Detail] Match ${id} not found in Convex`);
+                        if (!cancelled) setMatch(merged);
                     }
                 } catch (convexError) {
                     console.warn('[Match Detail] Convex lookup failed:', convexError);
                 }
+            }
+
+            // 3. Fetch the rich match-stats from the API (same source as web) —
+            //    form, H2H, corners, xG, potentials, stats, lineups, detailed odds.
+            try {
+                const stats = await fetchMatchStats(id as string);
+                if (stats && !cancelled) {
+                    const richEntries = Object.fromEntries(
+                        Object.entries(stats).filter(([, v]) =>
+                            v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)
+                        )
+                    );
+                    setMatch({
+                        ...merged,
+                        ...richEntries,
+                        // List/Convex stay authoritative for these basics.
+                        league: merged?.league || (stats as any).league,
+                        country: merged?.country || (stats as any).country,
+                        matchType: merged?.matchType,
+                    });
+                }
+            } catch (statsError) {
+                console.warn('[Match Detail] match-stats fetch failed:', statsError);
             }
 
             if (!cancelled) setLoading(false);
@@ -212,65 +230,6 @@ export default function MatchDetailScreen() {
                             )}
                         </View>
                     </View>
-                </View>
-
-                {/* AI Smart Analytics */}
-                <View style={[styles.section, { backgroundColor: themeColors.cardBg, borderColor: `${themeColors.primary}40` }]}>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionTitleRow}>
-                            <BrainCircuit size={16} color={themeColors.primary} />
-                            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>AI SMART ANALYTICS</Text>
-                        </View>
-                    </View>
-
-                    {match.aiPrediction ? (
-                        <View style={styles.aiBody}>
-                            <View style={[styles.predictionCard, { backgroundColor: themeColors.cardBgSecondary }]}>
-                                <View style={styles.probRow}>
-                                    <Text style={[styles.probLabel, { color: themeColors.textMuted }]}>WIN PROBABILITY</Text>
-                                    <Text style={[styles.probValue, { color: themeColors.primary }]}>
-                                        {match.aiPrediction.confidence}%
-                                    </Text>
-                                </View>
-                                <Text style={[styles.mainPick, { color: themeColors.text }]}>
-                                    {match.aiPrediction.prediction}
-                                </Text>
-                                {match.aiPrediction.suggestedBet && (
-                                    <View style={[styles.suggestedBet, { borderColor: `${themeColors.primary}30`, backgroundColor: `${themeColors.primary}10` }]}>
-                                        <Target size={12} color={themeColors.primary} />
-                                        <Text style={[styles.suggestedBetText, { color: themeColors.primary }]}>
-                                            {match.aiPrediction.suggestedBet}
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {match.aiPrediction.reasoning?.length > 0 && (
-                                <View style={styles.reasoningContainer}>
-                                    <Text style={[styles.subLabel, { color: themeColors.textMuted }]}>KEY INSIGHTS</Text>
-                                    {match.aiPrediction.reasoning.map((reason: string, i: number) => (
-                                        <View key={i} style={styles.reasonRow}>
-                                            <CheckCircle2 size={13} color={themeColors.primary} />
-                                            <Text style={[styles.reasonText, { color: themeColors.text }]}>{reason}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-                    ) : match.preview ? (
-                        <View style={[styles.predictionCard, { backgroundColor: themeColors.cardBgSecondary }]}>
-                            <Text style={[styles.previewText, { color: themeColors.text }]}>
-                                {match.preview.replace(/\n\s*\n/g, '\n').trim()}
-                            </Text>
-                        </View>
-                    ) : (
-                        <View style={[styles.emptyBox, { backgroundColor: themeColors.cardBgSecondary, borderColor: `${themeColors.border}` }]}>
-                            <BrainCircuit size={22} color={themeColors.textMuted} />
-                            <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>
-                                No AI insights available yet.
-                            </Text>
-                        </View>
-                    )}
                 </View>
 
                 {/* Match Predictions (pre-match probability potentials) */}
@@ -444,19 +403,38 @@ export default function MatchDetailScreen() {
                             {match.oddsComparison.map((m: any, i: number) => (
                                 <View key={i} style={[styles.oddsTile, { backgroundColor: themeColors.cardBg }]}>
                                     <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>{m.market.toUpperCase()}</Text>
-                                    {m.selections.map((sel: any, j: number) => (
-                                        <View key={j} style={styles.ocRow}>
-                                            <Text style={[styles.ocSelection, { color: themeColors.text }]}>{sel.name}</Text>
-                                            <View style={styles.ocOdds}>
-                                                {sel.odds.map((o: any, k: number) => (
-                                                    <View key={k} style={styles.ocOddItem}>
-                                                        <Text style={[styles.ocBookie, { color: themeColors.textMuted }]}>{o.bookie}</Text>
-                                                        <Text style={[styles.ocValue, { color: themeColors.primary }]}>{o.value}</Text>
-                                                    </View>
-                                                ))}
+                                    {m.selections.map((sel: any, j: number) => {
+                                        const vals = sel.odds.map((o: any) => parseFloat(o.value)).filter((n: number) => !isNaN(n));
+                                        const best = vals.length ? Math.max(...vals) : null;
+                                        return (
+                                            <View key={j} style={styles.ocRow}>
+                                                <Text style={[styles.ocSelection, { color: themeColors.text }]} numberOfLines={2}>{sel.name}</Text>
+                                                <ScrollView
+                                                    horizontal
+                                                    showsHorizontalScrollIndicator={false}
+                                                    style={styles.ocScrollWrap}
+                                                    contentContainerStyle={styles.ocScroll}
+                                                >
+                                                    {sel.odds.map((o: any, k: number) => {
+                                                        const isBest = best !== null && parseFloat(o.value) === best;
+                                                        return (
+                                                            <View
+                                                                key={k}
+                                                                style={[
+                                                                    styles.ocChip,
+                                                                    { backgroundColor: themeColors.cardBgSecondary, borderColor: 'transparent' },
+                                                                    isBest && { backgroundColor: `${themeColors.primary}1A`, borderColor: themeColors.primary },
+                                                                ]}
+                                                            >
+                                                                <Text style={[styles.ocBookie, { color: themeColors.textMuted }]} numberOfLines={1}>{o.bookie}</Text>
+                                                                <Text style={[styles.ocValue, { color: isBest ? themeColors.primary : themeColors.text }]}>{o.value}</Text>
+                                                            </View>
+                                                        );
+                                                    })}
+                                                </ScrollView>
                                             </View>
-                                        </View>
-                                    ))}
+                                        );
+                                    })}
                                 </View>
                             ))}
                         </View>
@@ -1004,10 +982,11 @@ const styles = StyleSheet.create({
     lineupPlayer: { fontSize: 12, fontWeight: '500' },
 
     // Odds comparison
-    ocRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    ocSelection: { fontSize: 12, fontWeight: '600', flex: 1 },
-    ocOdds: { flexDirection: 'row', gap: 12 },
-    ocOddItem: { alignItems: 'center' },
-    ocBookie: { fontSize: 8, fontWeight: '600' },
-    ocValue: { fontSize: 13, fontWeight: '700' },
+    ocRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+    ocSelection: { fontSize: 12, fontWeight: '700', width: 64 },
+    ocScrollWrap: { flex: 1 },
+    ocScroll: { gap: 8, alignItems: 'center', paddingRight: 4 },
+    ocChip: { minWidth: 54, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+    ocBookie: { fontSize: 8, fontWeight: '600', marginBottom: 2, maxWidth: 56 },
+    ocValue: { fontSize: 14, fontWeight: '800' },
 });

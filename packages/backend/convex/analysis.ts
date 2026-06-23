@@ -108,7 +108,16 @@ export const runAnalysis = action({
     date: v.string(),
     analysisType: v.union(v.literal("daily"), v.literal("weekly")),
   },
-  handler: async (ctx, args) => {
+  // Explicit return type breaks the circular inference between this action and
+  // the generated api it references (ctx.runMutation/runQuery below).
+  handler: async (ctx, args): Promise<{
+    resultId: string;
+    freeCount: number;
+    paidCount: number;
+    vipCount: number;
+    removedCount: number;
+    verified: boolean;
+  }> => {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) throw new Error("DEEPSEEK_API_KEY not configured");
 

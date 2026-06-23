@@ -13,6 +13,7 @@ import type * as analysis from "../analysis.js";
 import type * as crons from "../crons.js";
 import type * as devices from "../devices.js";
 import type * as footystats from "../footystats.js";
+import type * as leagues from "../leagues.js";
 import type * as matches from "../matches.js";
 import type * as tokens from "../tokens.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   devices: typeof devices;
   footystats: typeof footystats;
+  leagues: typeof leagues;
   matches: typeof matches;
   tokens: typeof tokens;
 }>;

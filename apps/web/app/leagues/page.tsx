@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trophy, Search, ChevronRight, Globe, Loader2 } from 'lucide-react';
+import { Trophy, Search, ChevronRight, Globe, Loader2, Flame, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { leagueTier, rankOrInfinity } from '@/lib/trending';
 
 interface League {
     id: number;
@@ -75,6 +76,68 @@ export default function LeaguesPage() {
             paid: leagueMatches.filter(m => m.matchType === 'paid').length,
             vip: leagueMatches.filter(m => m.matchType === 'vip').length,
         };
+    };
+
+    // Categorise into importance tiers so the leagues people care about show first.
+    const byRank = (a: League, b: League) => rankOrInfinity(a.name, a.country) - rankOrInfinity(b.name, b.country);
+    const topLeagues = filteredAndSortedLeagues.filter(l => leagueTier(l.name, l.country) === 1).sort(byRank);
+    const popularLeagues = filteredAndSortedLeagues.filter(l => leagueTier(l.name, l.country) === 2).sort(byRank);
+    const otherLeagues = filteredAndSortedLeagues.filter(l => leagueTier(l.name, l.country) === null);
+
+    const renderLeagueCard = (league: League, i: number) => {
+        const counts = getLeagueMatchCounts(league.name);
+        return (
+            <Link
+                key={`${league.id}-${league.name}-${i}`}
+                href={`/matches?league=${encodeURIComponent(league.name)}`}
+                className="group block p-5 rounded-2xl border border-zinc-200 bg-white hover:border-blue-500/50 hover:shadow-lg transition-all dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-500/50"
+            >
+                <div className="flex items-start justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 overflow-hidden">
+                        {league.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={league.logo} alt={league.name} className="h-full w-full object-contain" />
+                        ) : (
+                            <Trophy size={20} />
+                        )}
+                    </div>
+                    <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md",
+                        league.type === 'cup' ? "bg-purple-50 text-purple-600 dark:bg-purple-500/10" : "bg-blue-50 text-blue-600 dark:bg-blue-500/10"
+                    )}>
+                        {league.type}
+                    </span>
+                </div>
+                <div className="mt-4">
+                    <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{league.name}</h3>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-zinc-500">
+                        <Globe size={12} />
+                        <span>{league.country || 'International'}</span>
+                    </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2 flex-wrap">
+                    {counts.vip > 0 && (
+                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                            ★ {counts.vip} VIP
+                        </span>
+                    )}
+                    {counts.paid > 0 && (
+                        <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                            $ {counts.paid}
+                        </span>
+                    )}
+                    {counts.free > 0 && (
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {counts.free} Free
+                        </span>
+                    )}
+                </div>
+                <div className="mt-6 flex items-center justify-between border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                    <span className="text-xs text-zinc-400">{league.matchCount ?? counts.total} matches</span>
+                    <ChevronRight size={18} className="text-blue-600 dark:text-blue-500 group-hover:translate-x-1 transition-transform" />
+                </div>
+            </Link>
+        );
     };
 
     return (
@@ -151,63 +214,45 @@ export default function LeaguesPage() {
                     </div>
                 </div>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredAndSortedLeagues.map((league, i) => {
-                        const counts = getLeagueMatchCounts(league.name);
+                <div className="space-y-8">
+                    {topLeagues.length > 0 && (
+                        <section className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Flame size={18} className="text-orange-500" />
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-50">Top Competitions</h2>
+                                <span className="text-xs text-zinc-400">{topLeagues.length}</span>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {topLeagues.map((l, i) => renderLeagueCard(l, i))}
+                            </div>
+                        </section>
+                    )}
 
-                        return (
-                                <Link
-                                    key={`${league.id}-${league.name}-${i}`}
-                                    href={`/matches?league=${encodeURIComponent(league.name)}`}
-                                    className="group block p-5 rounded-2xl border border-zinc-200 bg-white hover:border-blue-500/50 hover:shadow-lg transition-all dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-500/50"
-                                >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 overflow-hidden">
-                                        {league.logo ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={league.logo} alt={league.name} className="h-full w-full object-contain" />
-                                        ) : (
-                                            <Trophy size={20} />
-                                        )}
-                                    </div>
-                                    <span className={cn(
-                                        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md",
-                                        league.type === 'cup' ? "bg-purple-50 text-purple-600 dark:bg-purple-500/10" : "bg-blue-50 text-blue-600 dark:bg-blue-500/10"
-                                    )}>
-                                        {league.type}
-                                    </span>
-                                </div>
-                                <div className="mt-4">
-                                    <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{league.name}</h3>
-                                    <div className="flex items-center gap-1.5 mt-1 text-xs text-zinc-500">
-                                        <Globe size={12} />
-                                        <span>{league.country || 'International'}</span>
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex items-center gap-2 flex-wrap">
-                                    {counts.vip > 0 && (
-                                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                                            ★ {counts.vip} VIP
-                                        </span>
-                                    )}
-                                    {counts.paid > 0 && (
-                                        <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                                            $ {counts.paid}
-                                        </span>
-                                    )}
-                                    {counts.free > 0 && (
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                                            {counts.free} Free
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="mt-6 flex items-center justify-between border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                                    <span className="text-xs text-zinc-400">{league.matchCount ?? counts.total} matches</span>
-                                    <ChevronRight size={18} className="text-blue-600 dark:text-blue-500 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </Link>
-                        );
-                    })}
+                    {popularLeagues.length > 0 && (
+                        <section className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Star size={18} className="text-blue-500" />
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-50">Popular Leagues</h2>
+                                <span className="text-xs text-zinc-400">{popularLeagues.length}</span>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {popularLeagues.map((l, i) => renderLeagueCard(l, i))}
+                            </div>
+                        </section>
+                    )}
+
+                    {otherLeagues.length > 0 && (
+                        <section className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Globe size={18} className="text-zinc-400" />
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500">All Other Leagues</h2>
+                                <span className="text-xs text-zinc-400">{otherLeagues.length}</span>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {otherLeagues.map((l, i) => renderLeagueCard(l, i))}
+                            </div>
+                        </section>
+                    )}
                 </div>
             )}
         </div>
