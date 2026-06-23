@@ -1,6 +1,7 @@
 import { mutation, query, internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import { Doc } from "./_generated/dataModel";
 import { isEliteLeague } from "./leagues";
 
 // Shared validator for a match coming from the FootyStats proxy (used by the
@@ -99,9 +100,13 @@ export const getById = query({
         if (byExternalId) return byExternalId;
 
         // Fallback: treat matchId as a Convex document _id (e.g. from history screen).
+        // We only want to return a match record, so verify the table after fetch.
         try {
             const byDocId = await ctx.db.get(args.matchId as any);
-            return byDocId ?? null;
+            if (byDocId && '_id' in byDocId && 'homeTeam' in byDocId) {
+                return byDocId as Doc<"matches">;
+            }
+            return null;
         } catch {
             return null;
         }

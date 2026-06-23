@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Brain,
   Calendar,
@@ -178,7 +178,7 @@ export default function AnalysisPage() {
   const [activeTab, setActiveTab] = useState<'free' | 'paid' | 'vip'>('free');
   const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch('/api/analysis/history');
       const data = await res.json();
@@ -186,9 +186,9 @@ export default function AnalysisPage() {
     } catch (e) {
       console.error('Failed to fetch history:', e);
     }
-  };
+  }, []);
 
-  const fetchResultForDate = async () => {
+  const fetchResultForDate = useCallback(async () => {
     try {
       const res = await fetch(`/api/analysis?date=${selectedDate}`);
       const data = await res.json();
@@ -200,16 +200,18 @@ export default function AnalysisPage() {
     } catch (e) {
       console.error('Failed to fetch result:', e);
     }
-  };
+  }, [selectedDate]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHistory();
     fetchResultForDate();
-  }, []);
+  }, [fetchHistory, fetchResultForDate]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchResultForDate();
-  }, [selectedDate]);
+  }, [fetchResultForDate]);
 
   const runAnalysis = async () => {
     setLoading(true);
@@ -585,7 +587,7 @@ export default function AnalysisPage() {
           </div>
           <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-1">No Analysis Yet</p>
           <p className="text-sm max-w-[320px] mx-auto">
-            Select a date and click "Run Analysis" to generate AI-powered match recommendations.
+            Select a date and click &quot;Run Analysis&quot; to generate AI-powered match recommendations.
           </p>
         </div>
       )}

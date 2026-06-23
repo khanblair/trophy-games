@@ -71,13 +71,14 @@ export default function MatchDetailScreen() {
                 try {
                     const convexMatch = await convex.query(api.matches.getById, { matchId: id as string });
                     if (convexMatch) {
+                        const cm = convexMatch as any;
                         merged = {
                             ...base,
                             ...Object.fromEntries(
-                                Object.entries(convexMatch).filter(([, v]) => v !== undefined && v !== '')
+                                Object.entries(cm).filter(([, v]) => v !== undefined && v !== '')
                             ),
-                            league: convexMatch.league || base?.league,
-                            country: convexMatch.country || base?.country,
+                            league: cm.league || base?.league,
+                            country: cm.country || base?.country,
                         };
                         if (!cancelled) setMatch(merged);
                     }
