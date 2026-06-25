@@ -130,6 +130,24 @@ export default defineSchema({
         readBy: v.optional(v.array(v.string())), // array of deviceIds that have read it (if global) or boolean if targeted
     }).index("by_device_id", ["deviceId"]),
 
+    // Google Play / In-App Purchases
+    purchases: defineTable({
+        deviceId: v.string(),
+        productId: v.string(), // e.g., com.khanblair.trophygames.vip.weekly
+        tier: v.union(v.literal('vip'), v.literal('paid')),
+        purchaseToken: v.string(), // Google Play purchase token
+        transactionId: v.optional(v.string()), // Google order ID
+        status: v.union(v.literal('pending'), v.literal('verified'), v.literal('expired'), v.literal('refunded')),
+        receiptData: v.optional(v.string()), // raw receipt for audit
+        verifiedAt: v.optional(v.string()),
+        expiresAt: v.optional(v.string()),
+        createdAt: v.string(),
+        updatedAt: v.optional(v.string()),
+    })
+        .index("by_device_id", ["deviceId"])
+        .index("by_purchase_token", ["purchaseToken"])
+        .index("by_status", ["status"]),
+
     // AI Analysis Results from DeepSeek
     analysisResults: defineTable({
         date: v.string(), // YYYY-MM-DD

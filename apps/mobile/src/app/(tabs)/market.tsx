@@ -1,10 +1,12 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator, Alert, TextInput, Platform } from 'react-native';
 import { useState, useCallback, useEffect } from 'react';
-import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock } from 'lucide-react-native';
+import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock, ShoppingCart } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@trophy-games/backend';
+import { SUBSCRIPTION_PRODUCTS, getTierForProduct } from '@trophy-games/shared/subscriptions';
+import { useIap, ProductSubscription } from '../../hooks/useIap';
 import * as Application from 'expo-application';
 
 type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
@@ -17,10 +19,43 @@ export default function MembershipStoreScreen() {
     const [showTokenInput, setShowTokenInput] = useState(false);
     const [verifyingToken, setVerifyingToken] = useState(false);
     const [requesting, setRequesting] = useState<string | null>(null);
+    const [purchasing, setPurchasing] = useState<string | null>(null);
 
     // Convex mutations
     const requestMembership = useMutation(api.tokens.requestMembership);
     const verifyTokenMutation = useMutation(api.tokens.verifyToken);
+    const recordPurchase = useMutation(api.purchases.recordPurchase);
+
+    // ── IAP hook (Google Play Billing) ──
+    const {
+        products: iapProducts,
+        activeSubscription: iapActiveSub,
+        loading: iapLoading,
+        error: iapError,
+        purchase: iapPurchase,
+        refresh: iapRefresh,
+    } = useIap({
+        deviceId,
+        onPurchaseSuccess: async (_tier: 'vip' | 'paid', purchaseToken: string, productId: string) => {
+            try {
+                const result = await recordPurchase({
+                    deviceId,
+                    productId,
+                    purchaseToken,
+                });
+                if (result.success) {
+                    Alert.alert('Purchase Successful!', `Your ${_tier.toUpperCase()} access is now active.`);
+                } else {
+                    Alert.alert('Activation Failed', result.reason || 'Could not activate your purchase.');
+                }
+            } catch (e) {
+                console.error('[Market] recordPurchase error:', e);
+            }
+        },
+        onPurchaseError: (msg: string) => {
+            Alert.alert('Purchase Failed', msg);
+        },
+    });
 
     // Get device ID on mount
     useEffect(() => {
@@ -47,15 +82,26 @@ export default function MembershipStoreScreen() {
         return 'none';
     };
 
-    const vipStatus = getLocalStatus(vipStatusData);
-    const paidStatus = getLocalStatus(paidStatusData);
+    const vipTokenStatus = getLocalStatus(vipStatusData);
+    const paidTokenStatus = getLocalStatus(paidStatusData);
+
+    // Status priority: real IAP purchase > manually entered token.
+    // Old access tokens are ignored when IAP is available (avoids
+    // stale admin-created tokens from falsely showing as active).
+    const iapConnected = !iapLoading && iapError === null;
+    const vipStatus: MemberStatus = iapConnected
+        ? (iapActiveSub?.tier === 'vip' ? 'active' : 'none')
+        : vipTokenStatus;
+    const paidStatus: MemberStatus = iapConnected
+        ? (iapActiveSub?.tier === 'paid' ? 'active' : 'none')
+        : paidTokenStatus;
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        // Convex queries auto-refresh, just simulate a delay
         await new Promise(r => setTimeout(r, 500));
+        iapRefresh();
         setRefreshing(false);
-    }, []);
+    }, [iapRefresh]);
 
     const handleRequest = async (type: 'vip' | 'paid') => {
         if (!deviceId) return;
@@ -79,7 +125,7 @@ export default function MembershipStoreScreen() {
         try {
             const result = await verifyTokenMutation({
                 token: tokenInput.trim(),
-                deviceId
+                deviceId,
             });
             if (result.valid) {
                 Alert.alert('Success!', 'Your token has been verified. Access granted.');
@@ -94,14 +140,55 @@ export default function MembershipStoreScreen() {
         setVerifyingToken(false);
     };
 
-    const StatusBadge = ({ status, type }: { status: MemberStatus, type: string }) => {
+    /** Handle Google Play subscription purchase */
+    const handleSubscribe = async (productId: string, tier: 'vip' | 'paid') => {
+        if (!deviceId) return;
+        setPurchasing(productId);
+        try {
+            const result = await iapPurchase(productId);
+            if (!result.success && result.reason) {
+                if (!result.reason.includes('cancelled')) {
+                    Alert.alert('Purchase Failed', result.reason);
+                }
+            }
+            // On success, the onPurchaseSuccess callback above handles
+            // recording the purchase in Convex.
+        } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Subscription purchase failed.');
+        }
+        setPurchasing(null);
+    };
+
+    /** Find a Google Play product for a given tier */
+    const getProductForTier = (tier: 'vip' | 'paid') => {
+        return iapProducts.find(p =>
+            tier === 'vip'
+                ? p.id.includes('.vip.')
+                : p.id.includes('.paid.'),
+        );
+    };
+
+    /** Format price string from v15 ProductSubscription */
+    const formatPrice = (product: ProductSubscription | undefined): string | null => {
+        if (!product) return null;
+        // v15 uses displayPrice as the main price string
+        // e.g. "KSh 200.00" or "$4.99"
+        return (product as any).displayPrice || (product as any).price || null;
+    };
+
+    const vipProduct = getProductForTier('vip');
+    const paidProduct = getProductForTier('paid');
+
+    const StatusBadge = ({ status, type, iapActive }: { status: MemberStatus; type: string; iapActive: boolean }) => {
         if (status === 'none' || status === 'loading') return null;
 
-        const config = {
-            pending: { color: '#f59e0b', icon: Clock, label: 'PENDING' },
-            approved: { color: '#15783a', icon: CheckCircle2, label: 'APPROVED' },
-            active: { color: themeColors.primary, icon: Crown, label: 'ACTIVE' }
-        }[status as 'pending' | 'approved' | 'active'];
+        const config = iapActive
+            ? { color: '#10b981', icon: ShoppingCart, label: 'SUBSCRIBED' }
+            : {
+                pending: { color: '#f59e0b', icon: Clock, label: 'PENDING' },
+                approved: { color: '#15783a', icon: CheckCircle2, label: 'APPROVED' },
+                active: { color: themeColors.primary, icon: Crown, label: 'ACTIVE' },
+            }[status as 'pending' | 'approved' | 'active'];
 
         if (!config) return null;
 
@@ -112,6 +199,8 @@ export default function MembershipStoreScreen() {
             </View>
         );
     };
+
+    const isLoading = vipStatus === 'loading' || paidStatus === 'loading';
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -135,7 +224,7 @@ export default function MembershipStoreScreen() {
 
                 <View style={styles.content}>
                     {/* Token Input Section (if approved) */}
-                    {(vipStatus === 'approved' || paidStatus === 'approved' || showTokenInput) && (
+                    {(vipTokenStatus === 'approved' || paidTokenStatus === 'approved' || showTokenInput) && (
                         <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.primary }]}>
                             <View style={styles.cardHeader}>
                                 <Key size={20} color={themeColors.primary} />
@@ -159,11 +248,20 @@ export default function MembershipStoreScreen() {
                         </View>
                     )}
 
-                    {/* VIP Membership Plans */}
+                    {/* IAP status banner */}
+                    {iapError && Platform.OS === 'android' && !iapLoading && (
+                        <View style={[styles.iapNotice, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
+                            <Text style={[styles.iapNoticeText, { color: themeColors.textMuted }]}>
+                                ⚠️ Google Play Billing unavailable: {iapError.includes('not available') ? 'This device may not support Google Play Billing, or you may be running in Expo Go (use a dev build).' : iapError}
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* MEMBERSHIP PLANS */}
                     <Text style={[styles.sectionTitle, { color: themeColors.text }]}>MEMBERSHIP PLANS</Text>
 
-                    {/* VIP WEEKLY */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg }]}>
+                    {/* ── VIP CARD ── */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: iapActiveSub?.tier === 'vip' ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Crown size={24} color={themeColors.primary} />
@@ -172,7 +270,7 @@ export default function MembershipStoreScreen() {
                                     <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>7 Days Full Access</Text>
                                 </View>
                             </View>
-                            <StatusBadge status={vipStatus} type="vip" />
+                            <StatusBadge status={vipStatus} type="vip" iapActive={iapActiveSub?.tier === 'vip'} />
                         </View>
 
                         <View style={styles.features}>
@@ -189,54 +287,141 @@ export default function MembershipStoreScreen() {
                             ))}
                         </View>
 
-                        {vipStatus === 'none' && (
-                            <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: themeColors.primary }]}
-                                onPress={() => handleRequest('vip')}
-                                disabled={requesting === 'vip'}
-                            >
-                                {requesting === 'vip' ? <ActivityIndicator color="white" /> : <Text style={styles.actionBtnText}>REQUEST ACCESS</Text>}
-                            </TouchableOpacity>
-                        )}
-                        {vipStatus === 'pending' && (
+                        {/* Action area */}
+                        {isLoading ? (
+                            <View style={styles.loadingRow}>
+                                <ActivityIndicator color={themeColors.primary} size="small" />
+                                <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>Checking status...</Text>
+                            </View>
+                        ) : vipStatus === 'none' ? (
+                            <View style={styles.actionGroup}>
+                                {/* Google Play Subscribe button */}
+                                <TouchableOpacity
+                                    style={[styles.subscribeBtn, { backgroundColor: themeColors.primary }]}
+                                    onPress={() => handleSubscribe(vipProduct?.id || SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId, 'vip')}
+                                    disabled={purchasing !== null || iapLoading}
+                                >
+                                    {purchasing === (vipProduct?.id || SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId) ? (
+                                        <ActivityIndicator color="white" size="small" />
+                                    ) : (
+                                        <>
+                                            <ShoppingCart size={16} color="white" />
+                                            <Text style={styles.subscribeBtnText}>
+                                                {formatPrice(vipProduct) || 'SUBSCRIBE'}
+                                                {formatPrice(vipProduct) ? '/week' : ''}
+                                            </Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                                {/* Fallback: Request access manually */}
+                                <TouchableOpacity
+                                    style={[styles.textBtn]}
+                                    onPress={() => handleRequest('vip')}
+                                    disabled={requesting === 'vip'}
+                                >
+                                    {requesting === 'vip' ? (
+                                        <ActivityIndicator color={themeColors.textMuted} size="small" />
+                                    ) : (
+                                        <Text style={[styles.textBtnLabel, { color: themeColors.textMuted }]}>Request token manually</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        ) : vipStatus === 'pending' ? (
                             <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
                                 <Clock size={16} color={themeColors.textMuted} />
                                 <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
                             </View>
-                        )}
-                        {vipStatus === 'active' && (
+                        ) : (
                             <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
                                 <CheckCircle2 size={16} color={themeColors.primary} />
-                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>Subscription Active</Text>
+                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>
+                                    {iapActiveSub?.tier === 'vip'
+                                        ? `Subscription Active — expires ${new Date(iapActiveSub.expiresAt || '').toLocaleDateString()}`
+                                        : 'Subscription Active'}
+                                </Text>
                             </View>
                         )}
                     </View>
 
-                    {/* PAID TIPS */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg }]}>
+                    {/* ── PAID CARD ── */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: iapActiveSub?.tier === 'paid' ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Trophy size={24} color={themeColors.primary} />
                                 <View>
-                                    <Text style={[styles.planTitle, { color: themeColors.text }]}>PAID TIPS</Text>
-                                    <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>Single Match Unlock</Text>
+                                    <Text style={[styles.planTitle, { color: themeColors.text }]}>PAID MONTHLY</Text>
+                                    <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>30 Days Full Access</Text>
                                 </View>
                             </View>
-                            <StatusBadge status={paidStatus} type="paid" />
+                            <StatusBadge status={paidStatus} type="paid" iapActive={iapActiveSub?.tier === 'paid'} />
                         </View>
 
-                        <Text style={[styles.description, { color: themeColors.textMuted }]}>
-                            Perfect for those who want specific high-confidence match predictions without a subscription.
-                        </Text>
+                        <View style={styles.features}>
+                            {[
+                                'Curated premium predictions',
+                                'Detailed AI match analysis',
+                                'Match insights & value bets',
+                                'Higher accuracy predictions',
+                            ].map((f, i) => (
+                                <View key={i} style={styles.featureLine}>
+                                    <ShieldCheck size={14} color={themeColors.primary} />
+                                    <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
+                                </View>
+                            ))}
+                        </View>
 
-                        {paidStatus === 'none' && (
-                            <TouchableOpacity
-                                style={[styles.outlineBtn, { borderColor: themeColors.primary }]}
-                                onPress={() => handleRequest('paid')}
-                                disabled={requesting === 'paid'}
-                            >
-                                <Text style={[styles.outlineBtnText, { color: themeColors.primary }]}>REQUEST SINGLE UNLOCK</Text>
-                            </TouchableOpacity>
+                        {/* Action area */}
+                        {isLoading ? (
+                            <View style={styles.loadingRow}>
+                                <ActivityIndicator color={themeColors.primary} size="small" />
+                                <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>Checking status...</Text>
+                            </View>
+                        ) : paidStatus === 'none' ? (
+                            <View style={styles.actionGroup}>
+                                {/* Google Play Subscribe button */}
+                                <TouchableOpacity
+                                    style={[styles.subscribeBtn, { backgroundColor: themeColors.primary }]}
+                                    onPress={() => handleSubscribe(paidProduct?.id || SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId, 'paid')}
+                                    disabled={purchasing !== null || iapLoading}
+                                >
+                                    {purchasing === (paidProduct?.id || SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId) ? (
+                                        <ActivityIndicator color="white" size="small" />
+                                    ) : (
+                                        <>
+                                            <ShoppingCart size={16} color="white" />
+                                            <Text style={styles.subscribeBtnText}>
+                                                {formatPrice(paidProduct) || 'SUBSCRIBE'}
+                                                {formatPrice(paidProduct) ? '/month' : ''}
+                                            </Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.textBtn]}
+                                    onPress={() => handleRequest('paid')}
+                                    disabled={requesting === 'paid'}
+                                >
+                                    {requesting === 'paid' ? (
+                                        <ActivityIndicator color={themeColors.textMuted} size="small" />
+                                    ) : (
+                                        <Text style={[styles.textBtnLabel, { color: themeColors.textMuted }]}>Request token manually</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        ) : paidStatus === 'pending' ? (
+                            <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
+                                <Clock size={16} color={themeColors.textMuted} />
+                                <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
+                                <CheckCircle2 size={16} color={themeColors.primary} />
+                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>
+                                    {iapActiveSub?.tier === 'paid'
+                                        ? `Subscription Active — expires ${new Date(iapActiveSub.expiresAt || '').toLocaleDateString()}`
+                                        : 'Subscription Active'}
+                                </Text>
+                            </View>
                         )}
                     </View>
 
@@ -244,7 +429,7 @@ export default function MembershipStoreScreen() {
                     <View style={[styles.footer, { backgroundColor: themeColors.cardBgSecondary }]}>
                         <InfoSection icon={ShieldCheck} title="Verified Results" desc="All our predictions are verified by independent sources." />
                         <View style={styles.divider} />
-                        <InfoSection icon={CreditCard} title="Secure Access" desc="Contact support for secure payment options." />
+                        <InfoSection icon={CreditCard} title="Secure Payments" desc="Payments processed securely via Google Play Billing." />
                     </View>
                 </View>
             </ScrollView>
@@ -317,6 +502,32 @@ const styles = StyleSheet.create({
     featureLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     featureText: { ...typography.body },
     description: { ...typography.body },
+    // ── IAP / Subscribe ──
+    subscribeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        height: 52,
+        borderRadius: 16,
+    },
+    subscribeBtnText: { ...typography.primaryBtn, color: 'white' },
+    actionGroup: { gap: 10 },
+    textBtn: {
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    textBtnLabel: { fontSize: 12, fontWeight: '500' },
+    loadingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        paddingVertical: 14,
+    },
+    loadingText: { fontSize: 13 },
+    // ── Generic ──
     actionBtn: {
         height: 52,
         borderRadius: 16,
@@ -358,6 +569,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         borderWidth: 1,
     },
+    iapNotice: {
+        padding: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+    },
+    iapNoticeText: { fontSize: 12, lineHeight: 18 },
     footer: {
         padding: 24,
         borderRadius: 24,

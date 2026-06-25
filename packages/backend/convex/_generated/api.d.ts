@@ -15,6 +15,7 @@ import type * as devices from "../devices.js";
 import type * as footystats from "../footystats.js";
 import type * as leagues from "../leagues.js";
 import type * as matches from "../matches.js";
+import type * as purchases from "../purchases.js";
 import type * as tokens from "../tokens.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   footystats: typeof footystats;
   leagues: typeof leagues;
   matches: typeof matches;
+  purchases: typeof purchases;
   tokens: typeof tokens;
 }>;
 
