@@ -194,7 +194,7 @@ export function useIap({
                 // Use the requestPurchase from the module (not via useIAP return,
                 // because it's event-based and we handle results via callbacks)
                 await requestPurchaseFn({
-                    request: { android: { skus: [productId] } },
+                    request: { google: { skus: [productId] } },
                     type: 'subs',
                 });
                 return { success: true };

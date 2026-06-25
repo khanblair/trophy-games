@@ -179,6 +179,20 @@ export default function MembershipStoreScreen() {
     const vipProduct = getProductForTier('vip');
     const paidProduct = getProductForTier('paid');
 
+    /** Dynamic labels based on actual Google Play product */
+    const vipInfo = {
+        label: (vipProduct?.id || '').includes('.weekly') ? 'VIP WEEKLY' : 'VIP MONTHLY',
+        duration: (vipProduct?.id || '').includes('.weekly') ? '7 Days Full Access' : '30 Days Full Access',
+        priceSuffix: (vipProduct?.id || '').includes('.weekly') ? '/week' : '/month',
+        fallbackId: SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId,
+    };
+    const paidInfo = {
+        label: 'PAID MONTHLY',
+        duration: '30 Days Full Access',
+        priceSuffix: '/month',
+        fallbackId: SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId,
+    };
+
     const StatusBadge = ({ status, type, iapActive }: { status: MemberStatus; type: string; iapActive: boolean }) => {
         if (status === 'none' || status === 'loading') return null;
 
