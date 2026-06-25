@@ -86,9 +86,9 @@ export default function MembershipStoreScreen() {
     const paidTokenStatus = getLocalStatus(paidStatusData);
 
     // Status priority: real IAP purchase > manually entered token.
-    // Old access tokens are ignored when IAP is available (avoids
-    // stale admin-created tokens from falsely showing as active).
     const iapConnected = !iapLoading && iapError === null;
+
+    // VIP status is shared across weekly and monthly (same tier)
     const vipStatus: MemberStatus = iapConnected
         ? (iapActiveSub?.tier === 'vip' ? 'active' : 'none')
         : vipTokenStatus;
@@ -159,39 +159,23 @@ export default function MembershipStoreScreen() {
         setPurchasing(null);
     };
 
-    /** Find a Google Play product for a given tier */
-    const getProductForTier = (tier: 'vip' | 'paid') => {
-        return iapProducts.find(p =>
-            tier === 'vip'
-                ? p.id.includes('.vip.')
-                : p.id.includes('.paid.'),
-        );
-    };
+    /** Find a Google Play product by exact product ID */
+    const getProduct = (productId: string) =>
+        iapProducts.find(p => p.id === productId);
 
     /** Format price string from v15 ProductSubscription */
     const formatPrice = (product: ProductSubscription | undefined): string | null => {
         if (!product) return null;
-        // v15 uses displayPrice as the main price string
-        // e.g. "KSh 200.00" or "$4.99"
         return (product as any).displayPrice || (product as any).price || null;
     };
 
-    const vipProduct = getProductForTier('vip');
-    const paidProduct = getProductForTier('paid');
+    // Individual product lookups — each card gets its own product
+    const vipWeeklyProduct  = getProduct(SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId);
+    const vipMonthlyProduct = getProduct(SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId);
+    const paidMonthlyProduct = getProduct(SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId);
 
-    /** Dynamic labels based on actual Google Play product */
-    const vipInfo = {
-        label: (vipProduct?.id || '').includes('.weekly') ? 'VIP WEEKLY' : 'VIP MONTHLY',
-        duration: (vipProduct?.id || '').includes('.weekly') ? '7 Days Full Access' : '30 Days Full Access',
-        priceSuffix: (vipProduct?.id || '').includes('.weekly') ? '/week' : '/month',
-        fallbackId: SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId,
-    };
-    const paidInfo = {
-        label: 'PAID MONTHLY',
-        duration: '30 Days Full Access',
-        priceSuffix: '/month',
-        fallbackId: SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId,
-    };
+    // Active IAP product IDs for border highlighting
+    const activeProductId = iapActiveSub?.productId ?? null;
 
     const StatusBadge = ({ status, type, iapActive }: { status: MemberStatus; type: string; iapActive: boolean }) => {
         if (status === 'none' || status === 'loading') return null;
@@ -215,6 +199,78 @@ export default function MembershipStoreScreen() {
     };
 
     const isLoading = vipStatus === 'loading' || paidStatus === 'loading';
+
+    // Helper: renders the action area for a subscription card
+    const renderCardActions = (
+        productId: string,
+        product: ProductSubscription | undefined,
+        status: MemberStatus,
+        tier: 'vip' | 'paid',
+        priceSuffix: string,
+    ) => {
+        if (isLoading) {
+            return (
+                <View style={styles.loadingRow}>
+                    <ActivityIndicator color={themeColors.primary} size="small" />
+                    <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>Checking status...</Text>
+                </View>
+            );
+        }
+        if (status === 'none') {
+            return (
+                <View style={styles.actionGroup}>
+                    <TouchableOpacity
+                        style={[styles.subscribeBtn, { backgroundColor: themeColors.primary }]}
+                        onPress={() => handleSubscribe(productId, tier)}
+                        disabled={purchasing !== null || iapLoading}
+                    >
+                        {purchasing === productId ? (
+                            <ActivityIndicator color="white" size="small" />
+                        ) : (
+                            <>
+                                <ShoppingCart size={16} color="white" />
+                                <Text style={styles.subscribeBtnText}>
+                                    {formatPrice(product)
+                                        ? `${formatPrice(product)}${priceSuffix}`
+                                        : 'SUBSCRIBE'}
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.textBtn}
+                        onPress={() => handleRequest(tier)}
+                        disabled={requesting === tier}
+                    >
+                        {requesting === tier ? (
+                            <ActivityIndicator color={themeColors.textMuted} size="small" />
+                        ) : (
+                            <Text style={[styles.textBtnLabel, { color: themeColors.textMuted }]}>Request token manually</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+        if (status === 'pending') {
+            return (
+                <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
+                    <Clock size={16} color={themeColors.textMuted} />
+                    <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
+                </View>
+            );
+        }
+        // active / approved
+        return (
+            <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
+                <CheckCircle2 size={16} color={themeColors.primary} />
+                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>
+                    {activeProductId === productId && iapActiveSub?.expiresAt
+                        ? `Subscribed — expires ${new Date(iapActiveSub.expiresAt).toLocaleDateString()}`
+                        : 'Access Active'}
+                </Text>
+            </View>
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -274,8 +330,8 @@ export default function MembershipStoreScreen() {
                     {/* MEMBERSHIP PLANS */}
                     <Text style={[styles.sectionTitle, { color: themeColors.text }]}>MEMBERSHIP PLANS</Text>
 
-                    {/* ── VIP CARD ── */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: iapActiveSub?.tier === 'vip' ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                    {/* ── VIP WEEKLY CARD ── */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Crown size={24} color={themeColors.primary} />
@@ -284,81 +340,69 @@ export default function MembershipStoreScreen() {
                                     <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>7 Days Full Access</Text>
                                 </View>
                             </View>
-                            <StatusBadge status={vipStatus} type="vip" iapActive={iapActiveSub?.tier === 'vip'} />
+                            <StatusBadge
+                                status={vipStatus}
+                                type="vip"
+                                iapActive={activeProductId === SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId}
+                            />
                         </View>
-
                         <View style={styles.features}>
-                            {[
-                                'Daily Elite AI Predictions',
-                                '90%+ Strike Rate Accuracy',
-                                'Exclusive Match Insights',
-                                'Priority Support'
-                            ].map((f, i) => (
+                            {['Daily Elite AI Predictions', '90%+ Strike Rate Accuracy', 'Exclusive Match Insights', 'Priority Support'].map((f, i) => (
                                 <View key={i} style={styles.featureLine}>
                                     <ShieldCheck size={14} color={themeColors.primary} />
                                     <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
                                 </View>
                             ))}
                         </View>
-
-                        {/* Action area */}
-                        {isLoading ? (
-                            <View style={styles.loadingRow}>
-                                <ActivityIndicator color={themeColors.primary} size="small" />
-                                <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>Checking status...</Text>
-                            </View>
-                        ) : vipStatus === 'none' ? (
-                            <View style={styles.actionGroup}>
-                                {/* Google Play Subscribe button */}
-                                <TouchableOpacity
-                                    style={[styles.subscribeBtn, { backgroundColor: themeColors.primary }]}
-                                    onPress={() => handleSubscribe(vipProduct?.id || SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId, 'vip')}
-                                    disabled={purchasing !== null || iapLoading}
-                                >
-                                    {purchasing === (vipProduct?.id || SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId) ? (
-                                        <ActivityIndicator color="white" size="small" />
-                                    ) : (
-                                        <>
-                                            <ShoppingCart size={16} color="white" />
-                                            <Text style={styles.subscribeBtnText}>
-                                                {formatPrice(vipProduct) || 'SUBSCRIBE'}
-                                                {formatPrice(vipProduct) ? '/week' : ''}
-                                            </Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                                {/* Fallback: Request access manually */}
-                                <TouchableOpacity
-                                    style={[styles.textBtn]}
-                                    onPress={() => handleRequest('vip')}
-                                    disabled={requesting === 'vip'}
-                                >
-                                    {requesting === 'vip' ? (
-                                        <ActivityIndicator color={themeColors.textMuted} size="small" />
-                                    ) : (
-                                        <Text style={[styles.textBtnLabel, { color: themeColors.textMuted }]}>Request token manually</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        ) : vipStatus === 'pending' ? (
-                            <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
-                                <Clock size={16} color={themeColors.textMuted} />
-                                <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
-                            </View>
-                        ) : (
-                            <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
-                                <CheckCircle2 size={16} color={themeColors.primary} />
-                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>
-                                    {iapActiveSub?.tier === 'vip'
-                                        ? `Subscription Active — expires ${new Date(iapActiveSub.expiresAt || '').toLocaleDateString()}`
-                                        : 'Subscription Active'}
-                                </Text>
-                            </View>
+                        {renderCardActions(
+                            SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId,
+                            vipWeeklyProduct,
+                            vipStatus,
+                            'vip',
+                            '/week',
                         )}
                     </View>
 
-                    {/* ── PAID CARD ── */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: iapActiveSub?.tier === 'paid' ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                    {/* ── VIP MONTHLY CARD ── */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                        <View style={styles.cardTop}>
+                            <View style={styles.cardHeader}>
+                                <Crown size={24} color={themeColors.primary} />
+                                <View>
+                                    <Text style={[styles.planTitle, { color: themeColors.text }]}>VIP MONTHLY</Text>
+                                    <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>30 Days Full Access</Text>
+                                </View>
+                            </View>
+                            <StatusBadge
+                                status={vipStatus}
+                                type="vip"
+                                iapActive={activeProductId === SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId}
+                            />
+                        </View>
+                        <View style={styles.features}>
+                            {['Daily Elite AI Predictions', '90%+ Strike Rate Accuracy', 'Exclusive Match Insights', 'Priority Support'].map((f, i) => (
+                                <View key={i} style={styles.featureLine}>
+                                    <ShieldCheck size={14} color={themeColors.primary} />
+                                    <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
+                                </View>
+                            ))}
+                        </View>
+                        {/* Best value badge */}
+                        <View style={[styles.savingsBadge, { backgroundColor: themeColors.primary + '15', borderColor: themeColors.primary + '30' }]}>
+                            <Zap size={11} color={themeColors.primary} />
+                            <Text style={[styles.savingsText, { color: themeColors.primary }]}>BEST VALUE — Save vs weekly</Text>
+                        </View>
+                        {renderCardActions(
+                            SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId,
+                            vipMonthlyProduct,
+                            vipStatus,
+                            'vip',
+                            '/month',
+                        )}
+                    </View>
+
+                    {/* ── PAID MONTHLY CARD ── */}
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Trophy size={24} color={themeColors.primary} />
@@ -367,75 +411,26 @@ export default function MembershipStoreScreen() {
                                     <Text style={[styles.planSubtitle, { color: themeColors.textMuted }]}>30 Days Full Access</Text>
                                 </View>
                             </View>
-                            <StatusBadge status={paidStatus} type="paid" iapActive={iapActiveSub?.tier === 'paid'} />
+                            <StatusBadge
+                                status={paidStatus}
+                                type="paid"
+                                iapActive={activeProductId === SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId}
+                            />
                         </View>
-
                         <View style={styles.features}>
-                            {[
-                                'Curated premium predictions',
-                                'Detailed AI match analysis',
-                                'Match insights & value bets',
-                                'Higher accuracy predictions',
-                            ].map((f, i) => (
+                            {['Curated premium predictions', 'Detailed AI match analysis', 'Match insights & value bets', 'Higher accuracy predictions'].map((f, i) => (
                                 <View key={i} style={styles.featureLine}>
                                     <ShieldCheck size={14} color={themeColors.primary} />
                                     <Text style={[styles.featureText, { color: themeColors.text }]}>{f}</Text>
                                 </View>
                             ))}
                         </View>
-
-                        {/* Action area */}
-                        {isLoading ? (
-                            <View style={styles.loadingRow}>
-                                <ActivityIndicator color={themeColors.primary} size="small" />
-                                <Text style={[styles.loadingText, { color: themeColors.textMuted }]}>Checking status...</Text>
-                            </View>
-                        ) : paidStatus === 'none' ? (
-                            <View style={styles.actionGroup}>
-                                {/* Google Play Subscribe button */}
-                                <TouchableOpacity
-                                    style={[styles.subscribeBtn, { backgroundColor: themeColors.primary }]}
-                                    onPress={() => handleSubscribe(paidProduct?.id || SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId, 'paid')}
-                                    disabled={purchasing !== null || iapLoading}
-                                >
-                                    {purchasing === (paidProduct?.id || SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId) ? (
-                                        <ActivityIndicator color="white" size="small" />
-                                    ) : (
-                                        <>
-                                            <ShoppingCart size={16} color="white" />
-                                            <Text style={styles.subscribeBtnText}>
-                                                {formatPrice(paidProduct) || 'SUBSCRIBE'}
-                                                {formatPrice(paidProduct) ? '/month' : ''}
-                                            </Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.textBtn]}
-                                    onPress={() => handleRequest('paid')}
-                                    disabled={requesting === 'paid'}
-                                >
-                                    {requesting === 'paid' ? (
-                                        <ActivityIndicator color={themeColors.textMuted} size="small" />
-                                    ) : (
-                                        <Text style={[styles.textBtnLabel, { color: themeColors.textMuted }]}>Request token manually</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        ) : paidStatus === 'pending' ? (
-                            <View style={[styles.pendingInfo, { backgroundColor: themeColors.cardBgSecondary }]}>
-                                <Clock size={16} color={themeColors.textMuted} />
-                                <Text style={[styles.pendingText, { color: themeColors.textMuted }]}>Reviewing your request...</Text>
-                            </View>
-                        ) : (
-                            <View style={[styles.activeInfo, { backgroundColor: themeColors.primary + '15' }]}>
-                                <CheckCircle2 size={16} color={themeColors.primary} />
-                                <Text style={[styles.activeInfoText, { color: themeColors.primary }]}>
-                                    {iapActiveSub?.tier === 'paid'
-                                        ? `Subscription Active — expires ${new Date(iapActiveSub.expiresAt || '').toLocaleDateString()}`
-                                        : 'Subscription Active'}
-                                </Text>
-                            </View>
+                        {renderCardActions(
+                            SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId,
+                            paidMonthlyProduct,
+                            paidStatus,
+                            'paid',
+                            '/month',
                         )}
                     </View>
 
@@ -589,6 +584,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     iapNoticeText: { fontSize: 12, lineHeight: 18 },
+    savingsBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        borderWidth: 1,
+        alignSelf: 'flex-start',
+    },
+    savingsText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
     footer: {
         padding: 24,
         borderRadius: 24,
