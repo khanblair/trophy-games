@@ -21,4 +21,12 @@ crons.interval(
     {},
 );
 
+// Automatically categorize and predict matches for today and tomorrow.
+crons.interval(
+    "auto-categorize-matches",
+    { minutes: 10 },
+    internal.analysis.autoAnalyzeAndCategorizeMatches,
+    {},
+);
+
 export default crons;
