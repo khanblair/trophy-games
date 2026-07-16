@@ -22,11 +22,11 @@ const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
 };
 
 const badgeStyles = StyleSheet.create({
-    logo: { width: 36, height: 36, borderRadius: 18 },
-    flagBox: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.08)', alignItems: 'center', justifyContent: 'center' },
+    logo: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
+    flagBox: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
     flag: { width: 36, height: 24, resizeMode: 'cover' },
-    initialsBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center' },
-    initials: { fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#888' },
+    initialsBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
+    initials: { fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#888', letterSpacing: 0.3 },
 });
 
 import { useTheme } from '../context/ThemeContext';
@@ -164,7 +164,7 @@ export const MatchCard = ({
                     <View style={styles.teamRightSection}>
                         {homeScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{homeScore}</Text>}
                         {homeOdds && (
-                            <View style={styles.teamOddsBox}>
+                            <View style={[styles.teamOddsBox, { backgroundColor: themeColors.cardBgSecondary }]}>
                                 <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>1</Text>
                                 <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{homeOdds}</Text>
                             </View>
@@ -180,7 +180,7 @@ export const MatchCard = ({
                     <View style={styles.teamRightSection}>
                         {awayScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{awayScore}</Text>}
                         {awayOdds && (
-                            <View style={styles.teamOddsBox}>
+                            <View style={[styles.teamOddsBox, { backgroundColor: themeColors.cardBgSecondary }]}>
                                 <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>2</Text>
                                 <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{awayOdds}</Text>
                             </View>
@@ -193,11 +193,14 @@ export const MatchCard = ({
             <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
                 {isLocked ? (
                     <View style={styles.lockedContainer}>
-                        <View style={[styles.lockBadge, { backgroundColor: themeColors.cardBgSecondary }]}>
+                        <View style={[styles.lockBadge, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
                             <Lock size={12} color={themeColors.primary} />
                             <Text style={[styles.lockText, { color: themeColors.primary }]}>UNLOCK {price} COINS</Text>
                         </View>
-                        <TouchableOpacity style={[styles.unlockButton, { backgroundColor: themeColors.primary }]}>
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={[styles.unlockButton, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}
+                        >
                             <Text style={styles.unlockButtonText}>BUY TIP</Text>
                         </TouchableOpacity>
                     </View>
@@ -205,7 +208,7 @@ export const MatchCard = ({
                     <View style={styles.predictionRow}>
                         <View style={styles.predictionWrap}>
                             <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>WIN RATE</Text>
-                            <View style={[styles.predictionChip, { backgroundColor: themeColors.primary }]}>
+                            <View style={[styles.predictionChip, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}>
                                 <Text
                                     style={styles.predictionValue}
                                     numberOfLines={1}
@@ -230,33 +233,33 @@ export const MatchCard = ({
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 18,
+        borderRadius: 20,
         borderWidth: 1,
-        paddingHorizontal: 14,
-        paddingTop: 12,
-        paddingBottom: 12,
-        marginVertical: 5,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 14,
+        marginVertical: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
         elevation: 3,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 12,
     },
     leagueRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 7,
+        gap: 8,
     },
     logoContainer: {
         width: 22,
         height: 22,
-        borderRadius: 5,
+        borderRadius: 6,
         overflow: 'hidden',
     },
     leagueLogo: {
@@ -269,13 +272,15 @@ const styles = StyleSheet.create({
     },
     leagueName: {
         ...typography.leagueName,
+        letterSpacing: 0.2,
     },
     time: {
         ...typography.time,
+        letterSpacing: 0.2,
     },
     teamsContainer: {
-        gap: 9,
-        marginBottom: 12,
+        gap: 10,
+        marginBottom: 14,
     },
     teamRow: {
         flexDirection: 'row',
@@ -302,7 +307,10 @@ const styles = StyleSheet.create({
     },
     teamOddsBox: {
         alignItems: 'center',
-        minWidth: 34,
+        minWidth: 38,
+        paddingVertical: 4,
+        paddingHorizontal: 6,
+        borderRadius: 8,
     },
     teamOddsLabel: {
         ...typography.teamOddsLabel,
@@ -311,8 +319,8 @@ const styles = StyleSheet.create({
         ...typography.teamOddsValue,
     },
     footer: {
-        borderTopWidth: 1,
-        paddingTop: 10,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        paddingTop: 12,
     },
     predictionRow: {
         flexDirection: 'row',
@@ -324,13 +332,18 @@ const styles = StyleSheet.create({
     },
     predictionLabel: {
         ...typography.predictionLabel,
-        marginBottom: 3,
+        letterSpacing: 0.4,
+        marginBottom: 4,
     },
     predictionChip: {
         alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 8,
+        paddingHorizontal: 11,
+        paddingVertical: 6,
+        borderRadius: 9,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.28,
+        shadowRadius: 8,
+        elevation: 3,
     },
     predictionValue: {
         ...typography.predictionValue,
@@ -340,7 +353,8 @@ const styles = StyleSheet.create({
     },
     oddsLabel: {
         ...typography.oddsLabel,
-        marginBottom: 2,
+        letterSpacing: 0.4,
+        marginBottom: 3,
     },
     oddsValue: {
         ...typography.oddsValue,
@@ -357,17 +371,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 7,
         borderRadius: 10,
+        borderWidth: 1,
     },
     lockText: {
         ...typography.lockText,
+        letterSpacing: 0.2,
     },
     unlockButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: 18,
+        paddingVertical: 9,
         borderRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 3,
     },
     unlockButtonText: {
         color: 'white',
         ...typography.result,
+        letterSpacing: 0.3,
     },
 });
