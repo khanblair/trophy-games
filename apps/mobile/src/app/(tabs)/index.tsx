@@ -92,7 +92,7 @@ export default function FreeTipsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            <View style={[styles.subHeader, { borderBottomColor: themeColors.border }]}>
+            <View style={[styles.subHeader, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
                 <View style={styles.filterSection}>
                     <ScrollView
                         horizontal
@@ -100,26 +100,40 @@ export default function FreeTipsScreen() {
                         contentContainerStyle={styles.leagueFilterContent}
                     >
                         <TouchableOpacity
+                            activeOpacity={0.75}
                             style={[
                                 styles.leagueChip,
-                                selectedLeague === 'All' && { backgroundColor: themeColors.primary }
+                                { borderColor: themeColors.border },
+                                selectedLeague === 'All' && {
+                                    backgroundColor: themeColors.primary,
+                                    borderColor: themeColors.primary,
+                                    shadowColor: themeColors.primary,
+                                    ...styles.leagueChipActiveShadow,
+                                }
                             ]}
                             onPress={() => setSelectedLeague('All')}
                         >
-                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'white' } : { color: themeColors.text }]}>
+                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'white' } : { color: themeColors.textMuted }]}>
                                 All
                             </Text>
                         </TouchableOpacity>
                         {leagues.map((league) => (
                             <TouchableOpacity
                                 key={league.id}
+                                activeOpacity={0.75}
                                 style={[
                                     styles.leagueChip,
-                                    selectedLeague === league.name && { backgroundColor: themeColors.primary }
+                                    { borderColor: themeColors.border },
+                                    selectedLeague === league.name && {
+                                        backgroundColor: themeColors.primary,
+                                        borderColor: themeColors.primary,
+                                        shadowColor: themeColors.primary,
+                                        ...styles.leagueChipActiveShadow,
+                                    }
                                 ]}
                                 onPress={() => setSelectedLeague(league.name)}
                             >
-                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'white' } : { color: themeColors.text }]}>
+                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'white' } : { color: themeColors.textMuted }]}>
                                     {toTitleCase(league.name)}
                                 </Text>
                             </TouchableOpacity>
@@ -152,6 +166,9 @@ export default function FreeTipsScreen() {
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={themeColors.primary} />
+                        <Text style={[styles.loadingLabel, { color: themeColors.textMuted }]}>
+                            Loading today's fixtures…
+                        </Text>
                     </View>
                 ) : filteredMatches.length > 0 ? (
                     <View style={styles.fixtureGrid}>
@@ -178,13 +195,18 @@ export default function FreeTipsScreen() {
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
-                        <View style={[styles.emptyIconWrapper, { backgroundColor: themeColors.cardBgSecondary }]}>
-                            <Zap size={40} color={themeColors.textMuted} />
+                        <View style={[
+                            styles.emptyIconWrapper,
+                            { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }
+                        ]}>
+                            <Zap size={36} color={themeColors.primary} />
                         </View>
-                        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>NO FREE TIPS TODAY</Text>
-                        <Text style={[styles.emptySubtitle, { color: themeColors.textMuted }]}>
-                            Our AI is still processing the matches. Pull to check for updates.
-                        </Text>
+                        <View style={styles.emptyTextGroup}>
+                            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No free tips today</Text>
+                            <Text style={[styles.emptySubtitle, { color: themeColors.textMuted }]}>
+                                Our AI is still processing the matches.{'\n'}Pull down to check for updates.
+                            </Text>
+                        </View>
                     </View>
                 )}
             </ScrollView>
@@ -197,27 +219,35 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     subHeader: {
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        gap: 12,
+        paddingTop: 16,
+        paddingBottom: 14,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        gap: 14,
     },
     filterSection: {
-        marginBottom: 4,
+        marginBottom: 0,
     },
     leagueFilterContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         gap: 8,
+        alignItems: 'center',
     },
     leagueChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        paddingHorizontal: 18,
+        paddingVertical: 9,
+        borderRadius: 22,
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    leagueChipActiveShadow: {
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
     },
     leagueChipText: {
         ...typography.chipText,
+        letterSpacing: 0.2,
     },
     dateStripWrapper: {
         // No extra paddingHorizontal — the strip manages its own padding
@@ -226,34 +256,46 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 16,
-        paddingBottom: 40,
+        padding: 20,
+        paddingBottom: 48,
     },
     loadingContainer: {
-        paddingVertical: 60,
+        paddingVertical: 72,
         alignItems: 'center',
+        gap: 14,
+    },
+    loadingLabel: {
+        fontSize: 13,
+        letterSpacing: 0.2,
     },
     fixtureGrid: {
-        gap: 8,
+        gap: 12,
     },
     emptyContainer: {
-        paddingVertical: 80,
+        paddingVertical: 88,
         alignItems: 'center',
-        gap: 16,
+        gap: 20,
     },
     emptyIconWrapper: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 84,
+        height: 84,
+        borderRadius: 42,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+    },
+    emptyTextGroup: {
+        alignItems: 'center',
+        gap: 8,
     },
     emptyTitle: {
         ...typography.emptyTitle,
+        letterSpacing: 0.3,
     },
     emptySubtitle: {
         ...typography.emptySubtitle,
         textAlign: 'center',
-        paddingHorizontal: 40,
+        paddingHorizontal: 32,
+        lineHeight: 20,
     },
 });
