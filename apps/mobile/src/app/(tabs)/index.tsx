@@ -113,7 +113,7 @@ export default function FreeTipsScreen() {
                             ]}
                             onPress={() => setSelectedLeague('All')}
                         >
-                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: 'white' } : { color: themeColors.textMuted }]}>
+                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: '#0B0E12' } : { color: themeColors.textMuted }]}>
                                 All
                             </Text>
                         </TouchableOpacity>
@@ -133,7 +133,7 @@ export default function FreeTipsScreen() {
                                 ]}
                                 onPress={() => setSelectedLeague(league.name)}
                             >
-                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: 'white' } : { color: themeColors.textMuted }]}>
+                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: '#0B0E12' } : { color: themeColors.textMuted }]}>
                                     {toTitleCase(league.name)}
                                 </Text>
                             </TouchableOpacity>

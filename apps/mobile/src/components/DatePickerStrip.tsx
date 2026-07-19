@@ -83,17 +83,22 @@ export function DatePickerStrip({
                                 width: itemWidth,
                                 backgroundColor: isSelected
                                     ? themeColors.primary
-                                    : 'rgba(255,255,255,0.03)',
+                                    : 'rgba(255,255,255,0.05)',
                                 borderColor: isSelected
                                     ? themeColors.primary
-                                    : 'rgba(255,255,255,0.07)',
+                                    : 'rgba(255,255,255,0.08)',
+                                shadowColor: isSelected ? themeColors.primary : 'transparent',
+                                shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 0 },
+                                shadowOpacity: isSelected ? 0.4 : 0,
+                                shadowRadius: isSelected ? 12 : 0,
+                                elevation: isSelected ? 4 : 0,
                             },
                         ]}
                     >
                         <Text
                             style={[
                                 styles.dayText,
-                                { color: isSelected ? 'rgba(255,255,255,0.85)' : themeColors.textMuted },
+                                { color: isSelected ? '#0B0E12' : themeColors.textMuted },
                             ]}
                         >
                             {label}
@@ -101,7 +106,7 @@ export function DatePickerStrip({
                         <Text
                             style={[
                                 styles.numText,
-                                { color: isSelected ? '#ffffff' : themeColors.text },
+                                { color: isSelected ? '#0B0E12' : themeColors.text },
                             ]}
                         >
                             {d.getDate()}

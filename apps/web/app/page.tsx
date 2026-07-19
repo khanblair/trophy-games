@@ -104,10 +104,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             Dashboard
           </h1>
-          <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm md:text-base text-muted">
             Live match data with AI predictions and performance tracking.
           </p>
         </div>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           <button
             onClick={fetchStats}
             disabled={loading}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"
+            className="flex items-center justify-center gap-2 px-3 py-2 bg-surface hover:bg-surface-secondary text-foreground border border-border-hairline font-bold rounded-xl transition-colors text-sm"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Refresh</span>
@@ -125,15 +125,15 @@ export default function DashboardPage() {
 
       {/* Last Updated */}
       {lastUpdated && (
-        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-3 md:p-4 border border-blue-400/20">
+        <div className="bg-surface-secondary rounded-[20px] p-3 md:p-4 border border-border-hairline">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
             <div className="flex items-center gap-2">
-              <Clock size={14} className="text-blue-600" />
-              <span className="text-zinc-600 dark:text-zinc-400">
+              <Clock size={14} className="text-brand-green" />
+              <span className="text-muted">
                 Last updated: {new Date(lastUpdated).toLocaleString()}
               </span>
             </div>
-            <span className="text-zinc-500 text-xs">Data syncs automatically</span>
+            <span className="text-muted text-xs">Data syncs automatically</span>
           </div>
         </div>
       )}
@@ -141,15 +141,15 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {statCards.map((stat) => (
-          <div key={stat.name} className="group relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div key={stat.name} className="group relative overflow-hidden rounded-[20px] border border-border-hairline bg-surface p-4 md:p-6 shadow-lg shadow-black/20 hover:shadow-xl transition-all">
             <div className="flex items-center justify-between mb-3">
               <div className={`flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl ${stat.color} text-white transition-colors`}>
                 <stat.icon size={18} />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="text-xs md:text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate">{stat.name}</h3>
-              <p className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{stat.value}</p>
+              <h3 className="text-xs md:text-sm font-medium text-muted truncate uppercase tracking-widest">{stat.name}</h3>
+              <p className="text-xl md:text-2xl font-bold text-foreground">{stat.value}</p>
             </div>
           </div>
         ))}
@@ -159,12 +159,12 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Match Type Distribution */}
         <div className="space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Activity size={18} className="text-blue-600" />
+          <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
+            <Activity size={18} className="text-brand-green" />
             Match Distribution
           </h2>
 
-          <div className="rounded-xl md:rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50 p-6">
+          <div className="rounded-[20px] border border-border-hairline bg-surface p-6 shadow-lg shadow-black/20">
             <div className="space-y-4">
               {matchTypeStats.map((type) => (
                 <div key={type.label} className="flex items-center justify-between">
@@ -172,11 +172,11 @@ export default function DashboardPage() {
                     <div className={`h-8 w-8 rounded-lg ${type.color} flex items-center justify-center text-white`}>
                       <type.icon size={14} />
                     </div>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-50">{type.label} Tips</span>
+                    <span className="font-medium text-foreground">{type.label} Tips</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{type.value}</span>
-                    <div className="w-24 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <span className="text-lg font-bold text-foreground">{type.value}</span>
+                    <div className="w-24 h-2 bg-surface-secondary rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${type.color} rounded-full`}
                         style={{ width: `${stats.totalMatches > 0 ? (type.value / stats.totalMatches) * 100 : 0}%` }}
@@ -191,54 +191,54 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold text-zinc-900 dark:text-zinc-50">Quick Actions</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-foreground">Quick Actions</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <Link
               href="/matches"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Swords size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">View Matches</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Browse & tag tips</p>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">View Matches</h4>
+                <p className="text-xs text-muted hidden sm:block">Browse & tag tips</p>
               </div>
             </Link>
             <Link
               href="/leagues"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-zinc-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Trophy size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">View Leagues</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Browse competitions</p>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">View Leagues</h4>
+                <p className="text-xs text-muted hidden sm:block">Browse competitions</p>
               </div>
             </Link>
             <Link
               href="/history"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-brand-green flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Target size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Match History</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">View completed results</p>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">Match History</h4>
+                <p className="text-xs text-muted hidden sm:block">View completed results</p>
               </div>
             </Link>
             <Link
               href="/admin/tokens"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-purple-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Users size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-zinc-900 dark:text-zinc-50 text-sm">Access Tokens</h4>
-                <p className="text-xs text-zinc-500 hidden sm:block">Manage memberships</p>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">Access Tokens</h4>
+                <p className="text-xs text-muted hidden sm:block">Manage memberships</p>
               </div>
             </Link>
           </div>
