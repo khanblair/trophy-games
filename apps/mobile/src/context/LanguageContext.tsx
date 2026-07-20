@@ -52,8 +52,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem('user-language', newLocale);
     };
 
-    if (!isLoaded) return null;
-
     return (
         <LanguageContext.Provider value={{ locale, setLocale }}>
             {children}
