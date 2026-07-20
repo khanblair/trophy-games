@@ -3,6 +3,8 @@ import { fetchFootyStatsMatchStats } from '@/lib/footystats';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@trophy-games/backend";
 
+export const dynamic = 'force-dynamic';
+
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
