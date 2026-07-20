@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '@trophy-games/backend';
+export const dynamic = 'force-dynamic';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+function getConvex() {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    return url ? new ConvexHttpClient(url) : null;
+}
 
 export async function GET() {
     try {
+        const convex = getConvex();
+        if (!convex) return NextResponse.json([]);
         const users = await convex.query(api.users.getAllUsers, {});
         return NextResponse.json(users);
     } catch (error) {
@@ -16,6 +19,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const convex = getConvex();
+        if (!convex) return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
         const { username, action } = await request.json();
 
         if (!username || !action) {

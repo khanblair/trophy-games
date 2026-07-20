@@ -4,6 +4,8 @@ import { api } from "@trophy-games/backend";
 import { MatchData } from '@trophy-games/shared';
 import { deriveLeaguesFromMatches } from '@/lib/footystats';
 
+export const dynamic = 'force-dynamic';
+
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
 
