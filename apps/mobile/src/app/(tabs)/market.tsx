@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { useState, useCallback, useEffect } from 'react';
 import { Crown, CheckCircle2, Zap, Trophy, ShieldCheck, CreditCard, ChevronRight, Sparkles, Key, Send, Clock, ShoppingCart } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
 import { typography } from '../../theme/typography';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@trophy-games/backend';
@@ -20,6 +21,7 @@ export default function MembershipStoreScreen() {
     const [verifyingToken, setVerifyingToken] = useState(false);
     const [requesting, setRequesting] = useState<string | null>(null);
     const [purchasing, setPurchasing] = useState<string | null>(null);
+    const { username } = useUser();
 
     // Convex mutations
     const requestMembership = useMutation(api.tokens.requestMembership);
@@ -66,11 +68,11 @@ export default function MembershipStoreScreen() {
     // Convex queries for membership status
     const vipStatusData = useQuery(
         api.tokens.getMembershipStatus,
-        deviceId ? { deviceId, type: 'vip' } : 'skip'
+        deviceId ? { deviceId, username: username || undefined, type: 'vip' } : 'skip'
     );
     const paidStatusData = useQuery(
         api.tokens.getMembershipStatus,
-        deviceId ? { deviceId, type: 'paid' } : 'skip'
+        deviceId ? { deviceId, username: username || undefined, type: 'paid' } : 'skip'
     );
 
     // Map Convex status to local status
@@ -107,7 +109,7 @@ export default function MembershipStoreScreen() {
         if (!deviceId) return;
         setRequesting(type);
         try {
-            const result = await requestMembership({ deviceId, type });
+            const result = await requestMembership({ deviceId, username: username || undefined, type });
             if (result.success) {
                 Alert.alert('Success!', `Your ${type.toUpperCase()} request has been sent to admin.`);
             } else {
@@ -126,6 +128,7 @@ export default function MembershipStoreScreen() {
             const result = await verifyTokenMutation({
                 token: tokenInput.trim(),
                 deviceId,
+                username: username || undefined,
             });
             if (result.valid) {
                 Alert.alert('Success!', 'Your token has been verified. Access granted.');

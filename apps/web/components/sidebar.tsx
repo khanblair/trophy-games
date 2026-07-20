@@ -12,6 +12,7 @@ import {
     X,
     Key,
     Users,
+    UserCog,
     Brain,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -30,8 +31,9 @@ const navItems = [
 ];
 
 const adminItems = [
+    { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Access Tokens', href: '/admin/tokens', icon: Key },
-    { name: 'Requests', href: '/admin/requests', icon: Users },
+    { name: 'Requests', href: '/admin/requests', icon: UserCog },
 ];
 
 interface SidebarProps {

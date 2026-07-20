@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 interface MembershipRequest {
     _id: string;
     deviceId: string;
+    username?: string;
     type: 'vip' | 'paid';
     status: 'pending' | 'approved' | 'rejected';
     requestedAt: string;
-    approvedAt?: string;
-    token?: string;
-    notes?: string;
+    resolvedAt?: string;
+    issuedToken?: string;
 }
 
 export default function AdminRequestsPage() {
@@ -35,13 +35,13 @@ export default function AdminRequestsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { loadRequests(); }, [loadRequests]);
 
-    const handleAction = async (requestId: string, action: 'approve' | 'reject', notes?: string) => {
+    const handleAction = async (requestId: string, action: 'approve' | 'reject') => {
         setProcessingId(requestId);
         try {
             const res = await fetch('/api/admin/requests', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId, action, notes }),
+                body: JSON.stringify({ requestId, action }),
             });
             const data = await res.json();
 
@@ -113,7 +113,7 @@ export default function AdminRequestsPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                                 <tr>
-                                    <th className="px-4 py-3">Device ID</th>
+                                    <th className="px-4 py-3">User/Device</th>
                                     <th className="px-4 py-3 text-center">Type</th>
                                     <th className="px-4 py-3 text-center">Status</th>
                                     <th className="px-4 py-3">Requested</th>
@@ -124,7 +124,10 @@ export default function AdminRequestsPage() {
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                 {filtered.map(req => (
                                     <tr key={req._id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
-                                        <td className="px-4 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400 max-w-40 truncate">{req.deviceId}</td>
+                                        <td className="px-4 py-3 max-w-40 truncate">
+                                            <div className="font-medium text-zinc-900 dark:text-zinc-100">{req.username || 'Anonymous'}</div>
+                                            <div className="font-mono text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">{req.deviceId}</div>
+                                        </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${req.type === 'vip' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                                                 {req.type === 'vip' ? <Crown size={10} /> : <DollarSign size={10} />}
@@ -140,13 +143,13 @@ export default function AdminRequestsPage() {
                                             {new Date(req.requestedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
                                         </td>
                                         <td className="px-4 py-3">
-                                            {req.token ? (
+                                            {req.issuedToken ? (
                                                 <button
-                                                    onClick={() => { navigator.clipboard.writeText(req.token!).catch(() => { }); }}
+                                                    onClick={() => { navigator.clipboard.writeText(req.issuedToken!).catch(() => { }); }}
                                                     className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-1"
                                                     title="Copy token"
                                                 >
-                                                    <Copy size={10} />{req.token}
+                                                    <Copy size={10} />{req.issuedToken}
                                                 </button>
                                             ) : <span className="text-zinc-300 dark:text-zinc-600 text-xs">—</span>}
                                         </td>

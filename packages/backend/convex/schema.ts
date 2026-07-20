@@ -86,32 +86,54 @@ export default defineSchema({
         countryFlag: v.optional(v.string()),
     }).index("by_league_id", ["id"]),
 
-    // Access tokens for VIP / Paid match gating
+    // Access tokens for VIP/Paid content
     accessTokens: defineTable({
-        token: v.string(),         // unique token string shown to user
-        matchId: v.optional(v.string()), // null = access all matches of that type
-        deviceId: v.string(),      // device or user identifier
-        type: v.union(v.literal('vip'), v.literal('paid')),
-        createdAt: v.string(),
-        expiresAt: v.optional(v.string()),
+        token: v.string(), // e.g., 'VIP-1234-5678-ABCD'
+        type: v.union(v.literal("vip"), v.literal("paid")),
+        deviceId: v.string(),
+        username: v.optional(v.string()), // Added for the new security system
+        matchId: v.optional(v.string()), // if token is restricted to a specific match
+        expiresAt: v.optional(v.string()), // ISO string
         isActive: v.boolean(),
-        isClaimed: v.optional(v.boolean()),
+        isClaimed: v.boolean(),
+        claimedAt: v.optional(v.string()), // ISO string
+        createdAt: v.string(), // ISO string
+        failedAttempts: v.optional(v.number()), // Security feature
     })
         .index("by_token", ["token"])
-        .index("by_device_id", ["deviceId"]),
+        .index("by_device_id", ["deviceId"])
+        .index("by_username", ["username"]),
 
-    // Membership requests from mobile users
+    // Membership requests
     membershipRequests: defineTable({
         deviceId: v.string(),
-        type: v.union(v.literal('vip'), v.literal('paid')),
-        status: v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected')),
-        requestedAt: v.string(),
-        approvedAt: v.optional(v.string()),
-        token: v.optional(v.string()), // set after approval
-        notes: v.optional(v.string()),
+        username: v.optional(v.string()), // Added for the new security system
+        type: v.union(v.literal("vip"), v.literal("paid")),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("approved"),
+            v.literal("rejected")
+        ),
+        requestedAt: v.string(), // ISO string
+        resolvedAt: v.optional(v.string()), // ISO string
+        issuedToken: v.optional(v.string()),
     })
         .index("by_device_id", ["deviceId"])
+        .index("by_username", ["username"])
         .index("by_status", ["status"]),
+
+    // Registered Users (New Security System)
+    users: defineTable({
+        username: v.string(),
+        deviceId: v.string(),
+        createdAt: v.string(), // ISO string
+        lastActiveAt: v.optional(v.string()),
+        isBlocked: v.optional(v.boolean()),
+        failedAttempts: v.optional(v.number()),
+        lastFailedAt: v.optional(v.string()),
+    })
+        .index("by_username", ["username"])
+        .index("by_device_id", ["deviceId"]),
 
     // Devices for push notifications
     devices: defineTable({

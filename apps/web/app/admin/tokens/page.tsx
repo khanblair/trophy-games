@@ -8,6 +8,7 @@ interface Token {
     _id: string;
     token: string;
     deviceId: string;
+    username?: string;
     type: 'vip' | 'paid';
     matchId?: string;
     createdAt: string;
@@ -19,7 +20,7 @@ export default function AdminTokensPage() {
     const [tokens, setTokens] = useState<Token[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
-    const [form, setForm] = useState({ deviceId: '', type: 'vip' as 'vip' | 'paid', matchId: '', expiresAt: '' });
+    const [form, setForm] = useState({ deviceId: '', username: '', type: 'vip' as 'vip' | 'paid', matchId: '', expiresAt: '' });
     const [showForm, setShowForm] = useState(false);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export default function AdminTokensPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     deviceId: form.deviceId,
+                    username: form.username || undefined,
                     type: form.type,
                     matchId: form.matchId || undefined,
                     expiresAt: form.expiresAt || undefined,
@@ -56,7 +58,7 @@ export default function AdminTokensPage() {
                 copyToClipboard(data.token);
                 await loadTokens();
                 setShowForm(false);
-                setForm({ deviceId: '', type: 'vip', matchId: '', expiresAt: '' });
+                setForm({ deviceId: '', username: '', type: 'vip', matchId: '', expiresAt: '' });
             } else {
                 toast.error(data.error || 'Failed to generate token');
             }
@@ -137,6 +139,15 @@ export default function AdminTokensPage() {
                             />
                         </div>
                         <div>
+                            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Username (optional)</label>
+                            <input
+                                value={form.username}
+                                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                                placeholder="Bind token to username"
+                                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-50 outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
                             <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Access Type *</label>
                             <select
                                 value={form.type}
@@ -188,7 +199,7 @@ export default function AdminTokensPage() {
                             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                                 <tr>
                                     <th className="px-4 py-3">Token</th>
-                                    <th className="px-4 py-3">Device ID</th>
+                                    <th className="px-4 py-3">User/Device</th>
                                     <th className="px-4 py-3 text-center">Type</th>
                                     <th className="px-4 py-3">Match ID</th>
                                     <th className="px-4 py-3">Created</th>
@@ -209,7 +220,10 @@ export default function AdminTokensPage() {
                                                 {copiedToken === token.token ? '✓ Copied' : token.token}
                                             </button>
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-zinc-500 max-w-32 truncate">{token.deviceId}</td>
+                                        <td className="px-4 py-3 max-w-32 truncate">
+                                            <div className="font-medium text-zinc-900 dark:text-zinc-100">{token.username || 'Anonymous'}</div>
+                                            <div className="font-mono text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">{token.deviceId}</div>
+                                        </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${token.type === 'vip' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                                                 {token.type === 'vip' ? <Crown size={10} /> : <DollarSign size={10} />}

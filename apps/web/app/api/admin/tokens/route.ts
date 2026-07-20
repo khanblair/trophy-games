@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const { deviceId, type, matchId, expiresAt } = await request.json();
+        const { deviceId, username, type, matchId, expiresAt } = await request.json();
 
         if (!deviceId || !type) {
             return NextResponse.json({ error: 'deviceId and type required' }, { status: 400 });
@@ -40,6 +40,7 @@ export async function POST(request: Request) {
         await convex.mutation(api.tokens.createToken, {
             token,
             deviceId,
+            username,
             type,
             matchId,
             expiresAt,

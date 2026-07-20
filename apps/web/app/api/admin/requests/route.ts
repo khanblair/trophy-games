@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const { requestId, action, matchId, expiresAt, notes } = await request.json();
+        const { requestId, action, matchId, expiresAt } = await request.json();
 
         if (!requestId || !action) {
             return NextResponse.json({ error: 'requestId and action required' }, { status: 400 });
@@ -54,7 +54,6 @@ export async function POST(request: Request) {
         if (action === 'reject') {
             await convex.mutation(api.tokens.rejectMembershipRequest, {
                 requestId,
-                notes,
             });
             return NextResponse.json({ success: true });
         }

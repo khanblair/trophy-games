@@ -38,6 +38,9 @@ export async function GET() {
         const homeWins = finished.filter((m) => (m.homeScore as number) > (m.awayScore as number)).length;
         const winRate = finished.length > 0 ? Math.round((homeWins / finished.length) * 100) : 0;
 
+        const usersList = await convex.query(api.users.getAllUsers, {});
+        const totalUsers = usersList.length;
+
         return NextResponse.json({
             totalLeagues,
             totalMatches,
@@ -45,6 +48,7 @@ export async function GET() {
             paidTips,
             vipTips,
             winRate,
+            totalUsers,
             lastUpdated: new Date().toISOString(),
         });
     } catch (error) {

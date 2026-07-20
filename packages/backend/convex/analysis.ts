@@ -6,26 +6,18 @@ const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";
 
 const TRENDING_LEAGUES = [
-  "English Premier League",
-  "German Bundesliga",
-  "Spanish La Liga",
-  "Italian Serie A",
-  "French Ligue 1",
-  "Champions League",
-  "Europa League",
-  "English Championship",
-  "Portugal Primeira Liga",
-  "Dutch Eredivisie",
-  "Belgian Pro League",
-  "Turkish Super Lig",
-  "Brazil Serie A",
-  "Argentina Primera Division",
-  "MLS",
-  "FIFA Club World Cup",
-  "World Cup",
-  "Africa Cup of Nations",
-  "Copa America",
-  "Euro Championship",
+  "English Premier League", "Championship", "FA Cup",
+  "La Liga", "Copa del Rey",
+  "Serie A", "Coppa Italia",
+  "Bundesliga", "DFB-Pokal",
+  "Ligue 1",
+  "Champions League", "Europa League", "Conference League",
+  "Eredivisie", "Primeira Liga", "Belgian Pro League",
+  "Scottish Premiership", "Super Lig",
+  "Brazil Serie A", "Argentina Primera Division",
+  "MLS", "Saudi Pro League",
+  "FIFA Club World Cup", "World Cup",
+  "Africa Cup of Nations", "Copa America", "Euro Championship"
 ];
 
 const SYSTEM_PROMPT_ANALYST = `You are an elite football betting analyst with 15+ years of experience. Your expertise covers statistical modeling, team form analysis, head-to-head data, tactical matchups, and value betting principles.

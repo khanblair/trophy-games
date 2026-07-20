@@ -3,9 +3,12 @@ import { Home, DollarSign, Crown, CheckCircle, Store } from 'lucide-react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
+import i18n from '../../locales';
 
 export default function TabLayout() {
     const { themeColors } = useTheme();
+    const { locale } = useLanguage();
     const insets = useSafeAreaInsets();
 
     return (
@@ -31,35 +34,35 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: 'FREE',
+                    title: i18n.t('tabs.home'),
                     tabBarIcon: ({ color }) => <Home color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="paid"
                 options={{
-                    title: 'PAID',
+                    title: i18n.t('tabs.paid'),
                     tabBarIcon: ({ color }) => <DollarSign color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="vip"
                 options={{
-                    title: 'VIP',
+                    title: i18n.t('tabs.vip'),
                     tabBarIcon: ({ color }) => <Crown color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="wins"
                 options={{
-                    title: 'WINS',
+                    title: i18n.t('tabs.analysis'),
                     tabBarIcon: ({ color }) => <CheckCircle color={color} size={22} />,
                 }}
             />
             <Tabs.Screen
                 name="market"
                 options={{
-                    title: 'MEMBERSHIP',
+                    title: i18n.t('tabs.market'),
                     tabBarIcon: ({ color }) => <Store color={color} size={22} />,
                 }}
             />

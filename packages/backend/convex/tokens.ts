@@ -8,6 +8,7 @@ export const createToken = mutation({
     args: {
         token: v.string(),
         deviceId: v.string(),
+        username: v.optional(v.string()),
         type: v.union(v.literal('vip'), v.literal('paid')),
         matchId: v.optional(v.string()),
         expiresAt: v.optional(v.string()),
@@ -16,12 +17,14 @@ export const createToken = mutation({
         await ctx.db.insert("accessTokens", {
             token: args.token,
             deviceId: args.deviceId,
+            username: args.username,
             type: args.type,
             matchId: args.matchId,
             createdAt: new Date().toISOString(),
             expiresAt: args.expiresAt,
             isActive: true,
             isClaimed: false,
+            failedAttempts: 0,
         });
         return { token: args.token };
     },
@@ -31,23 +34,71 @@ export const verifyToken = mutation({
     args: {
         token: v.string(),
         deviceId: v.string(),
+        username: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Find user
+        let user;
+        if (args.username) {
+            user = await ctx.db
+                .query("users")
+                .withIndex("by_username", (q) => q.eq("username", args.username!))
+                .first();
+        } else {
+            user = await ctx.db
+                .query("users")
+                .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
+                .first();
+        }
+
+        if (user?.isBlocked) {
+            return { valid: false, reason: "Account is blocked. Contact support." };
+        }
+
+        if (user && (user.failedAttempts ?? 0) >= 5) {
+            return { valid: false, reason: "Too many failed attempts. Account locked." };
+        }
+
         const tokenDoc = await ctx.db
             .query("accessTokens")
             .withIndex("by_token", (q) => q.eq("token", args.token))
             .unique();
 
-        if (!tokenDoc) return { valid: false, reason: "Token not found" };
+        if (!tokenDoc) {
+            if (user) {
+                await ctx.db.patch(user._id, {
+                    failedAttempts: (user.failedAttempts ?? 0) + 1,
+                    lastFailedAt: new Date().toISOString()
+                });
+            }
+            return { valid: false, reason: "Token not found" };
+        }
+        
         if (!tokenDoc.isActive) return { valid: false, reason: "Token is inactive" };
-        if (tokenDoc.deviceId !== args.deviceId) return { valid: false, reason: "Token bound to different device" };
+        
+        // Strict username binding check (if provided during token creation)
+        if (tokenDoc.username && tokenDoc.username !== args.username) {
+             if (user) {
+                await ctx.db.patch(user._id, {
+                    failedAttempts: (user.failedAttempts ?? 0) + 1,
+                    lastFailedAt: new Date().toISOString()
+                });
+            }
+            return { valid: false, reason: "Token bound to different username" };
+        }
+
         if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
             return { valid: false, reason: "Token expired" };
         }
 
-        // Mark it as claimed upon successful verification
+        // Success! Reset failed attempts and mark claimed
+        if (user) {
+            await ctx.db.patch(user._id, { failedAttempts: 0, lastActiveAt: new Date().toISOString() });
+        }
+
         if (!tokenDoc.isClaimed) {
-            await ctx.db.patch(tokenDoc._id, { isClaimed: true });
+            // Also bind the token to this username if it wasn't already
+            await ctx.db.patch(tokenDoc._id, { isClaimed: true, username: args.username, claimedAt: new Date().toISOString() });
         }
 
         return { valid: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
@@ -57,8 +108,16 @@ export const verifyToken = mutation({
 export const getTokensByDevice = query({
     args: {
         deviceId: v.string(),
+        username: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        if (args.username) {
+            return await ctx.db
+                .query("accessTokens")
+                .withIndex("by_username", (q) => q.eq("username", args.username!))
+                .filter((q) => q.eq(q.field("isActive"), true))
+                .collect();
+        }
         return await ctx.db
             .query("accessTokens")
             .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
@@ -67,7 +126,6 @@ export const getTokensByDevice = query({
     },
 });
 
-// Alias for mobile compatibility
 export const getTokensForDevice = getTokensByDevice;
 
 export const revokeToken = mutation({
@@ -91,6 +149,32 @@ export const revokeToken = mutation({
     },
 });
 
+export const revokeAllForUser = mutation({
+    args: {
+        username: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const tokens = await ctx.db
+            .query("accessTokens")
+            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .collect();
+
+        for (const t of tokens) {
+            await ctx.db.patch(t._id, { isActive: false });
+        }
+        
+        // Notify user if they have a device
+        const user = await ctx.db.query("users").withIndex("by_username", (q) => q.eq("username", args.username)).first();
+        if (user) {
+             await ctx.scheduler.runAfter(0, api.alerts.createAlert, {
+                title: "Access Revoked",
+                body: "All your access tokens have been deactivated.",
+                deviceId: user.deviceId,
+            });
+        }
+    },
+});
+
 export const getAllTokens = query({
     args: {},
     handler: async (ctx) => {
@@ -103,10 +187,10 @@ export const getAllTokens = query({
 export const requestMembership = mutation({
     args: {
         deviceId: v.string(),
+        username: v.optional(v.string()),
         type: v.union(v.literal('vip'), v.literal('paid')),
     },
     handler: async (ctx, args) => {
-        // Check for existing pending request
         const existing = await ctx.db
             .query("membershipRequests")
             .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
@@ -124,6 +208,7 @@ export const requestMembership = mutation({
 
         const id = await ctx.db.insert("membershipRequests", {
             deviceId: args.deviceId,
+            username: args.username,
             type: args.type,
             status: "pending",
             requestedAt: new Date().toISOString(),
@@ -136,20 +221,24 @@ export const requestMembership = mutation({
 export const getMembershipStatus = query({
     args: {
         deviceId: v.string(),
+        username: v.optional(v.string()),
         type: v.union(v.literal('vip'), v.literal('paid')),
     },
     handler: async (ctx, args) => {
-        // Check if they have an active token
-        const tokens = await ctx.db
-            .query("accessTokens")
-            .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
-            .filter((q) =>
-                q.and(
-                    q.eq(q.field("type"), args.type),
-                    q.eq(q.field("isActive"), true),
-                )
-            )
-            .collect();
+        let tokens = [];
+        if (args.username) {
+             tokens = await ctx.db
+                .query("accessTokens")
+                .withIndex("by_username", (q) => q.eq("username", args.username!))
+                .filter((q) => q.and(q.eq(q.field("type"), args.type), q.eq(q.field("isActive"), true)))
+                .collect();
+        } else {
+            tokens = await ctx.db
+                .query("accessTokens")
+                .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
+                .filter((q) => q.and(q.eq(q.field("type"), args.type), q.eq(q.field("isActive"), true)))
+                .collect();
+        }
 
         const validToken = tokens.find(t =>
             (!t.expiresAt || new Date(t.expiresAt) > new Date()) &&
@@ -159,7 +248,6 @@ export const getMembershipStatus = query({
             return { status: 'active', token: validToken.token, matchId: validToken.matchId };
         }
 
-        // Check for pending/approved request
         const request = await ctx.db
             .query("membershipRequests")
             .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
@@ -201,17 +289,16 @@ export const approveMembershipRequest = mutation({
         const request = await ctx.db.get(args.requestId);
         if (!request) return { success: false };
 
-        // Update request
         await ctx.db.patch(args.requestId, {
             status: "approved",
-            approvedAt: new Date().toISOString(),
-            token: args.token,
+            resolvedAt: new Date().toISOString(),
+            issuedToken: args.token,
         });
 
-        // Create access token
         await ctx.db.insert("accessTokens", {
             token: args.token,
             deviceId: request.deviceId,
+            username: request.username,
             type: request.type,
             matchId: args.matchId,
             createdAt: new Date().toISOString(),
@@ -233,13 +320,12 @@ export const approveMembershipRequest = mutation({
 export const rejectMembershipRequest = mutation({
     args: {
         requestId: v.id("membershipRequests"),
-        notes: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const request = await ctx.db.get(args.requestId);
         await ctx.db.patch(args.requestId, {
             status: "rejected",
-            notes: args.notes,
+            resolvedAt: new Date().toISOString(),
         });
 
         if (request) {
@@ -267,38 +353,24 @@ export const reactivateToken = mutation({
         if (tokenDoc) {
             await ctx.db.patch(tokenDoc._id, {
                 isActive: true,
+                failedAttempts: 0
             });
         }
     },
 });
 
-// Alias for mobile compatibility - same as verifyToken but with different return format
+// Alias for mobile compatibility
 export const claimToken = mutation({
     args: {
         token: v.string(),
         deviceId: v.string(),
+        username: v.optional(v.string())
     },
     handler: async (ctx, args) => {
-        const tokenDoc = await ctx.db
-            .query("accessTokens")
-            .withIndex("by_token", (q) => q.eq("token", args.token))
-            .unique();
-
-        if (!tokenDoc) return { success: false, reason: "Token not found" };
-        if (!tokenDoc.isActive) return { success: false, reason: "Token is inactive" };
-        if (tokenDoc.deviceId !== args.deviceId) return { success: false, reason: "Token bound to different device" };
-        if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
-            return { success: false, reason: "Token expired" };
-        }
-
-        // Mark it as claimed upon successful verification
-        if (!tokenDoc.isClaimed) {
-            await ctx.db.patch(tokenDoc._id, { isClaimed: true });
-        }
-
-        return { success: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
+        const result = await verifyToken(ctx, args);
+        if (!result.valid) return { success: false, reason: result.reason };
+        return { success: true, type: result.type, matchId: result.matchId };
     },
 });
 
-// Alias for mobile compatibility - same as requestMembership
 export const createMembershipRequest = requestMembership;

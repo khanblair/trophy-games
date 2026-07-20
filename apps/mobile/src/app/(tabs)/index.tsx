@@ -1,5 +1,5 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
-import { Zap } from 'lucide-react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
+import { Zap, Search } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ConvexReactClient } from "convex/react";
 import { api } from '@trophy-games/backend';
@@ -7,6 +7,7 @@ import { MatchCard } from '../../components/MatchCard';
 import { DatePickerStrip } from '../../components/DatePickerStrip';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
+import i18n from '../../locales';
 // Mobile reads ONLY from Convex — the background cron sync fetches FootyStats
 // data every 5 minutes and upserts it into Convex. No direct API calls from mobile.
 
@@ -24,6 +25,7 @@ export default function FreeTipsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [leagues, setLeagues] = useState<any[]>([]);
     const [apiSource, setApiSource] = useState<'footystats' | 'convex'>('footystats');
+    const [searchQuery, setSearchQuery] = useState('');
     const { themeColors } = useTheme();
 
     const loadData = useCallback(async (isRefresh = false) => {
@@ -73,7 +75,11 @@ export default function FreeTipsScreen() {
 
     const filteredMatches = matches.filter(m => {
         const leagueMatch = selectedLeague === 'All' || m.league === selectedLeague;
-        return leagueMatch;
+        const searchMatch = !searchQuery || 
+            m.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            m.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            m.league.toLowerCase().includes(searchQuery.toLowerCase());
+        return leagueMatch && searchMatch;
     });
 
     const onRefresh = useCallback(() => {
@@ -141,6 +147,19 @@ export default function FreeTipsScreen() {
                     </ScrollView>
                 </View>
 
+                <View style={styles.searchSection}>
+                    <View style={[styles.searchBar, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
+                        <Search size={18} color={themeColors.textMuted} />
+                        <TextInput
+                            style={[styles.searchInput, { color: themeColors.text }]}
+                            placeholder="Search teams or leagues..."
+                            placeholderTextColor={themeColors.textMuted}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
+                </View>
+
                 <View style={styles.dateStripWrapper}>
                     <DatePickerStrip
                         dates={dates}
@@ -202,9 +221,9 @@ export default function FreeTipsScreen() {
                             <Zap size={36} color={themeColors.primary} />
                         </View>
                         <View style={styles.emptyTextGroup}>
-                            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No free tips today</Text>
+                            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{i18n.t('home.noMatches')}</Text>
                             <Text style={[styles.emptySubtitle, { color: themeColors.textMuted }]}>
-                                Our AI is still processing the matches.{'\n'}Pull down to check for updates.
+                                Our AI is still processing the matches or your search didn't match any.{'\n'}Pull down to check for updates.
                             </Text>
                         </View>
                     </View>
@@ -248,6 +267,24 @@ const styles = StyleSheet.create({
     leagueChipText: {
         ...typography.chipText,
         letterSpacing: 0.2,
+    },
+    searchSection: {
+        paddingHorizontal: 20,
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '500',
+        padding: 0,
     },
     dateStripWrapper: {
         // No extra paddingHorizontal — the strip manages its own padding

@@ -7,7 +7,7 @@
 // ambiguous labels, and unique substrings for unambiguous ones. Women's, youth
 // and reserve competitions are never treated as trending.
 
-export type Tier = 1 | 2;
+export type Tier = 1 | 2 | 3;
 
 interface TrendingEntry {
     label: string;
@@ -41,17 +41,62 @@ const TRENDING: TrendingEntry[] = [
     { label: 'Copa Libertadores', tier: 1, mode: 'contains', match: ['libertadores'] },
     { label: 'Africa Cup of Nations', tier: 1, mode: 'contains', match: ['africa cup of nations', 'afcon', 'africa cup'] },
 
-    // ---- Tier 2: very popular ----
-    { label: 'MLS', tier: 2, mode: 'exact', match: ['mls', 'major league soccer'], country: 'USA' },
+    // ---- Tier 2: very popular & regional elite ----
+    { label: 'EFL Championship', tier: 2, mode: 'exact', match: ['championship', 'efl championship'], country: 'England' },
+    { label: 'FA Cup', tier: 2, mode: 'contains', match: ['fa cup'], country: 'England' },
+    { label: 'Copa del Rey', tier: 2, mode: 'contains', match: ['copa del rey'], country: 'Spain' },
+    { label: 'Coppa Italia', tier: 2, mode: 'contains', match: ['coppa italia'], country: 'Italy' },
+    { label: 'DFB-Pokal', tier: 2, mode: 'contains', match: ['dfb pokal', 'dfb-pokal'], country: 'Germany' },
     { label: 'Eredivisie', tier: 2, mode: 'contains', match: ['eredivisie'] },
     { label: 'Primeira Liga', tier: 2, mode: 'exact', match: ['primeira liga', 'liga portugal'], country: 'Portugal' },
-    { label: 'Saudi Pro League', tier: 2, mode: 'contains', match: ['saudi pro league', 'saudi professional league'] },
-    { label: 'Brasileirão Série A', tier: 2, mode: 'exact', match: ['serie a', 'série a', 'brasileirao', 'campeonato brasileiro série a'], country: 'Brazil' },
-    { label: 'Liga MX', tier: 2, mode: 'contains', match: ['liga mx'] },
+    { label: 'Belgian Pro League', tier: 2, mode: 'contains', match: ['belgian pro league', 'first division a'] },
     { label: 'Süper Lig', tier: 2, mode: 'exact', match: ['super lig', 'süper lig', 'trendyol süper lig'], country: 'Turkey' },
-    { label: 'EFL Championship', tier: 2, mode: 'exact', match: ['championship', 'efl championship'], country: 'England' },
     { label: 'Scottish Premiership', tier: 2, mode: 'contains', match: ['scottish premiership'] },
+    { label: 'Brasileirão Série A', tier: 2, mode: 'exact', match: ['serie a', 'série a', 'brasileirao', 'campeonato brasileiro série a'], country: 'Brazil' },
     { label: 'Argentine Primera División', tier: 2, mode: 'exact', match: ['primera division', 'liga profesional'], country: 'Argentina' },
+    { label: 'Liga MX', tier: 2, mode: 'contains', match: ['liga mx'] },
+    { label: 'MLS', tier: 2, mode: 'exact', match: ['mls', 'major league soccer'], country: 'USA' },
+    { label: 'Saudi Pro League', tier: 2, mode: 'contains', match: ['saudi pro league', 'saudi professional league'] },
+
+    // ---- Tier 3: secondary & global reach ----
+    { label: 'League One', tier: 3, mode: 'exact', match: ['league one', 'efl league one'], country: 'England' },
+    { label: 'League Two', tier: 3, mode: 'exact', match: ['league two', 'efl league two'], country: 'England' },
+    { label: 'Segunda División', tier: 3, mode: 'exact', match: ['segunda division', 'segunda división', 'laliga 2'], country: 'Spain' },
+    { label: 'Serie B', tier: 3, mode: 'exact', match: ['serie b'], country: 'Italy' },
+    { label: '2. Bundesliga', tier: 3, mode: 'exact', match: ['2. bundesliga', 'bundesliga 2'], country: 'Germany' },
+    { label: 'Ligue 2', tier: 3, mode: 'exact', match: ['ligue 2'], country: 'France' },
+    { label: 'Liga Portugal 2', tier: 3, mode: 'exact', match: ['liga portugal 2', 'segunda liga'], country: 'Portugal' },
+    { label: 'Swiss Super League', tier: 3, mode: 'contains', match: ['swiss super league', 'super league'], country: 'Switzerland' },
+    { label: 'Austrian Bundesliga', tier: 3, mode: 'contains', match: ['austrian bundesliga'] },
+    { label: 'Danish Superliga', tier: 3, mode: 'contains', match: ['danish superliga'] },
+    { label: 'Eliteserien', tier: 3, mode: 'contains', match: ['eliteserien'] },
+    { label: 'Allsvenskan', tier: 3, mode: 'contains', match: ['allsvenskan'] },
+    { label: 'Veikkausliiga', tier: 3, mode: 'contains', match: ['veikkausliiga'] },
+    { label: 'Ekstraklasa', tier: 3, mode: 'contains', match: ['ekstraklasa'] },
+    { label: 'Super League Greece', tier: 3, mode: 'contains', match: ['super league greece'] },
+    { label: 'Czech First League', tier: 3, mode: 'contains', match: ['czech first league'] },
+    { label: 'Croatian HNL', tier: 3, mode: 'contains', match: ['croatian football league', 'hnl'] },
+    { label: 'Serbian SuperLiga', tier: 3, mode: 'contains', match: ['serbian superliga'] },
+    { label: 'Romanian Liga I', tier: 3, mode: 'contains', match: ['liga i'], country: 'Romania' },
+    { label: 'Ukrainian Premier League', tier: 3, mode: 'contains', match: ['ukrainian premier league'] },
+    { label: 'Russian Premier League', tier: 3, mode: 'contains', match: ['russian premier league'] },
+    { label: 'Brasileirão Série B', tier: 3, mode: 'exact', match: ['serie b', 'série b', 'campeonato brasileiro série b'], country: 'Brazil' },
+    { label: 'USL Championship', tier: 3, mode: 'contains', match: ['usl championship'], country: 'USA' },
+    { label: 'UAE Pro League', tier: 3, mode: 'contains', match: ['uae pro league'] },
+    { label: 'Qatar Stars League', tier: 3, mode: 'contains', match: ['qatar stars league'] },
+    { label: 'Egyptian Premier League', tier: 3, mode: 'contains', match: ['egyptian premier league'] },
+    { label: 'PSL (South Africa)', tier: 3, mode: 'contains', match: ['premier soccer league', 'psl', 'dstv premiership'], country: 'South Africa' },
+    { label: 'Botola Pro', tier: 3, mode: 'contains', match: ['botola pro'] },
+    { label: 'Algerian Ligue 1', tier: 3, mode: 'contains', match: ['ligue professionnelle 1'], country: 'Algeria' },
+    { label: 'Tunisian Ligue 1', tier: 3, mode: 'contains', match: ['ligue professionnelle 1'], country: 'Tunisia' },
+    { label: 'Nigeria Premier Football League', tier: 3, mode: 'contains', match: ['nigeria premier football league', 'npfl'] },
+    { label: 'Uganda Premier League', tier: 3, mode: 'contains', match: ['uganda premier league'] },
+    { label: 'Kenyan Premier League', tier: 3, mode: 'contains', match: ['kenyan premier league', 'fkf premier league'] },
+    { label: 'Tanzania Premier League', tier: 3, mode: 'contains', match: ['tanzania premier league', 'ligi kuu'] },
+    { label: 'Zambia Super League', tier: 3, mode: 'contains', match: ['zambia super league'] },
+    { label: 'Asian Cup', tier: 3, mode: 'contains', match: ['asian cup'] },
+    { label: 'Gold Cup', tier: 3, mode: 'contains', match: ['gold cup'] },
+    { label: 'Olympic Football', tier: 3, mode: 'contains', match: ['olympic games', 'olympics'] },
 ];
 
 const norm = (s?: string) => (s || '').toLowerCase().trim();

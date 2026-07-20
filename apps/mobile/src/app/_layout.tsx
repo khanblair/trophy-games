@@ -4,12 +4,14 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { ConvexProvider, ConvexReactClient, useQuery } from "convex/react";
-import { Sun, Moon, Bell } from 'lucide-react-native';
+import { Sun, Moon, Bell, Settings } from 'lucide-react-native';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+import { UserProvider, useUser } from '../context/UserContext';
+import { LanguageProvider } from '../context/LanguageContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { api } from '@trophy-games/backend';
 
@@ -48,7 +50,11 @@ export default function RootLayout() {
         <SafeAreaProvider>
             <ConvexProvider client={convex}>
                 <AppThemeProvider>
-                    <RootLayoutContent />
+                    <LanguageProvider>
+                        <UserProvider>
+                            <RootLayoutContent />
+                        </UserProvider>
+                    </LanguageProvider>
                 </AppThemeProvider>
             </ConvexProvider>
         </SafeAreaProvider>
@@ -58,10 +64,17 @@ export default function RootLayout() {
 function RootLayoutContent() {
     const router = useRouter();
     const { theme, isDark, themeColors, toggleTheme } = useTheme();
+    const { username, isLoading: isUserLoading } = useUser();
     const { expoPushToken } = usePushNotifications();
     const insets = useSafeAreaInsets();
 
     const [deviceId, setDeviceId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isUserLoading && !username) {
+            router.replace('/onboarding');
+        }
+    }, [username, isUserLoading]);
 
     useEffect(() => {
         const getDeviceId = async () => {
@@ -135,6 +148,12 @@ function RootLayoutContent() {
                                     </View>
                                 )}
                             </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => router.push('/settings')}
+                                style={styles.bellButton}
+                            >
+                                <Settings size={22} color={themeColors.text} strokeWidth={2.5} />
+                            </TouchableOpacity>
                             <ThemeToggle onToggle={toggleTheme} currentTheme={theme} themeColors={themeColors} />
                         </View>
                     )
@@ -143,7 +162,9 @@ function RootLayoutContent() {
                         headerShown: true,
                         title: '',
                     }} />
+                    <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                     <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+                    <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Settings' }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
                 </Stack>
             </View>

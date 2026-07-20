@@ -7,6 +7,7 @@ import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { DatePickerStrip } from '../../components/DatePickerStrip';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
 import { typography } from '../../theme/typography';
 // Mobile reads ONLY from Convex — no direct FootyStats API calls.
 import * as Application from 'expo-application';
@@ -32,6 +33,7 @@ export default function VIPTipsScreen() {
     const [verifyingToken, setVerifyingToken] = useState(false);
     const [requesting, setRequesting] = useState(false);
     const [deviceId, setDeviceId] = useState('');
+    const { username } = useUser();
 
     const dates = useMemo(() => {
         const d = [];
@@ -62,7 +64,7 @@ export default function VIPTipsScreen() {
             // Check membership status via Convex
             if (convex) {
                 try {
-                    const tokens = await convex.query(api.tokens.getTokensForDevice, { deviceId: id });
+                    const tokens = await convex.query(api.tokens.getTokensForDevice, { deviceId: id, username: username || undefined });
                     const hasVIPToken = tokens?.some((t: any) => t.type === 'vip' && t.isActive);
                     setMemberStatus(hasVIPToken ? 'active' : 'none');
                 } catch {
@@ -72,8 +74,10 @@ export default function VIPTipsScreen() {
                 setMemberStatus('none');
             }
         };
-        init();
-    }, []);
+        if (username !== undefined) {
+            init();
+        }
+    }, [username]);
 
     const loadData = useCallback(async (isRefresh = false) => {
         if (memberStatus !== 'active') return;
@@ -114,6 +118,7 @@ export default function VIPTipsScreen() {
         try {
             await convex.mutation(api.tokens.createMembershipRequest, {
                 deviceId,
+                username: username || undefined,
                 type: 'vip'
             });
             setMemberStatus('pending');
@@ -130,7 +135,8 @@ export default function VIPTipsScreen() {
         try {
             const result = await convex.mutation(api.tokens.claimToken, {
                 token: tokenInput.trim(),
-                deviceId
+                deviceId,
+                username: username || undefined
             });
             if (result.success) {
                 setMemberStatus('active');
@@ -138,7 +144,7 @@ export default function VIPTipsScreen() {
                 setTokenInput('');
                 Alert.alert('Access Granted!', 'Welcome to VIP! You now have access to elite predictions.');
             } else {
-                Alert.alert('Invalid Token', result.reason || 'This token is not valid for your device.');
+                Alert.alert('Invalid Token', result.reason || 'This token is not valid for your account.');
             }
         } catch {
             Alert.alert('Error', 'Failed to verify token. Please try again.');

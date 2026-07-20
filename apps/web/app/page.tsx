@@ -23,6 +23,7 @@ interface DashboardStats {
   paidTips: number;
   vipTips: number;
   winRate: number;
+  totalUsers: number;
 }
 
 export default function DashboardPage() {
@@ -33,6 +34,7 @@ export default function DashboardPage() {
     paidTips: 0,
     vipTips: 0,
     winRate: 0,
+    totalUsers: 0,
   });
   const [loading, setLoading] = React.useState(true);
   const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
@@ -49,6 +51,7 @@ export default function DashboardPage() {
         paidTips: data.paidTips || 0,
         vipTips: data.vipTips || 0,
         winRate: data.winRate || 0,
+        totalUsers: data.totalUsers || 0,
       });
       setLastUpdated(data.lastUpdated || null);
     } catch (e) {
@@ -90,6 +93,13 @@ export default function DashboardPage() {
       icon: TrendingUp, 
       trend: 'Historical',
       color: 'bg-purple-600'
+    },
+    { 
+      name: 'Total Users', 
+      value: stats.totalUsers.toString(), 
+      icon: Users, 
+      trend: 'Registered',
+      color: 'bg-indigo-600'
     },
   ];
 
@@ -230,15 +240,15 @@ export default function DashboardPage() {
               </div>
             </Link>
             <Link
-              href="/admin/tokens"
+              href="/admin/users"
               className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-purple-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Users size={18} />
               </div>
               <div>
-                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">Access Tokens</h4>
-                <p className="text-xs text-muted hidden sm:block">Manage memberships</p>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider">Manage Users</h4>
+                <p className="text-xs text-muted hidden sm:block">Block, clear attempts</p>
               </div>
             </Link>
           </div>
