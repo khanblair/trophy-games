@@ -4,11 +4,14 @@ import { api } from "@trophy-games/backend";
 
 export const dynamic = 'force-dynamic';
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+function getConvex() {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    return url ? new ConvexHttpClient(url) : null;
+}
 
 // GET /api/analysis?date=YYYY-MM-DD - Get analysis for a specific date
 export async function GET(req: Request) {
+  const convex = getConvex();
   if (!convex) {
     return NextResponse.json({ error: 'Convex not configured' }, { status: 500 });
   }

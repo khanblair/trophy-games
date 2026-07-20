@@ -5,8 +5,10 @@ import { api } from "@trophy-games/backend";
 
 export const dynamic = 'force-dynamic';
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+function getConvex() {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    return url ? new ConvexHttpClient(url) : null;
+}
 
 // Rich per-match details (form, H2H, corners, detailed odds, standings, logos)
 // come from the proxy /match-stats endpoint on demand. Runs server-side, so the
@@ -23,6 +25,7 @@ export async function GET(req: Request) {
 
     try {
         const stats = await fetchFootyStatsMatchStats(id);
+        const convex = getConvex();
 
         // Write rich data back to Convex so mobile can access it
         if (convex) {

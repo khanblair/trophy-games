@@ -6,8 +6,10 @@ import { deriveLeaguesFromMatches } from '@/lib/footystats';
 
 export const dynamic = 'force-dynamic';
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+function getConvex() {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    return url ? new ConvexHttpClient(url) : null;
+}
 
 const empty = {
     totalLeagues: 0,
@@ -22,6 +24,7 @@ const empty = {
 // Stats computed from Convex matches (kept in sync with the proxy by the cron).
 export async function GET() {
     try {
+        const convex = getConvex();
         if (!convex) {
             return NextResponse.json(empty);
         }
