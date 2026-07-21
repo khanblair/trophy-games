@@ -83,6 +83,7 @@ export function DatePickerStrip({
                                 backgroundColor: isSelected
                                     ? themeColors.primary
                                     : themeColors.cardBgSecondary,
+                                borderColor: 'transparent',
                                 borderWidth: 0,
                                 shadowColor: isSelected ? themeColors.primary : '#000',
                                 shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 2 },

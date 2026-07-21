@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 
@@ -15,13 +16,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+    const systemColorScheme = useColorScheme();
+    const [theme, setThemeState] = useState<ThemeType>('system');
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
         const loadTheme = async () => {
             try {
-                await AsyncStorage.getItem('user-theme');
-                // Enforce dark theme
+                const savedTheme = await AsyncStorage.getItem('user-theme') as ThemeType | null;
+                if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+                    setThemeState(savedTheme);
+                }
             } catch (e) {
                 console.warn(e);
             } finally {
@@ -32,17 +37,21 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const toggleTheme = async () => {
-        await AsyncStorage.setItem('user-theme', 'dark');
+        const newTheme = theme === 'dark' ? 'light' : 'dark';
+        setThemeState(newTheme);
+        await AsyncStorage.setItem('user-theme', newTheme);
     };
 
-    const setTheme = async (_newTheme: ThemeType) => {
-        await AsyncStorage.setItem('user-theme', 'dark');
+    const setTheme = async (newTheme: ThemeType) => {
+        setThemeState(newTheme);
+        await AsyncStorage.setItem('user-theme', newTheme);
     };
 
-    const isDark = true;
+    const actualIsDark = theme === 'system' ? (systemColorScheme === 'dark' || !systemColorScheme) : theme === 'dark';
+    
+    // Override to FORCE dark mode for premium fintech redesign
+    const isDark = true || actualIsDark;
     const themeColors = colors.dark;
-
-    if (!isLoaded) return null; // Wait for storage (optional, but good practice)
 
     return (
         <ThemeContext.Provider value={{ theme: 'dark', isDark, themeColors, toggleTheme, setTheme }}>
