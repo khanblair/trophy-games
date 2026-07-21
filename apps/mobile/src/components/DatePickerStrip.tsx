@@ -1,6 +1,5 @@
 import { useRef, useEffect } from 'react';
 import {
-    View,
     Text,
     TouchableOpacity,
     ScrollView,
@@ -23,7 +22,7 @@ const ITEM_SPACING = 4;
 const MIN_ITEM_WIDTH = 44;
 
 export function DatePickerStrip({
-    dates,
+    dates = [],
     selectedDate,
     onSelectDate,
     labelOverrides = {},
@@ -34,14 +33,16 @@ export function DatePickerStrip({
 
     // How wide each button should be:
     // Try to fill the screen with all items. Fall back to MIN_ITEM_WIDTH.
+    const count = dates.length || 1;
     const horizontalPadding = 12 * 2; // paddingHorizontal on the strip
-    const totalSpacing = ITEM_SPACING * (dates.length - 1);
-    const naturalWidth = (screenWidth - horizontalPadding - totalSpacing) / dates.length;
+    const totalSpacing = ITEM_SPACING * Math.max(0, count - 1);
+    const naturalWidth = (screenWidth - horizontalPadding - totalSpacing) / count;
     const itemWidth = Math.max(naturalWidth, MIN_ITEM_WIDTH);
 
     // Scroll so that the selected item is centred when the strip mounts or
     // when the selected date changes.
     useEffect(() => {
+        if (!dates.length) return;
         const idx = dates.indexOf(selectedDate);
         if (idx === -1 || !scrollRef.current) return;
 
@@ -66,11 +67,22 @@ export function DatePickerStrip({
             decelerationRate="fast"
         >
             {dates.map((dateStr) => {
-                const d = new Date(dateStr + 'T12:00:00');
                 const isSelected = dateStr === selectedDate;
-                const label =
-                    labelOverrides[dateStr] ??
-                    d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                
+                let label = labelOverrides[dateStr];
+                let dayNum = dateStr;
+
+                try {
+                    const parsedDate = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`);
+                    if (!isNaN(parsedDate.getTime())) {
+                        if (!label) {
+                            label = parsedDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                        }
+                        dayNum = String(parsedDate.getDate());
+                    }
+                } catch {
+                    if (!label) label = dateStr;
+                }
 
                 return (
                     <TouchableOpacity
@@ -87,7 +99,7 @@ export function DatePickerStrip({
                                 borderColor: isSelected
                                     ? themeColors.primary
                                     : 'transparent',
-                                borderWidth: 0,
+                                borderWidth: isSelected ? 1 : 0,
                                 shadowColor: isSelected ? themeColors.primary : '#000',
                                 shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 0 },
                                 shadowOpacity: isSelected ? 0.4 : 0,
@@ -99,7 +111,7 @@ export function DatePickerStrip({
                         <Text
                             style={[
                                 styles.dayText,
-                                { color: isSelected ? '#0B0E12' : themeColors.textMuted },
+                                { color: isSelected ? '#090A0C' : themeColors.textMuted },
                             ]}
                         >
                             {label}
@@ -107,10 +119,10 @@ export function DatePickerStrip({
                         <Text
                             style={[
                                 styles.numText,
-                                { color: isSelected ? '#0B0E12' : themeColors.text },
+                                { color: isSelected ? '#090A0C' : themeColors.text },
                             ]}
                         >
-                            {d.getDate()}
+                            {dayNum}
                         </Text>
                     </TouchableOpacity>
                 );
