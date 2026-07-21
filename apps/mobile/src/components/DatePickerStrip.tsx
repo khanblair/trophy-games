@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import {
+    View,
     Text,
     TouchableOpacity,
     ScrollView,
@@ -82,12 +83,11 @@ export function DatePickerStrip({
                                 width: itemWidth,
                                 backgroundColor: isSelected
                                     ? themeColors.primary
-                                    : themeColors.cardBgSecondary,
+                                    : 'rgba(255,255,255,0.05)',
                                 borderColor: isSelected
                                     ? themeColors.primary
-                                    : 'transparent',
-                                borderWidth: 0,
-                                shadowColor: isSelected ? themeColors.primary : '#000',
+                                    : 'rgba(255,255,255,0.08)',
+                                shadowColor: isSelected ? themeColors.primary : 'transparent',
                                 shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 0 },
                                 shadowOpacity: isSelected ? 0.4 : 0,
                                 shadowRadius: isSelected ? 12 : 0,
@@ -130,6 +130,7 @@ const styles = StyleSheet.create({
         borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
     },
     dayText: {
         ...typography.dayText,

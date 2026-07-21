@@ -47,7 +47,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         await AsyncStorage.setItem('user-theme', newTheme);
     };
 
-    const isDark = theme === 'system' ? (systemColorScheme === 'dark' || !systemColorScheme) : theme === 'dark';
+    const isDark = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
     const themeColors = isDark ? colors.dark : colors.light;
 
     if (!isLoaded) return null;
