@@ -233,23 +233,24 @@ export const MatchCard = ({
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 20,
-        borderWidth: 1,
+        borderRadius: 16,
         paddingHorizontal: 16,
-        paddingTop: 14,
-        paddingBottom: 14,
-        marginVertical: 4,
+        paddingTop: 16,
+        paddingBottom: 16,
+        marginVertical: 6,
+        // Remove harsh borders, use subtle shadow
+        borderWidth: 0,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3, // Soft ambient shadow in dark mode needs a bit of opacity
-        shadowRadius: 24,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 4,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     leagueRow: {
         flexDirection: 'row',

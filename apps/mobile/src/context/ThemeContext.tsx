@@ -37,21 +37,22 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const toggleTheme = async () => {
-        const newTheme = theme === 'dark' ? 'light' : 'dark';
-        setThemeState(newTheme);
-        await AsyncStorage.setItem('user-theme', newTheme);
+        // Dark mode only
+        setThemeState('dark');
+        await AsyncStorage.setItem('user-theme', 'dark');
     };
 
     const setTheme = async (newTheme: ThemeType) => {
-        setThemeState(newTheme);
-        await AsyncStorage.setItem('user-theme', newTheme);
+        // Dark mode only
+        setThemeState('dark');
+        await AsyncStorage.setItem('user-theme', 'dark');
     };
 
-    const isDark = theme === 'system' ? (systemColorScheme === 'dark' || !systemColorScheme) : theme === 'dark';
-    const themeColors = isDark ? colors.dark : colors.light;
+    const isDark = true; // Forced Dark Mode
+    const themeColors = colors.dark;
 
     return (
-        <ThemeContext.Provider value={{ theme, isDark, themeColors, toggleTheme, setTheme }}>
+        <ThemeContext.Provider value={{ theme: 'dark', isDark, themeColors, toggleTheme, setTheme }}>
             {children}
         </ThemeContext.Provider>
     );

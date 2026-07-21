@@ -151,9 +151,9 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {statCards.map((stat) => (
-          <div key={stat.name} className="group relative overflow-hidden rounded-[20px] border border-border-hairline bg-surface p-4 md:p-6 shadow-lg shadow-black/20 hover:shadow-xl transition-all">
+          <div key={stat.name} className="group relative overflow-hidden rounded-2xl bg-surface p-4 md:p-6 shadow-xl shadow-black/40 hover:shadow-2xl transition-all">
             <div className="flex items-center justify-between mb-3">
-              <div className={`flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl ${stat.color} text-white transition-colors`}>
+              <div className={`flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl ${stat.color} text-white transition-colors`}>
                 <stat.icon size={18} />
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
             Match Distribution
           </h2>
 
-          <div className="rounded-[20px] border border-border-hairline bg-surface p-6 shadow-lg shadow-black/20">
+          <div className="rounded-2xl bg-surface p-6 shadow-xl shadow-black/40">
             <div className="space-y-4">
               {matchTypeStats.map((type) => (
                 <div key={type.label} className="flex items-center justify-between">
@@ -205,9 +205,9 @@ export default function DashboardPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <Link
               href="/matches"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Swords size={18} />
               </div>
               <div>
@@ -217,9 +217,9 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/leagues"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-zinc-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-zinc-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Trophy size={18} />
               </div>
               <div>
@@ -229,9 +229,9 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/history"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-brand-green flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-brand-green flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Target size={18} />
               </div>
               <div>
@@ -241,9 +241,9 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/admin/users"
-              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-[20px] border border-border-hairline bg-surface hover:bg-surface-secondary shadow-lg shadow-black/20 hover:shadow-xl transition-all text-left group"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group"
             >
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                 <Users size={18} />
               </div>
               <div>

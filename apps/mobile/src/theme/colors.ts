@@ -1,23 +1,23 @@
 export const colors = {
     dark: {
-        background: '#0B0E12',
-        cardBg: '#151920',
-        cardBgSecondary: '#1C212A',
-        primary: '#2FD673',
-        primaryMuted: 'rgba(47, 214, 115, 0.15)',
-        secondary: '#1C212A',
-        text: '#F4F5F7',
-        textMuted: '#8A909C',
-        border: 'rgba(255,255,255,0.08)',
-        gray5: '#1C212A',
+        background: '#090A0C', // Deep stealth dark blue-gray
+        cardBg: '#121418', // Slightly elevated card
+        cardBgSecondary: '#1A1D24', // More elevated elements
+        primary: '#00C805', // Vibrant Robinhood green
+        primaryMuted: 'rgba(0, 200, 5, 0.15)',
+        secondary: '#1A1D24',
+        text: '#FFFFFF',
+        textMuted: '#8B949E',
+        border: 'rgba(255,255,255,0.06)',
+        gray5: '#21262D',
         orange9: '#F97316',
         blue2: '#1E3A5F',
         blue10: '#60A5FA',
-        success: '#2FD673',
+        success: '#00C805',
         warning: '#EAB308',
         error: '#EF4444',
-        vip: '#2FD673',
-        glass: 'rgba(255, 255, 255, 0.05)',
+        vip: '#00C805',
+        glass: 'rgba(255, 255, 255, 0.04)',
     },
     light: {
         background: '#F8FAFC',
