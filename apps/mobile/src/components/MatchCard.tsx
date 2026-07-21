@@ -210,7 +210,7 @@ export const MatchCard = ({
                             <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>WIN RATE</Text>
                             <View style={[styles.predictionChip, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}>
                                 <Text
-                                    style={styles.predictionValue}
+                                    style={[styles.predictionValue, { color: '#090A0C' }]}
                                     numberOfLines={1}
                                     adjustsFontSizeToFit
                                     minimumFontScale={0.7}
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     unlockButtonText: {
-        color: 'white',
+        color: '#090A0C',
         ...typography.result,
         letterSpacing: 0.3,
     },
