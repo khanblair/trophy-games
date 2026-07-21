@@ -47,16 +47,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         await AsyncStorage.setItem('user-theme', newTheme);
     };
 
-    const actualIsDark = theme === 'system' ? (systemColorScheme === 'dark' || !systemColorScheme) : theme === 'dark';
-    
-    // Override to FORCE dark mode for premium fintech redesign
-    const isDark = true || actualIsDark;
-    const themeColors = colors.dark;
+    const isDark = theme === 'system' ? (systemColorScheme === 'dark' || !systemColorScheme) : theme === 'dark';
+    const themeColors = isDark ? colors.dark : colors.light;
 
-    if (!isLoaded) return null; // Wait for storage
+    if (!isLoaded) return null;
 
     return (
-        <ThemeContext.Provider value={{ theme: 'dark', isDark, themeColors, toggleTheme, setTheme }}>
+        <ThemeContext.Provider value={{ theme, isDark, themeColors, toggleTheme, setTheme }}>
             {children}
         </ThemeContext.Provider>
     );

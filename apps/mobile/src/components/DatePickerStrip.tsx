@@ -83,13 +83,15 @@ export function DatePickerStrip({
                                 backgroundColor: isSelected
                                     ? themeColors.primary
                                     : themeColors.cardBgSecondary,
-                                borderColor: 'transparent',
+                                borderColor: isSelected
+                                    ? themeColors.primary
+                                    : 'transparent',
                                 borderWidth: 0,
                                 shadowColor: isSelected ? themeColors.primary : '#000',
-                                shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 2 },
-                                shadowOpacity: isSelected ? 0.4 : 0.1,
-                                shadowRadius: isSelected ? 12 : 4,
-                                elevation: isSelected ? 4 : 1,
+                                shadowOffset: isSelected ? { width: 0, height: 4 } : { width: 0, height: 0 },
+                                shadowOpacity: isSelected ? 0.4 : 0,
+                                shadowRadius: isSelected ? 12 : 0,
+                                elevation: isSelected ? 4 : 0,
                             },
                         ]}
                     >
