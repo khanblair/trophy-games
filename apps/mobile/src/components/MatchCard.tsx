@@ -2,6 +2,9 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Lock } from 'lucide-react-native';
 import { useState } from 'react';
 import { getCountryFlagUrl } from '../lib/flags';
+import { useTheme } from '../context/ThemeContext';
+import { typography } from '../theme/typography';
+import { useRouter } from 'expo-router';
 
 const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
     const [failed, setFailed] = useState(false);
@@ -28,10 +31,6 @@ const badgeStyles = StyleSheet.create({
     initialsBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
     initials: { fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#888', letterSpacing: 0.3 },
 });
-
-import { useTheme } from '../context/ThemeContext';
-import { typography } from '../theme/typography';
-import { useRouter } from 'expo-router';
 
 interface MatchCardProps {
     leagueName: string;
@@ -68,7 +67,6 @@ export const MatchCard = ({
     homeTeamLogo,
     awayTeam,
     awayTeamLogo,
-    prediction,
     odds,
     homeOdds,
     awayOdds,
@@ -325,7 +323,7 @@ const styles = StyleSheet.create({
     },
     predictionRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justify.content: 'space-between',
         alignItems: 'flex-end',
     },
     predictionWrap: {
