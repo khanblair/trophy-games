@@ -67,6 +67,7 @@ export const MatchCard = ({
     homeTeamLogo,
     awayTeam,
     awayTeamLogo,
+    prediction,
     odds,
     homeOdds,
     awayOdds,
@@ -128,6 +129,8 @@ export const MatchCard = ({
         return '—';
     };
     const winRate = computeWinRate();
+    const displayPrediction = prediction || winRate;
+    const predictionLabel = prediction ? 'PREDICTION' : 'WIN RATE';
 
     return (
         <TouchableOpacity
@@ -205,7 +208,7 @@ export const MatchCard = ({
                 ) : (
                     <View style={styles.predictionRow}>
                         <View style={styles.predictionWrap}>
-                            <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>WIN RATE</Text>
+                            <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>{predictionLabel}</Text>
                             <View style={[styles.predictionChip, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}>
                                 <Text
                                     style={[styles.predictionValue, { color: '#090A0C' }]}
@@ -213,7 +216,7 @@ export const MatchCard = ({
                                     adjustsFontSizeToFit
                                     minimumFontScale={0.7}
                                 >
-                                    {winRate}
+                                    {displayPrediction}
                                 </Text>
                             </View>
                         </View>
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
     },
     predictionRow: {
         flexDirection: 'row',
-        justify.content: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'flex-end',
     },
     predictionWrap: {
