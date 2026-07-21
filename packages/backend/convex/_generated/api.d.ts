@@ -17,6 +17,7 @@ import type * as leagues from "../leagues.js";
 import type * as matches from "../matches.js";
 import type * as purchases from "../purchases.js";
 import type * as tokens from "../tokens.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   matches: typeof matches;
   purchases: typeof purchases;
   tokens: typeof tokens;
+  users: typeof users;
 }>;
 
 /**
