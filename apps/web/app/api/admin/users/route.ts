@@ -1,3 +1,7 @@
+import { NextResponse } from 'next/server';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '@trophy-games/backend';
+
 export const dynamic = 'force-dynamic';
 
 function getConvex() {
