@@ -53,6 +53,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const isDark = true || actualIsDark;
     const themeColors = colors.dark;
 
+    if (!isLoaded) return null; // Wait for storage
+
     return (
         <ThemeContext.Provider value={{ theme: 'dark', isDark, themeColors, toggleTheme, setTheme }}>
             {children}

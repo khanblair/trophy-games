@@ -128,7 +128,6 @@ const styles = StyleSheet.create({
         borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
     },
     dayText: {
         ...typography.dayText,
