@@ -14,6 +14,7 @@ import {
     Users,
     UserCog,
     Brain,
+    Target,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -34,6 +35,7 @@ const adminItems = [
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Access Tokens', href: '/admin/tokens', icon: Key },
     { name: 'Requests', href: '/admin/requests', icon: UserCog },
+    { name: 'Predictions', href: '/admin/predictions', icon: Target },
 ];
 
 interface SidebarProps {
