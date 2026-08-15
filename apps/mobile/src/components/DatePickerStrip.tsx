@@ -31,19 +31,16 @@ export function DatePickerStrip({
     const { width: screenWidth } = useWindowDimensions();
     const scrollRef = useRef<ScrollView>(null);
 
-    // How wide each button should be:
-    // Try to fill the screen with all items. Fall back to MIN_ITEM_WIDTH.
-    const count = dates.length || 1;
-    const horizontalPadding = 12 * 2; // paddingHorizontal on the strip
+    const safeDates = dates || [];
+    const count = safeDates.length || 1;
+    const horizontalPadding = 12 * 2; 
     const totalSpacing = ITEM_SPACING * Math.max(0, count - 1);
     const naturalWidth = (screenWidth - horizontalPadding - totalSpacing) / count;
     const itemWidth = Math.max(naturalWidth, MIN_ITEM_WIDTH);
 
-    // Scroll so that the selected item is centred when the strip mounts or
-    // when the selected date changes.
     useEffect(() => {
-        if (!dates.length) return;
-        const idx = dates.indexOf(selectedDate);
+        if (!safeDates.length) return;
+        const idx = safeDates.indexOf(selectedDate);
         if (idx === -1 || !scrollRef.current) return;
 
         const itemTotalWidth = itemWidth + ITEM_SPACING;
@@ -51,7 +48,7 @@ export function DatePickerStrip({
         const scrollX = itemCenter - screenWidth / 2;
 
         scrollRef.current.scrollTo({ x: Math.max(0, scrollX), animated: true });
-    }, [selectedDate, dates, itemWidth, screenWidth]);
+    }, [selectedDate, safeDates, itemWidth, screenWidth]);
 
     return (
         <ScrollView
@@ -62,18 +59,18 @@ export function DatePickerStrip({
                 styles.contentContainer,
                 { paddingHorizontal: 12 },
             ]}
-            // Snap so swiping feels intentional rather than free-scrolling
             snapToInterval={itemWidth + ITEM_SPACING}
             decelerationRate="fast"
         >
-            {dates.map((dateStr) => {
-                const isSelected = dateStr === selectedDate;
+            {safeDates.map((dateStr) => {
+                const safeDateStr = String(dateStr || '');
+                const isSelected = safeDateStr === selectedDate;
                 
-                let label = labelOverrides[dateStr];
-                let dayNum = dateStr;
+                let label = labelOverrides[safeDateStr];
+                let dayNum = safeDateStr;
 
                 try {
-                    const parsedDate = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`);
+                    const parsedDate = new Date(safeDateStr.includes('T') ? safeDateStr : `${safeDateStr}T12:00:00`);
                     if (!isNaN(parsedDate.getTime())) {
                         if (!label) {
                             label = parsedDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
@@ -81,13 +78,13 @@ export function DatePickerStrip({
                         dayNum = String(parsedDate.getDate());
                     }
                 } catch {
-                    if (!label) label = dateStr;
+                    if (!label) label = safeDateStr;
                 }
 
                 return (
                     <TouchableOpacity
-                        key={dateStr}
-                        onPress={() => onSelectDate(dateStr)}
+                        key={safeDateStr || Math.random().toString()}
+                        onPress={() => onSelectDate(safeDateStr)}
                         activeOpacity={0.7}
                         style={[
                             styles.dateButton,
@@ -114,7 +111,7 @@ export function DatePickerStrip({
                                 { color: isSelected ? '#090A0C' : themeColors.textMuted },
                             ]}
                         >
-                            {label}
+                            {String(label || '')}
                         </Text>
                         <Text
                             style={[
@@ -122,7 +119,7 @@ export function DatePickerStrip({
                                 { color: isSelected ? '#090A0C' : themeColors.text },
                             ]}
                         >
-                            {dayNum}
+                            {String(dayNum || '')}
                         </Text>
                     </TouchableOpacity>
                 );

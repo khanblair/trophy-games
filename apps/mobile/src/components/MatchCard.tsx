@@ -8,7 +8,8 @@ import { useRouter } from 'expo-router';
 
 const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
     const [failed, setFailed] = useState(false);
-    const initials = name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
+    const safeName = String(name || '');
+    const initials = safeName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
     const flagUri = !uri || failed ? getCountryFlagUrl(name) : undefined;
 
     if (flagUri) {
@@ -129,8 +130,9 @@ export const MatchCard = ({
         return '—';
     };
     const winRate = computeWinRate();
-    const displayPrediction = prediction || winRate;
-    const predictionLabel = prediction ? 'PREDICTION' : 'WIN RATE';
+    const safePrediction = typeof prediction === 'string' ? prediction : undefined;
+    const displayPrediction = safePrediction || winRate;
+    const predictionLabel = safePrediction ? 'PREDICTION' : 'WIN RATE';
 
     return (
         <TouchableOpacity
@@ -216,14 +218,14 @@ export const MatchCard = ({
                                     adjustsFontSizeToFit
                                     minimumFontScale={0.7}
                                 >
-                                    {displayPrediction}
+                                    {String(displayPrediction || '')}
                                 </Text>
                             </View>
                         </View>
 
                         <View style={styles.oddsWrap}>
                             <Text style={[styles.oddsLabel, { color: themeColors.textMuted }]}>ODDS</Text>
-                            <Text style={[styles.oddsValue, { color: themeColors.text }]}>{odds || '—'}</Text>
+                            <Text style={[styles.oddsValue, { color: themeColors.text }]}>{String(odds || '—')}</Text>
                         </View>
                     </View>
                 )}
