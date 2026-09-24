@@ -5,9 +5,11 @@ import { api } from "@trophy-games/backend";
 
 export const dynamic = 'force-dynamic';
 
+const FALLBACK_CONVEX_URL = 'https://grateful-eel-253.eu-west-1.convex.cloud';
+
 function getConvex() {
-    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-    return url ? new ConvexHttpClient(url) : null;
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL || FALLBACK_CONVEX_URL;
+    return new ConvexHttpClient(url);
 }
 
 // Rich per-match details (form, H2H, corners, detailed odds, standings, logos)
@@ -24,8 +26,36 @@ export async function GET(req: Request) {
     }
 
     try {
-        const stats = await fetchFootyStatsMatchStats(id);
         const convex = getConvex();
+
+        // For manual matches, return data from Convex directly
+        if (id.startsWith('manual-')) {
+            const match = await convex.query(api.matches.getById, { matchId: id });
+            if (!match) {
+                return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+            }
+            return NextResponse.json({
+                id: match.id,
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                league: match.league,
+                timestamp: match.timestamp,
+                status: match.status,
+                score: match.score,
+                homeScore: match.homeScore,
+                awayScore: match.awayScore,
+                odds: match.odds,
+                aiPrediction: match.aiPrediction,
+                homeTeamLogo: match.homeTeamLogo,
+                awayTeamLogo: match.awayTeamLogo,
+                leagueLogo: match.leagueLogo,
+                countryFlag: match.countryFlag,
+                matchType: match.matchType,
+                isTrending: match.isTrending,
+            });
+        }
+
+        const stats = await fetchFootyStatsMatchStats(id);
 
         // Write rich data back to Convex so mobile can access it
         if (convex) {

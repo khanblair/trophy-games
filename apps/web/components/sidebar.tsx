@@ -15,6 +15,7 @@ import {
     UserCog,
     Brain,
     Target,
+    PlusCircle,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -36,6 +37,7 @@ const adminItems = [
     { name: 'Access Tokens', href: '/admin/tokens', icon: Key },
     { name: 'Requests', href: '/admin/requests', icon: UserCog },
     { name: 'Predictions', href: '/admin/predictions', icon: Target },
+    { name: 'Add Match', href: '/admin/matches/new', icon: PlusCircle },
 ];
 
 interface SidebarProps {

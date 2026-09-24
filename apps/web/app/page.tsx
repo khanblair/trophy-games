@@ -12,7 +12,8 @@ import {
   Users,
   Crown,
   DollarSign,
-  Star
+  Star,
+  PlusCircle
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -203,6 +204,21 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <h2 className="text-lg md:text-xl font-semibold text-foreground">Quick Actions</h2>
           <div className="grid gap-3 md:grid-cols-2">
+            <Link
+              href="/admin/matches/new"
+              className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group border border-blue-500/20"
+            >
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform shadow-md shadow-blue-500/30">
+                <PlusCircle size={18} />
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground text-sm uppercase tracking-wider flex items-center gap-1.5">
+                  Add Match
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">NEW</span>
+                </h4>
+                <p className="text-xs text-muted hidden sm:block">Add tip with odds & prediction</p>
+              </div>
+            </Link>
             <Link
               href="/matches"
               className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group"

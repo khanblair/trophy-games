@@ -4,5 +4,9 @@
     "private": true,
     "main": "./index.ts",
     "types": "./index.ts",
+    "exports": {
+        ".": "./index.ts",
+        "./subscriptions": "./subscriptions.ts"
+    },
     "dependencies": {}
 }

@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Crown, Calendar, Lock, Key, CheckCircle2, Clock, Send } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ConvexReactClient } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from '@trophy-games/backend';
 
 import { MatchCard } from '../../components/MatchCard';
@@ -12,8 +12,6 @@ import { typography } from '../../theme/typography';
 // Mobile reads ONLY from Convex — no direct FootyStats API calls.
 import * as Application from 'expo-application';
 
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 type MemberStatus = 'none' | 'pending' | 'approved' | 'active' | 'loading';
 
@@ -21,19 +19,40 @@ const toTitleCase = (str: string) =>
     str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
 export default function VIPTipsScreen() {
-    const [matches, setMatches] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const { themeColors } = useTheme();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedLeague, setSelectedLeague] = useState('All');
-    const [memberStatus, setMemberStatus] = useState<MemberStatus>('loading');
     const [tokenInput, setTokenInput] = useState('');
     const [enteringToken, setEnteringToken] = useState(false);
     const [verifyingToken, setVerifyingToken] = useState(false);
     const [requesting, setRequesting] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [deviceId, setDeviceId] = useState('');
     const { username } = useUser();
+
+    // Mutations
+    const requestMembershipMut = useMutation(api.tokens.createMembershipRequest);
+    const verifyTokenMut = useMutation(api.tokens.claimToken);
+
+    useEffect(() => {
+        const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
+        setDeviceId(id);
+    }, []);
+
+    const membershipStatusData = useQuery(
+        api.tokens.getMembershipStatus,
+        deviceId ? { deviceId, username: username || undefined, type: 'vip' } : 'skip'
+    );
+
+    const memberStatus = membershipStatusData ? membershipStatusData.status as MemberStatus : 'loading';
+
+    const matchesQuery = useQuery(
+        api.matches.getByTypeAndDate,
+        memberStatus === 'active' ? { matchType: 'vip', date: selectedDate, limit: 100 } : 'skip'
+    );
+
+    const matches = matchesQuery || [];
+    const loading = matchesQuery === undefined && memberStatus === 'active';
 
     const dates = useMemo(() => {
         const d = [];
@@ -57,71 +76,21 @@ export default function VIPTipsScreen() {
         });
     }, [matches, selectedLeague]);
 
-    useEffect(() => {
-        const init = async () => {
-            const id = Application.applicationId + '_' + (Application.nativeApplicationVersion || 'v1');
-            setDeviceId(id);
-            // Check membership status via Convex
-            if (convex) {
-                try {
-                    const tokens = await convex.query(api.tokens.getTokensForDevice, { deviceId: id, username: username || undefined });
-                    const hasVIPToken = tokens?.some((t: any) => t.type === 'vip' && t.isActive);
-                    setMemberStatus(hasVIPToken ? 'active' : 'none');
-                } catch {
-                    setMemberStatus('none');
-                }
-            } else {
-                setMemberStatus('none');
-            }
-        };
-        if (username !== undefined) {
-            init();
-        }
-    }, [username]);
-
-    const loadData = useCallback(async (isRefresh = false) => {
-        if (memberStatus !== 'active') return;
-        if (isRefresh) setRefreshing(true);
-        else setLoading(true);
-
-        // Mobile reads ONLY from Convex.
-        if (convex) {
-            try {
-                const vipMatches = await convex.query(api.matches.getByTypeAndDate, {
-                    matchType: 'vip',
-                    date: selectedDate,
-                    limit: 100
-                });
-                setMatches(vipMatches || []);
-                console.log(`[VIP Screen] Loaded ${vipMatches?.length || 0} vip matches from Convex for ${selectedDate}`);
-            } catch (convexError) {
-                console.warn('[VIP Screen] Convex failed:', convexError);
-                setMatches([]);
-            }
-        } else {
-            setMatches([]);
-        }
-
-        setLoading(false);
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await new Promise(r => setTimeout(r, 500));
         setRefreshing(false);
-    }, [memberStatus, selectedDate]);
-
-    useEffect(() => {
-        if (memberStatus === 'active') loadData();
-    }, [memberStatus, loadData, selectedDate]);
-
-    const onRefresh = useCallback(() => { loadData(true); }, [loadData]);
+    }, []);
 
     const requestMembership = async () => {
-        if (!deviceId || !convex) return;
+        if (!deviceId) return;
         setRequesting(true);
         try {
-            await convex.mutation(api.tokens.createMembershipRequest, {
+            await requestMembershipMut({
                 deviceId,
                 username: username || undefined,
                 type: 'vip'
             });
-            setMemberStatus('pending');
             Alert.alert('Request Sent!', 'Your VIP membership request has been submitted. You will receive a token once approved by admin.');
         } catch {
             Alert.alert('Error', 'Failed to send request. Please try again.');
@@ -130,16 +99,15 @@ export default function VIPTipsScreen() {
     };
 
     const verifyToken = async () => {
-        if (!tokenInput.trim() || !convex) return;
+        if (!tokenInput.trim() || !deviceId) return;
         setVerifyingToken(true);
         try {
-            const result = await convex.mutation(api.tokens.claimToken, {
+            const result = await verifyTokenMut({
                 token: tokenInput.trim(),
                 deviceId,
                 username: username || undefined
             });
             if (result.success) {
-                setMemberStatus('active');
                 setEnteringToken(false);
                 setTokenInput('');
                 Alert.alert('Access Granted!', 'Welcome to VIP! You now have access to elite predictions.');

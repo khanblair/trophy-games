@@ -180,18 +180,8 @@ async function fetchLiveData(): Promise<string> {
     return await response.text();
 }
 
-const CONVEX_URL = process.env.CONVEX_DEPLOY_URL;
-
-if (!CONVEX_URL) {
-    console.error("❌ CONVEX_DEPLOY_URL not set!");
-    console.log("\n📋 Setup Instructions:");
-    console.log("1. Go to: https://dashboard.convex.dev");
-    console.log("2. Select your project");
-    console.log("3. Go to Settings > Environment Variables");
-    console.log("4. Add: CONVEX_DEPLOY_URL=<your-convex-url>");
-    console.log("5. Add this as a GitHub Secret in your repo settings");
-    process.exit(1);
-}
+const FALLBACK_CONVEX_URL = 'https://grateful-eel-253.eu-west-1.convex.cloud';
+const CONVEX_URL = process.env.CONVEX_DEPLOY_URL || FALLBACK_CONVEX_URL;
 
 console.log("🚀 Starting scrape job...");
 console.log(`📡 Target: ${CONVEX_URL}`);

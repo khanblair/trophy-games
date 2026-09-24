@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Flame } from 'lucide-react';
+import Link from 'next/link';
+import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Flame, PlusCircle, Trash2 } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
 import { cn } from '@/lib/utils';
@@ -97,6 +98,27 @@ export default function MatchesPage() {
     // Tag a proxy match as free/paid/vip. Sends the full match so Convex can
     // upsert it (matches originate from the FootyStats proxy, not Convex).
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleDeleteMatch = async (matchId: string) => {
+        if (!confirm('Are you sure you want to delete this match?')) return;
+        setDeletingId(matchId);
+        setErrorMsg(null);
+        try {
+            const res = await fetch(`/api/admin/matches?id=${encodeURIComponent(matchId)}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || 'Failed to delete');
+            }
+            setMatches(prev => prev.filter(m => m.id !== matchId));
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Failed to delete match');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const updateMatchType = async (matchId: string, matchType: 'free' | 'paid' | 'vip' | 'unassigned') => {
         const match = matches.find(m => m.id === matchId);
@@ -206,15 +228,30 @@ export default function MatchesPage() {
                     <div className="p-6 md:w-1/3 space-y-4">
                         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-500">
                             <span>{match.league}</span>
-                            <span className={cn(
-                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                                match.matchType === 'vip' ? "bg-purple-500 text-white" :
-                                    match.matchType === 'paid' ? "bg-orange-500 text-white" :
-                                        match.matchType === 'unassigned' || !match.matchType ? "bg-zinc-500 text-white" :
-                                            "bg-blue-500 text-white"
-                            )}>
-                                {match.matchType || 'unassigned'}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className={cn(
+                                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                    match.matchType === 'vip' ? "bg-purple-500 text-white" :
+                                        match.matchType === 'paid' ? "bg-orange-500 text-white" :
+                                            match.matchType === 'unassigned' || !match.matchType ? "bg-zinc-500 text-white" :
+                                                "bg-blue-500 text-white"
+                                )}>
+                                    {match.matchType || 'unassigned'}
+                                </span>
+                                {match.id.startsWith('manual-') && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteMatch(match.id);
+                                        }}
+                                        disabled={deletingId === match.id}
+                                        title="Delete manual match"
+                                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors"
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-3">
@@ -386,6 +423,13 @@ export default function MatchesPage() {
                     <p className="text-zinc-500 dark:text-zinc-400">Live matches from the data feed. Tag tips and generate AI predictions — these sync to mobile.</p>
                 </div>
                 <div className="flex gap-2">
+                    <Link
+                        href="/admin/matches/new"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm"
+                    >
+                        <PlusCircle size={16} />
+                        Add Match
+                    </Link>
                     <button
                         onClick={handleRefresh}
                         className="flex items-center justify-center gap-1 px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"

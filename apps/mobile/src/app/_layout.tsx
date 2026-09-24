@@ -15,8 +15,9 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { api } from '@trophy-games/backend';
 
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+const FALLBACK_CONVEX_URL = 'https://grateful-eel-253.eu-west-1.convex.cloud';
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL || FALLBACK_CONVEX_URL;
+const convex = new ConvexReactClient(convexUrl);
 
 SplashScreen.preventAutoHideAsync();
 
@@ -165,6 +166,7 @@ function RootLayoutContent() {
                     <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                     <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Settings' }} />
+                    <Stack.Screen name="alerts" options={{ presentation: 'modal', title: 'Alerts' }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
                 </Stack>
             </View>

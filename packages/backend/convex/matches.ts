@@ -223,6 +223,13 @@ export const create = mutation({
                 away: v.string(),
                 draw: v.optional(v.string()),
             })),
+            aiPrediction: v.optional(v.object({
+                prediction: v.string(),
+                confidence: v.number(),
+                reasoning: v.array(v.string()),
+                suggestedBet: v.optional(v.string()),
+                generatedAt: v.optional(v.string()),
+            })),
         }),
     },
     handler: async (ctx, args) => {
@@ -286,6 +293,13 @@ export const update = mutation({
                 home: v.string(),
                 away: v.string(),
                 draw: v.optional(v.string()),
+            })),
+            aiPrediction: v.optional(v.object({
+                prediction: v.string(),
+                confidence: v.number(),
+                reasoning: v.array(v.string()),
+                suggestedBet: v.optional(v.string()),
+                generatedAt: v.optional(v.string()),
             })),
         }),
     },

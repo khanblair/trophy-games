@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
 import { Zap, Search } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ConvexReactClient } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { DatePickerStrip } from '../../components/DatePickerStrip';
@@ -11,8 +11,6 @@ import i18n from '../../locales';
 // Mobile reads ONLY from Convex — the background cron sync fetches FootyStats
 // data every 5 minutes and upserts it into Convex. No direct API calls from mobile.
 
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 const toTitleCase = (str: string) =>
     str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
@@ -20,58 +18,26 @@ const toTitleCase = (str: string) =>
 export default function FreeTipsScreen() {
     const [selectedLeague, setSelectedLeague] = useState('All');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [matches, setMatches] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const matchesQuery = useQuery(api.matches.getByTypeAndDate, {
+        matchType: 'free',
+        date: selectedDate,
+        limit: 100
+    });
+    
+    const matches = matchesQuery || [];
+    const loading = matchesQuery === undefined;
+
     const [refreshing, setRefreshing] = useState(false);
-    const [leagues, setLeagues] = useState<any[]>([]);
-    const [apiSource, setApiSource] = useState<'footystats' | 'convex'>('footystats');
     const [searchQuery, setSearchQuery] = useState('');
     const { themeColors } = useTheme();
 
-    const loadData = useCallback(async (isRefresh = false) => {
-        if (isRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
-
-        // Mobile reads ONLY from Convex. The background cron sync fetches
-        // FootyStats data every 5 minutes and upserts it into Convex.
-        if (convex) {
-            try {
-                const freeMatches = await convex.query(api.matches.getByTypeAndDate, {
-                    matchType: 'free',
-                    date: selectedDate,
-                    limit: 100
-                });
-                setMatches(freeMatches || []);
-                setApiSource('convex');
-                console.log(`[Home Screen] Loaded ${freeMatches?.length || 0} free matches from Convex for ${selectedDate}`);
-                // Derive the league chips from the actual matches (not the stale
-                // leagues table), most-matches first so World Cup leads.
-                const counts = new Map<string, number>();
-                for (const m of (freeMatches || [])) counts.set(m.league, (counts.get(m.league) || 0) + 1);
-                const leagueNames = [...counts.entries()]
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([name]) => ({ name, id: name }));
-                setLeagues(leagueNames);
-            } catch (convexError) {
-                console.warn('[Home Screen] Convex failed:', convexError);
-                setMatches([]);
-                setLeagues([]);
-            }
-        } else {
-            setMatches([]);
-            setLeagues([]);
-        }
-
-        setLoading(false);
-        setRefreshing(false);
-    }, [selectedDate]);
-
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
+    const leagues = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const m of matches) counts.set(m.league, (counts.get(m.league) || 0) + 1);
+        return [...counts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => ({ name, id: name }));
+    }, [matches]);
 
     const filteredMatches = matches.filter(m => {
         const leagueMatch = selectedLeague === 'All' || m.league === selectedLeague;
@@ -82,9 +48,12 @@ export default function FreeTipsScreen() {
         return leagueMatch && searchMatch;
     });
 
-    const onRefresh = useCallback(() => {
-        loadData(true);
-    }, [loadData]);
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        // Convex queries auto-update, but we add a small delay for UX
+        await new Promise(r => setTimeout(r, 500));
+        setRefreshing(false);
+    }, []);
 
     const dates = useMemo(() => {
         const d: string[] = [];
