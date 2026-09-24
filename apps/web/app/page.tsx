@@ -205,7 +205,7 @@ export default function DashboardPage() {
           <h2 className="text-lg md:text-xl font-semibold text-foreground">Quick Actions</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <Link
-              href="/admin/matches/new"
+              href="/matches?action=new"
               className="flex items-center gap-3 md:gap-4 w-full p-3 md:p-4 rounded-2xl bg-surface hover:bg-surface-secondary shadow-xl shadow-black/40 hover:shadow-2xl transition-all text-left group border border-blue-500/20"
             >
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform shadow-md shadow-blue-500/30">

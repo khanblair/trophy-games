@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Flame, PlusCircle, Trash2 } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
+import { ManualMatchModal } from '@/components/ManualMatchModal';
 import { cn } from '@/lib/utils';
 import { leagueTier, rankOrInfinity } from '@/lib/trending';
 
@@ -71,6 +72,16 @@ export default function MatchesPage() {
     // Modal States
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('action') === 'new' || params.get('manual') === 'true') {
+                setIsManualModalOpen(true);
+            }
+        }
+    }, []);
 
     const fetchMatches = async () => {
         try {
@@ -238,6 +249,11 @@ export default function MatchesPage() {
                                 )}>
                                     {match.matchType || 'unassigned'}
                                 </span>
+                                {match.id.startsWith('manual-') && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                        Manual
+                                    </span>
+                                )}
                                 {match.id.startsWith('manual-') && (
                                     <button
                                         onClick={(e) => {
@@ -423,13 +439,13 @@ export default function MatchesPage() {
                     <p className="text-zinc-500 dark:text-zinc-400">Live matches from the data feed. Tag tips and generate AI predictions — these sync to mobile.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Link
-                        href="/admin/matches/new"
+                    <button
+                        onClick={() => setIsManualModalOpen(true)}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm"
                     >
                         <PlusCircle size={16} />
-                        Add Match
-                    </Link>
+                        Manual Match
+                    </button>
                     <button
                         onClick={handleRefresh}
                         className="flex items-center justify-center gap-1 px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl transition-colors text-sm"
@@ -601,6 +617,13 @@ export default function MatchesPage() {
                     )}
                 </div>
             )}
+
+            {/* Manual Match Creation Modal */}
+            <ManualMatchModal
+                isOpen={isManualModalOpen}
+                onClose={() => setIsManualModalOpen(false)}
+                onSuccess={fetchMatches}
+            />
 
             {/* Detail Modal */}
             <MatchDetailModal

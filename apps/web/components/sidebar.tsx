@@ -37,7 +37,7 @@ const adminItems = [
     { name: 'Access Tokens', href: '/admin/tokens', icon: Key },
     { name: 'Requests', href: '/admin/requests', icon: UserCog },
     { name: 'Predictions', href: '/admin/predictions', icon: Target },
-    { name: 'Add Match', href: '/admin/matches/new', icon: PlusCircle },
+    { name: 'Add Match', href: '/matches?action=new', icon: PlusCircle },
 ];
 
 interface SidebarProps {
