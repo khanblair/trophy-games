@@ -87,15 +87,14 @@ export default function MembershipStoreScreen() {
     const vipTokenStatus = getLocalStatus(vipStatusData);
     const paidTokenStatus = getLocalStatus(paidStatusData);
 
-    // Status priority: real IAP purchase > manually entered token.
-    const iapConnected = !iapLoading && iapError === null;
-
-    // VIP status is shared across weekly and monthly (same tier)
-    const vipStatus: MemberStatus = iapConnected
-        ? (iapActiveSub?.tier === 'vip' ? 'active' : 'none')
+    // A verified Google Play subscription grants access for its tier.
+    // Otherwise, preserve the manually issued token/request status. Do not
+    // hide valid token access merely because the billing client is connected.
+    const vipStatus: MemberStatus = iapActiveSub?.tier === 'vip'
+        ? 'active'
         : vipTokenStatus;
-    const paidStatus: MemberStatus = iapConnected
-        ? (iapActiveSub?.tier === 'paid' ? 'active' : 'none')
+    const paidStatus: MemberStatus = iapActiveSub?.tier === 'paid'
+        ? 'active'
         : paidTokenStatus;
 
     const onRefresh = useCallback(async () => {
