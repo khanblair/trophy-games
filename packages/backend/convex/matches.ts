@@ -269,7 +269,8 @@ export const create = mutation({
     },
 });
 
-// UPDATE - Update match details
+// ADMIN — Update match details from the admin dashboard. Every editable admin
+// field is validated here, including the recorded result.
 export const update = mutation({
     args: {
         matchId: v.string(),
@@ -301,6 +302,7 @@ export const update = mutation({
                 suggestedBet: v.optional(v.string()),
                 generatedAt: v.optional(v.string()),
             })),
+            result: v.optional(v.union(v.literal('pending'), v.literal('win'), v.literal('lose'), v.literal('draw'))),
         }),
     },
     handler: async (ctx, args) => {
@@ -313,7 +315,7 @@ export const update = mutation({
             throw new Error(`Match with id ${args.matchId} not found`);
         }
 
-        const updates: any = {
+        const updates: Partial<Doc<"matches">> = {
             ...args.updates,
             updatedAt: new Date().toISOString(),
         };

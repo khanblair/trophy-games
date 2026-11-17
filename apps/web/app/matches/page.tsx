@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Flame, PlusCircle, Trash2 } from 'lucide-react';
+import { TrendingUp, Timer, Zap, CheckCircle2, AlertCircle, Loader2, Search, Filter, Calendar, Crown, DollarSign, Star, RefreshCw, Flame, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { MatchData } from '@trophy-games/shared';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
 import { ManualMatchModal } from '@/components/ManualMatchModal';
@@ -73,6 +73,7 @@ export default function MatchesPage() {
     const [selectedMatch, setSelectedMatch] = useState<MatchData | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+    const [editingMatch, setEditingMatch] = useState<MatchData | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -259,6 +260,17 @@ export default function MatchesPage() {
                                         Manual
                                     </span>
                                 )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingMatch(match);
+                                    }}
+                                    title="Edit match"
+                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                                >
+                                    <Pencil size={11} />
+                                    Edit
+                                </button>
                                 {match.id.startsWith('manual-') && (
                                     <button
                                         onClick={(e) => {
@@ -627,6 +639,16 @@ export default function MatchesPage() {
             <ManualMatchModal
                 isOpen={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}
+                onSuccess={fetchMatches}
+            />
+
+            {/* Edit Match Modal — the same form prefilled with the selected match.
+                The key remounts the form whenever the edit target changes. */}
+            <ManualMatchModal
+                key={editingMatch ? `edit-${editingMatch.id}-${editingMatch.updatedAt ?? ''}` : 'edit-none'}
+                isOpen={editingMatch !== null}
+                match={editingMatch}
+                onClose={() => setEditingMatch(null)}
                 onSuccess={fetchMatches}
             />
 
