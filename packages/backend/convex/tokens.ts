@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "convex/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -30,13 +31,10 @@ export const createToken = mutation({
     },
 });
 
-export const verifyToken = mutation({
-    args: {
-        token: v.string(),
-        deviceId: v.string(),
-        username: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
+async function verifyTokenHandler(
+    ctx: MutationCtx,
+    args: { token: string; deviceId: string; username?: string },
+) {
         // Find user
         let user;
         if (args.username) {
@@ -102,7 +100,15 @@ export const verifyToken = mutation({
         }
 
         return { valid: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
+}
+
+export const verifyToken = mutation({
+    args: {
+        token: v.string(),
+        deviceId: v.string(),
+        username: v.optional(v.string()),
     },
+    handler: async (ctx, args) => verifyTokenHandler(ctx, args),
 });
 
 export const getTokensByDevice = query({
@@ -367,7 +373,7 @@ export const claimToken = mutation({
         username: v.optional(v.string())
     },
     handler: async (ctx, args) => {
-        const result = await verifyToken(ctx, args);
+        const result = await verifyTokenHandler(ctx, args);
         if (!result.valid) return { success: false, reason: result.reason };
         return { success: true, type: result.type, matchId: result.matchId };
     },
