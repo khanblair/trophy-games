@@ -30,12 +30,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate the date/time before toISOString(), which throws for malformed input.
-    const timestampDate = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(timestampDate.getTime())) {
+    // Require canonical date/time input and reject rollover dates such as Feb 31.
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
+    if (!dateMatch || !timeMatch) {
       return NextResponse.json({ error: 'A valid date and kickoff time are required.' }, { status: 400 });
     }
 
+    const [, year, month, day] = dateMatch;
+    const [, hours, minutes] = timeMatch;
+    const dateCheck = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (
+      dateCheck.getUTCFullYear() !== Number(year) ||
+      dateCheck.getUTCMonth() !== Number(month) - 1 ||
+      dateCheck.getUTCDate() !== Number(day) ||
+      Number(hours) > 23 ||
+      Number(minutes) > 59
+    ) {
+      return NextResponse.json({ error: 'A valid date and kickoff time are required.' }, { status: 400 });
+    }
+
+    const timestampDate = new Date(`${date}T${time}:00`);
     const rawOdds = input.odds && typeof input.odds === 'object' && !Array.isArray(input.odds)
       ? input.odds as Record<string, unknown>
       : {};
@@ -44,7 +59,8 @@ export async function POST(req: Request) {
       : 'unassigned';
 
     const match = {
-      id: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // Match-detail API detects manual IDs using the `manual-` prefix.
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       league,
       homeTeam,
       awayTeam,
