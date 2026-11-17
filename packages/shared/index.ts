@@ -73,7 +73,7 @@ export interface MatchData {
             odds?: { home: string; draw: string; away: string; };
         }[];
     };
-    result?: 'win' | 'lose' | 'draw';
+    result?: 'pending' | 'win' | 'lose' | 'draw';
     matchDate?: string; // YYYY-MM-DD for date filtering
     isHistory?: boolean; // manually marked as history by admin
     createdAt?: string;

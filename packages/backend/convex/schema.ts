@@ -60,7 +60,7 @@ export default defineSchema({
         awayLineup: v.optional(v.any()),
         oddsComparison: v.optional(v.any()),
         // History / result tracking
-        result: v.optional(v.union(v.literal('win'), v.literal('lose'), v.literal('draw'))),
+        result: v.optional(v.union(v.literal('pending'), v.literal('win'), v.literal('lose'), v.literal('draw'))),
         matchDate: v.optional(v.string()), // YYYY-MM-DD
         isHistory: v.optional(v.boolean()), // manually marked as history by admin
         // Metadata
