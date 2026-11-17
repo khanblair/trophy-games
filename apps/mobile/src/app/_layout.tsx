@@ -14,6 +14,8 @@ import { UserProvider, useUser } from '../context/UserContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { api } from '@trophy-games/backend';
+import type { ThemeType } from '../context/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
 
 const FALLBACK_CONVEX_URL = 'https://grateful-eel-253.eu-west-1.convex.cloud';
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL || FALLBACK_CONVEX_URL;
@@ -91,7 +93,7 @@ function RootLayoutContent() {
     }, []);
 
     const alerts = useQuery(api.alerts.getAlerts, { deviceId: deviceId || "unknown" });
-    const unreadCount = alerts?.filter((a: any) => !(a.readBy ?? []).includes(deviceId || "unknown")).length || 0;
+    const unreadCount = alerts?.filter((alert) => !(alert.readBy ?? []).includes(deviceId || "unknown")).length || 0;
 
     useEffect(() => {
         const registerToken = async () => {
@@ -112,10 +114,9 @@ function RootLayoutContent() {
     // Configure Android navigation bar to match theme
     useEffect(() => {
         if (Platform.OS === 'android') {
-            const nb = NavigationBar as any;
-            if (nb.setBackgroundColorAsync) nb.setBackgroundColorAsync(themeColors.background).catch(() => {});
-            if (nb.setButtonStyleAsync) nb.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-            if (nb.setBorderColorAsync) nb.setBorderColorAsync(themeColors.border).catch(() => {});
+            NavigationBar.setBackgroundColorAsync(themeColors.background).catch(() => {});
+            NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+            NavigationBar.setBorderColorAsync(themeColors.border).catch(() => {});
         }
     }, [isDark, themeColors.background, themeColors.border]);
 
@@ -174,7 +175,7 @@ function RootLayoutContent() {
     );
 }
 
-const ThemeToggle = ({ onToggle, currentTheme, themeColors }: { onToggle: () => void; currentTheme: string; themeColors: any }) => {
+const ThemeToggle = ({ onToggle, currentTheme, themeColors }: { onToggle: () => void; currentTheme: ThemeType; themeColors: ThemeColors }) => {
     return (
         <TouchableOpacity onPress={onToggle} style={styles.themeToggle}>
             {currentTheme === 'dark' ? (

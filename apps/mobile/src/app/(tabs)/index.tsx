@@ -1,307 +1,214 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
-import { Zap, Search } from 'lucide-react-native';
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQuery } from "convex/react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
+import { Zap, Search, SlidersHorizontal } from 'lucide-react-native';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery } from 'convex/react';
 import { api } from '@trophy-games/backend';
 import { MatchCard } from '../../components/MatchCard';
 import { DatePickerStrip } from '../../components/DatePickerStrip';
+import { EmptyState, LoadingState } from '../../components/ui/States';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
+import { asFixtureMatches } from '../../types/match';
 import i18n from '../../locales';
-// Mobile reads ONLY from Convex — the background cron sync fetches FootyStats
-// data every 5 minutes and upserts it into Convex. No direct API calls from mobile.
-
 
 const toTitleCase = (str: string) =>
-    str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  str.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
 export default function FreeTipsScreen() {
-    const [selectedLeague, setSelectedLeague] = useState('All');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const matchesQuery = useQuery(api.matches.getByTypeAndDate, {
-        matchType: 'free',
-        date: selectedDate,
-        limit: 100
-    });
-    
-    const matches = matchesQuery || [];
-    const loading = matchesQuery === undefined;
+  const { themeColors, spacing, radii, shadows } = useTheme();
+  const [selectedLeague, setSelectedLeague] = useState('All');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-    const [refreshing, setRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const { themeColors } = useTheme();
+  const matchesQuery = useQuery(api.matches.getByTypeAndDate, {
+    matchType: 'free',
+    date: selectedDate,
+    limit: 100,
+  });
 
-    const leagues = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const m of matches) counts.set(m.league, (counts.get(m.league) || 0) + 1);
-        return [...counts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([name]) => ({ name, id: name }));
-    }, [matches]);
+  const matches = asFixtureMatches(matchesQuery);
+  const loading = matchesQuery === undefined;
 
-    const filteredMatches = matches.filter(m => {
-        const leagueMatch = selectedLeague === 'All' || m.league === selectedLeague;
-        const searchMatch = !searchQuery || 
-            m.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            m.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            m.league.toLowerCase().includes(searchQuery.toLowerCase());
-        return leagueMatch && searchMatch;
-    });
+  const leagues = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const match of matches) counts.set(match.league, (counts.get(match.league) || 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => ({ name, id: name }));
+  }, [matches]);
 
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        // Convex queries auto-update, but we add a small delay for UX
-        await new Promise(r => setTimeout(r, 500));
-        setRefreshing(false);
-    }, []);
+  const filteredMatches = matches.filter((match) => {
+    const leagueMatch = selectedLeague === 'All' || match.league === selectedLeague;
+    const query = searchQuery.toLowerCase();
+    const searchMatch = !query ||
+      match.homeTeam.toLowerCase().includes(query) ||
+      match.awayTeam.toLowerCase().includes(query) ||
+      match.league.toLowerCase().includes(query);
+    return leagueMatch && searchMatch;
+  });
 
-    const dates = useMemo(() => {
-        const d: string[] = [];
-        for (let i = -3; i <= 3; i++) {
-            const date = new Date();
-            date.setDate(date.getDate() + i);
-            d.push(date.toISOString().split('T')[0]);
-        }
-        return d;
-    }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setRefreshing(false);
+  }, []);
 
-    return (
-        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            <View style={[styles.subHeader, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
-                <View style={styles.filterSection}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.leagueFilterContent}
-                    >
-                        <TouchableOpacity
-                            activeOpacity={0.75}
-                            style={[
-                                styles.leagueChip,
-                                { borderColor: themeColors.border },
-                                selectedLeague === 'All' && {
-                                    backgroundColor: themeColors.primary,
-                                    borderColor: themeColors.primary,
-                                    shadowColor: themeColors.primary,
-                                    ...styles.leagueChipActiveShadow,
-                                }
-                            ]}
-                            onPress={() => setSelectedLeague('All')}
-                        >
-                            <Text style={[styles.leagueChipText, selectedLeague === 'All' ? { color: '#0B0E12' } : { color: themeColors.textMuted }]}>
-                                All
-                            </Text>
-                        </TouchableOpacity>
-                        {leagues.map((league) => (
-                            <TouchableOpacity
-                                key={league.id}
-                                activeOpacity={0.75}
-                                style={[
-                                    styles.leagueChip,
-                                    { borderColor: themeColors.border },
-                                    selectedLeague === league.name && {
-                                        backgroundColor: themeColors.primary,
-                                        borderColor: themeColors.primary,
-                                        shadowColor: themeColors.primary,
-                                        ...styles.leagueChipActiveShadow,
-                                    }
-                                ]}
-                                onPress={() => setSelectedLeague(league.name)}
-                            >
-                                <Text style={[styles.leagueChipText, selectedLeague === league.name ? { color: '#0B0E12' } : { color: themeColors.textMuted }]}>
-                                    {toTitleCase(league.name)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+  const dates = useMemo(() => {
+    const list: string[] = [];
+    for (let i = -3; i <= 3; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      list.push(date.toISOString().split('T')[0]);
+    }
+    return list;
+  }, []);
 
-                <View style={styles.searchSection}>
-                    <View style={[styles.searchBar, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
-                        <Search size={18} color={themeColors.textMuted} />
-                        <TextInput
-                            style={[styles.searchInput, { color: themeColors.text }]}
-                            placeholder="Search teams or leagues..."
-                            placeholderTextColor={themeColors.textMuted}
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                        />
-                    </View>
-                </View>
-
-                <View style={styles.dateStripWrapper}>
-                    <DatePickerStrip
-                        dates={dates}
-                        selectedDate={selectedDate}
-                        onSelectDate={setSelectedDate}
-                    />
-                </View>
-            </View>
-
-            <ScrollView
-                style={styles.fixtureList}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={themeColors.primary}
-                        colors={[themeColors.primary]}
-                    />
-                }
-            >
-                {loading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={themeColors.primary} />
-                        <Text style={[styles.loadingLabel, { color: themeColors.textMuted }]}>
-                            Loading today's fixtures…
-                        </Text>
-                    </View>
-                ) : filteredMatches.length > 0 ? (
-                    <View style={styles.fixtureGrid}>
-                        {filteredMatches.map((match: any) => (
-                            <MatchCard
-                                key={match.id}
-                                matchId={match.id}
-                                matchData={match}
-                                leagueName={match.league}
-                                leagueLogo={match.leagueLogo}
-                                countryFlag={match.countryFlag}
-                                time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                homeTeam={match.homeTeam}
-                                homeTeamLogo={match.homeTeamLogo}
-                                awayTeam={match.awayTeam}
-                                awayTeamLogo={match.awayTeamLogo}
-                                prediction={match.aiPrediction?.prediction || "TIPS"}
-                                odds={match.odds?.home || "1.85"}
-                                homeScore={match.homeScore}
-                                awayScore={match.awayScore}
-                                aiInsight={match.aiPrediction}
-                            />
-                        ))}
-                    </View>
-                ) : (
-                    <View style={styles.emptyContainer}>
-                        <View style={[
-                            styles.emptyIconWrapper,
-                            { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }
-                        ]}>
-                            <Zap size={36} color={themeColors.primary} />
-                        </View>
-                        <View style={styles.emptyTextGroup}>
-                            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{i18n.t('home.noMatches')}</Text>
-                            <Text style={[styles.emptySubtitle, { color: themeColors.textMuted }]}>
-                                Our AI is still processing the matches or your search didn't match any.{'\n'}Pull down to check for updates.
-                            </Text>
-                        </View>
-                    </View>
-                )}
-            </ScrollView>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: themeColors.background },
     subHeader: {
-        paddingTop: 16,
-        paddingBottom: 14,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        gap: 14,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: themeColors.border,
+      gap: spacing.md,
     },
-    filterSection: {
-        marginBottom: 0,
-    },
-    leagueFilterContent: {
-        paddingHorizontal: 20,
-        gap: 8,
-        alignItems: 'center',
-    },
+    filterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg },
+    filterLabel: { color: themeColors.textMuted, ...typography.sectionLabel },
+    leagueContent: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
     leagueChip: {
-        paddingHorizontal: 18,
-        paddingVertical: 9,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radii.pill,
+      backgroundColor: themeColors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: themeColors.border,
     },
-    leagueChipActiveShadow: {
-        shadowOpacity: 0.35,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
+    leagueChipActive: {
+      backgroundColor: themeColors.primary,
+      borderColor: themeColors.primary,
+      ...shadows.glow,
+      shadowColor: themeColors.primary,
     },
-    leagueChipText: {
-        ...typography.chipText,
-        letterSpacing: 0.2,
-    },
-    searchSection: {
-        paddingHorizontal: 20,
-    },
+    leagueChipText: { ...typography.chipText, letterSpacing: 0.2 },
     searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        gap: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      height: 46,
+      marginHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: themeColors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: themeColors.border,
     },
-    searchInput: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '500',
-        padding: 0,
-    },
-    dateStripWrapper: {
-        // No extra paddingHorizontal — the strip manages its own padding
-    },
-    fixtureList: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 48,
-    },
-    loadingContainer: {
-        paddingVertical: 72,
-        alignItems: 'center',
-        gap: 14,
-    },
-    loadingLabel: {
-        fontSize: 13,
-        letterSpacing: 0.2,
-    },
-    fixtureGrid: {
-        gap: 12,
-    },
-    emptyContainer: {
-        paddingVertical: 88,
-        alignItems: 'center',
-        gap: 20,
-    },
-    emptyIconWrapper: {
-        width: 84,
-        height: 84,
-        borderRadius: 42,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-    },
-    emptyTextGroup: {
-        alignItems: 'center',
-        gap: 8,
-    },
-    emptyTitle: {
-        ...typography.emptyTitle,
-        letterSpacing: 0.3,
-    },
-    emptySubtitle: {
-        ...typography.emptySubtitle,
-        textAlign: 'center',
-        paddingHorizontal: 32,
-        lineHeight: 20,
-    },
-});
+    searchInput: { flex: 1, color: themeColors.text, fontSize: 14, fontWeight: '500', padding: 0 },
+    fixtureList: { flex: 1 },
+    scrollContent: { padding: spacing.lg, paddingBottom: spacing.huge + 60 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    sectionTitle: { ...typography.sectionTitle, color: themeColors.text },
+    sectionCount: { color: themeColors.textMuted, fontSize: 11, fontWeight: '700' },
+    fixtureGrid: { gap: spacing.md },
+  });
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.subHeader}>
+        <View style={styles.filterRow}>
+          <SlidersHorizontal size={14} color={themeColors.primary} />
+          <Text style={styles.filterLabel}>FILTER BY LEAGUE</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leagueContent}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.leagueChip, selectedLeague === 'All' && styles.leagueChipActive]}
+            onPress={() => setSelectedLeague('All')}
+          >
+            <Text style={[styles.leagueChipText, { color: selectedLeague === 'All' ? themeColors.onPrimary : themeColors.textMuted }]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          {leagues.map((league) => (
+            <TouchableOpacity
+              key={league.id}
+              activeOpacity={0.8}
+              style={[styles.leagueChip, selectedLeague === league.name && styles.leagueChipActive]}
+              onPress={() => setSelectedLeague(league.name)}
+            >
+              <Text style={[styles.leagueChipText, { color: selectedLeague === league.name ? themeColors.onPrimary : themeColors.textMuted }]}>
+                {toTitleCase(league.name)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.searchBar}>
+          <Search size={18} color={themeColors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search teams or leagues..."
+            placeholderTextColor={themeColors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        <DatePickerStrip dates={dates} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+      </View>
+
+      <ScrollView
+        style={styles.fixtureList}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.primary} colors={[themeColors.primary]} />
+        }
+      >
+        <View style={styles.sectionHeader}>
+          <Zap size={15} color={themeColors.primary} fill={themeColors.primary} />
+          <Text style={styles.sectionTitle}>FREE PICKS</Text>
+          {!loading && <Text style={styles.sectionCount}>{filteredMatches.length}</Text>}
+        </View>
+
+        {loading ? (
+          <LoadingState label="Loading today's fixtures…" />
+        ) : filteredMatches.length > 0 ? (
+          <View style={styles.fixtureGrid}>
+            {filteredMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                matchId={match.id}
+                matchData={match}
+                tier="free"
+                leagueName={match.league}
+                leagueLogo={match.leagueLogo}
+                countryFlag={match.countryFlag}
+                time={new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                homeTeam={match.homeTeam}
+                homeTeamLogo={match.homeTeamLogo}
+                awayTeam={match.awayTeam}
+                awayTeamLogo={match.awayTeamLogo}
+                prediction={match.aiPrediction?.prediction}
+                odds={match.odds?.home}
+                homeOdds={match.odds?.home}
+                drawOdds={match.odds?.draw}
+                awayOdds={match.odds?.away}
+                homeScore={match.homeScore}
+                awayScore={match.awayScore}
+                aiInsight={match.aiPrediction}
+              />
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon={Zap}
+            title={i18n.t('home.noMatches')}
+            message="No free picks match this date or filter. Try another day or adjust your search."
+            hint="Pull down to refresh"
+          />
+        )}
+      </ScrollView>
+    </View>
+  );
+}

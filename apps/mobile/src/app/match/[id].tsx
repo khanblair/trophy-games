@@ -8,7 +8,13 @@ import { api } from '@trophy-games/backend';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 import { getCountryFlagUrl } from '../../lib/flags';
-import { fetchMatchStats } from '../../api/footystats';
+import { fetchMatchStats, type MatchDetailData } from '../../api/footystats';
+import type { FixtureMatch } from '../../types/match';
+
+/** Combined read model for the detail screen (navigation + Convex + stats API). */
+type MatchDetail = FixtureMatch & {
+  detailedOdds?: MatchDetailData['detailedOdds'];
+};
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -45,7 +51,7 @@ export default function MatchDetailScreen() {
     const router = useRouter();
     const { themeColors } = useTheme();
 
-    const [match, setMatch] = useState<any>(null);
+    const [match, setMatch] = useState<MatchDetail | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -55,31 +61,35 @@ export default function MatchDetailScreen() {
             setLoading(true);
 
             // 1. Start with instant placeholder from navigation params.
-            let base: any = null;
-            if (matchData) {
+            let base: MatchDetail | null = null;
+            if (typeof matchData === 'string') {
                 try {
-                    base = JSON.parse(decodeURIComponent(matchData as string));
-                    if (!cancelled) setMatch(base);
+                    const parsed: unknown = JSON.parse(decodeURIComponent(matchData));
+                    if (parsed && typeof parsed === 'object') {
+                        base = parsed as MatchDetail;
+                        if (!cancelled) setMatch(base);
+                    }
                 } catch (parseError) {
                     console.warn('[Match Detail] Failed to parse matchData param:', parseError);
                 }
             }
 
             // 2. Convex record gives the overlay (matchType, scores, status).
-            let merged: any = base;
+            let merged: MatchDetail | null = base;
             if (convex) {
                 try {
                     const convexMatch = await convex.query(api.matches.getById, { matchId: id as string });
                     if (convexMatch) {
-                        const cm = convexMatch as any;
+                        const cm = convexMatch as unknown as Record<string, unknown>;
+                        const overlay = Object.fromEntries(
+                            Object.entries(cm).filter(([, value]) => value !== undefined && value !== '')
+                        ) as Partial<MatchDetail>;
                         merged = {
                             ...base,
-                            ...Object.fromEntries(
-                                Object.entries(cm).filter(([, v]) => v !== undefined && v !== '')
-                            ),
-                            league: cm.league || base?.league,
-                            country: cm.country || base?.country,
-                        };
+                            ...overlay,
+                            league: overlay.league || base?.league || '',
+                            country: overlay.country || base?.country,
+                        } as MatchDetail;
                         if (!cancelled) setMatch(merged);
                     }
                 } catch (convexError) {
@@ -93,18 +103,18 @@ export default function MatchDetailScreen() {
                 const stats = await fetchMatchStats(id as string);
                 if (stats && !cancelled) {
                     const richEntries = Object.fromEntries(
-                        Object.entries(stats).filter(([, v]) =>
-                            v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)
+                        Object.entries(stats as unknown as Record<string, unknown>).filter(([, value]) =>
+                            value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0)
                         )
-                    );
+                    ) as Partial<MatchDetail>;
                     setMatch({
                         ...merged,
                         ...richEntries,
                         // List/Convex stay authoritative for these basics.
-                        league: merged?.league || (stats as any).league,
-                        country: merged?.country || (stats as any).country,
+                        league: merged?.league || stats.league,
+                        country: merged?.country || stats.country,
                         matchType: merged?.matchType,
-                    });
+                    } as MatchDetail);
                 }
             } catch (statsError) {
                 console.warn('[Match Detail] match-stats fetch failed:', statsError);
@@ -238,7 +248,7 @@ export default function MatchDetailScreen() {
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>MATCH PREDICTIONS</Text>
                         <View style={[styles.potentialCard, { backgroundColor: themeColors.cardBg }]}>
-                            {match.potentials.map((p: any, i: number) => (
+                            {match.potentials.map((p, i) => (
                                 <View key={i} style={styles.potentialRow}>
                                     <Text style={[styles.potentialLabel, { color: themeColors.text }]}>{p.label}</Text>
                                     {p.percent !== undefined ? (
@@ -401,11 +411,11 @@ export default function MatchDetailScreen() {
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>ODDS COMPARISON</Text>
                         <View style={styles.oddsGrid}>
-                            {match.oddsComparison.map((m: any, i: number) => (
+                            {match.oddsComparison.map((m, i) => (
                                 <View key={i} style={[styles.oddsTile, { backgroundColor: themeColors.cardBg }]}>
                                     <Text style={[styles.tileLabel, { color: themeColors.textMuted }]}>{m.market.toUpperCase()}</Text>
-                                    {m.selections.map((sel: any, j: number) => {
-                                        const vals = sel.odds.map((o: any) => parseFloat(o.value)).filter((n: number) => !isNaN(n));
+                                    {m.selections.map((sel, j) => {
+                                        const vals = sel.odds.map((o) => parseFloat(o.value)).filter((n) => !isNaN(n));
                                         const best = vals.length ? Math.max(...vals) : null;
                                         return (
                                             <View key={j} style={styles.ocRow}>
@@ -416,7 +426,7 @@ export default function MatchDetailScreen() {
                                                     style={styles.ocScrollWrap}
                                                     contentContainerStyle={styles.ocScroll}
                                                 >
-                                                    {sel.odds.map((o: any, k: number) => {
+                                                    {sel.odds.map((o, k) => {
                                                         const isBest = best !== null && parseFloat(o.value) === best;
                                                         return (
                                                             <View
@@ -485,8 +495,8 @@ export default function MatchDetailScreen() {
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>H2H HISTORY</Text>
                         <View style={[styles.h2hHistoryCard, { backgroundColor: themeColors.cardBg }]}>
-                            {match.h2h.history.map((h: any, i: number) => (
-                                <View key={i} style={[styles.h2hHistoryRow, i < match.h2h!.history!.length - 1 && { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}>
+                            {match.h2h.history.map((h, i) => (
+                                <View key={i} style={[styles.h2hHistoryRow, i < (match.h2h?.history?.length ?? 0) - 1 && { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}>
                                     <View style={styles.h2hHistoryLeft}>
                                         <Text style={[styles.h2hHistoryLeague, { color: themeColors.textMuted }]}>{h.league}</Text>
                                         <Text style={[styles.h2hHistoryTeams, { color: themeColors.text }]}>{h.home} vs {h.away}</Text>
@@ -539,14 +549,14 @@ export default function MatchDetailScreen() {
                 )}
 
                 {/* Lineups */}
-                {(match.homeLineup?.length > 0 || match.awayLineup?.length > 0) && (
+                {((match.homeLineup?.length ?? 0) > 0 || (match.awayLineup?.length ?? 0) > 0) && (
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>STARTING LINEUPS</Text>
                         <View style={[styles.lineupCard, { backgroundColor: themeColors.cardBg }]}>
                             <View style={styles.lineupCols}>
                                 <View style={styles.lineupCol}>
                                     <Text style={[styles.lineupTeam, { color: themeColors.primary }]} numberOfLines={1}>{match.homeTeam}</Text>
-                                    {(match.homeLineup || []).map((p: any, i: number) => (
+                                    {(match.homeLineup || []).map((p, i) => (
                                         <Text key={i} style={[styles.lineupPlayer, { color: themeColors.text }]} numberOfLines={1}>
                                             {p.number ? `${p.number}. ` : ''}{p.name}
                                         </Text>
@@ -555,7 +565,7 @@ export default function MatchDetailScreen() {
                                 <View style={[styles.lineupDivider, { backgroundColor: themeColors.border }]} />
                                 <View style={styles.lineupCol}>
                                     <Text style={[styles.lineupTeam, { color: themeColors.text }]} numberOfLines={1}>{match.awayTeam}</Text>
-                                    {(match.awayLineup || []).map((p: any, i: number) => (
+                                    {(match.awayLineup || []).map((p, i) => (
                                         <Text key={i} style={[styles.lineupPlayer, { color: themeColors.text }]} numberOfLines={1}>
                                             {p.number ? `${p.number}. ` : ''}{p.name}
                                         </Text>
@@ -583,7 +593,7 @@ export default function MatchDetailScreen() {
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>MATCH STATS</Text>
                         <View style={[styles.statsCard, { backgroundColor: themeColors.cardBg }]}>
-                            {match.stats.map((s: any, i: number) => {
+                            {match.stats.map((s, i) => {
                                 const total = (s.home + s.away) || 1;
                                 const homePct = Math.round((s.home / total) * 100);
                                 return (
@@ -608,7 +618,7 @@ export default function MatchDetailScreen() {
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>GOALS</Text>
                         <View style={[styles.timelineCard, { backgroundColor: themeColors.cardBg }]}>
-                            {match.goals.map((g: any, i: number) => (
+                            {match.goals.map((g, i) => (
                                 <View key={i} style={[styles.goalRow, g.team === 'away' && styles.goalRowAway]}>
                                     <Goal size={14} color={themeColors.primary} />
                                     <View style={[styles.goalInfo, g.team === 'away' && { alignItems: 'flex-end' }]}>
@@ -641,7 +651,7 @@ export default function MatchDetailScreen() {
                 )}
 
                 {/* Match Info */}
-                {(match.stadium || match.attendance || match.tvStations?.length > 0 || match.referee || match.weather) && (
+                {(match.stadium || match.attendance || (match.tvStations?.length ?? 0) > 0 || match.referee || match.weather) && (
                     <View style={styles.outerPad}>
                         <Text style={[styles.sectionLabel, { color: themeColors.textMuted }]}>MATCH INFO</Text>
                         <View style={[styles.infoCard, { backgroundColor: themeColors.cardBg }]}>
@@ -657,10 +667,10 @@ export default function MatchDetailScreen() {
                                     <Text style={[styles.infoVal, { color: themeColors.text }]}>{match.attendance.toLocaleString()}</Text>
                                 </View>
                             )}
-                            {match.tvStations?.length > 0 && (
+                            {(match.tvStations?.length ?? 0) > 0 && (
                                 <View style={styles.infoRow}>
                                     <Text style={[styles.infoKey, { color: themeColors.textMuted }]}>TV</Text>
-                                    <Text style={[styles.infoVal, { color: themeColors.text }]} numberOfLines={1}>{match.tvStations.join(', ')}</Text>
+                                    <Text style={[styles.infoVal, { color: themeColors.text }]} numberOfLines={1}>{match.tvStations?.join(', ')}</Text>
                                 </View>
                             )}
                             {match.referee && (
