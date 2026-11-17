@@ -19,25 +19,24 @@ type Tab = 'Overview' | 'Odds';
 
 export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
-    const [details, setDetails] = useState<Partial<MatchData> | null>(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [details, setDetails] = useState<{ matchId: string; data: Partial<MatchData> } | null>(null);
 
     // Fetch rich per-match details from the proxy when the modal opens.
     const matchId = match?.id;
     useEffect(() => {
-        if (!isOpen || !matchId) {
-            setDetails(null); // eslint-disable-line react-hooks/set-state-in-effect
-            return;
-        }
+        if (!isOpen || !matchId) return;
         let cancelled = false;
-        setLoadingDetails(true);
         fetch(`/api/match-stats?id=${matchId}`)
             .then((r) => r.json())
-            .then((d) => { if (!cancelled && d && !d.error) setDetails(d); })
-            .catch((e) => console.error('Failed to load match stats:', e))
-            .finally(() => { if (!cancelled) setLoadingDetails(false); });
+            .then((d) => { if (!cancelled && d && !d.error) setDetails({ matchId, data: d }); })
+            .catch((e) => console.error('Failed to load match stats:', e));
         return () => { cancelled = true; };
     }, [isOpen, matchId]);
+
+    // Derive the visible details/loading state from the fetched match id rather
+    // than resetting state inside the effect.
+    const detailsForMatch = isOpen && details !== null && details.matchId === matchId ? details.data : null;
+    const loadingDetails = isOpen && !!matchId && details?.matchId !== matchId;
 
     if (!match) return null;
 
@@ -45,18 +44,18 @@ export function MatchDetailModal({ match, isOpen, onClose }: MatchDetailModalPro
     // authoritative for the basics (teams, league, status, score, odds).
     const m: MatchData = {
         ...match,
-        ...(details || {}),
+        ...(detailsForMatch || {}),
         league: match.league,
         homeTeam: match.homeTeam,
         awayTeam: match.awayTeam,
-        country: match.country ?? details?.country,
+        country: match.country ?? detailsForMatch?.country,
         status: match.status,
         score: match.score,
         timestamp: match.timestamp,
         matchType: match.matchType,
-        odds: match.odds || details?.odds,
-        homeScore: match.homeScore ?? details?.homeScore,
-        awayScore: match.awayScore ?? details?.awayScore,
+        odds: match.odds || detailsForMatch?.odds,
+        homeScore: match.homeScore ?? detailsForMatch?.homeScore,
+        awayScore: match.awayScore ?? detailsForMatch?.awayScore,
     };
 
     const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [

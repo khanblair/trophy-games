@@ -41,7 +41,6 @@ export default function HistoryPage() {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
 
     const loadHistory = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await fetch('/api/admin/matches');
             const data = await res.json();
@@ -56,8 +55,12 @@ export default function HistoryPage() {
         setLoading(false);
     }, []);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { loadHistory(); }, [loadHistory]);
+    useEffect(() => {
+        async function initialize() {
+            await loadHistory();
+        }
+        void initialize();
+    }, [loadHistory]);
 
     const uniqueLeagues = ['All', ...Array.from(new Set(matches.map(m => m.league))).sort()];
 
@@ -117,7 +120,7 @@ export default function HistoryPage() {
                     <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Proven Results</h1>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Completed matches from Convex — the same results shown in the mobile Wins screen.</p>
                 </div>
-                <button onClick={loadHistory} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
+                <button onClick={() => { setLoading(true); void loadHistory(); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
                     <RefreshCw size={14} />Refresh
                 </button>
             </div>

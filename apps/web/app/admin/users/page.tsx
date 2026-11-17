@@ -20,7 +20,6 @@ export default function AdminUsersPage() {
     const [processingId, setProcessingId] = useState<string | null>(null);
 
     const loadUsers = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await fetch('/api/admin/users');
             const data = await res.json();
@@ -29,8 +28,12 @@ export default function AdminUsersPage() {
         setLoading(false);
     }, []);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { loadUsers(); }, [loadUsers]);
+    useEffect(() => {
+        async function initialize() {
+            await loadUsers();
+        }
+        void initialize();
+    }, [loadUsers]);
 
     const handleAction = async (username: string, action: 'block' | 'unblock' | 'clear_attempts') => {
         setProcessingId(username);
@@ -64,7 +67,7 @@ export default function AdminUsersPage() {
                     <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Users</h1>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage registered users, reset failed attempts, and block access.</p>
                 </div>
-                <button onClick={loadUsers} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
+                <button onClick={() => { setLoading(true); void loadUsers(); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
                     <RefreshCw size={14} />Refresh
                 </button>
             </div>

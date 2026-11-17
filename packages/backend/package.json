@@ -8,5 +8,8 @@
     },
     "dependencies": {
         "convex": "latest"
+    },
+    "devDependencies": {
+        "@types/node": "^20"
     }
 }

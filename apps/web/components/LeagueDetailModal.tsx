@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Trophy, Globe, Zap, Hash, Star, Crown, DollarSign, Loader2, ArrowUpRight } from 'lucide-react';
 import { LeagueInfo, MatchData } from '@trophy-games/shared';
 import { Modal } from './Modal';
@@ -15,25 +15,21 @@ interface LeagueDetailModalProps {
 
 export function LeagueDetailModal({ league, matches, isOpen, onClose, onRefreshData }: LeagueDetailModalProps) {
     const [updating, setUpdating] = useState<string | null>(null);
-    const [leagueMatches, setLeagueMatches] = useState<MatchData[]>([]);
 
-    useEffect(() => {
-        if (isOpen && league) {
-            const filtered = matches.filter(m => {
-                const matchLeague = m.league?.toLowerCase() || '';
-                const searchLeague = league.name?.toLowerCase() || '';
-                const searchCountry = league.country?.toLowerCase() || '';
+    // This list is derived from props, so compute it during render instead of
+    // mirroring it into state from an effect.
+    const leagueMatches = isOpen && league
+        ? matches.filter(m => {
+            const matchLeague = m.league?.toLowerCase() || '';
+            const searchLeague = league.name?.toLowerCase() || '';
+            const searchCountry = league.country?.toLowerCase() || '';
 
-                return matchLeague.includes(searchLeague) ||
-                    searchLeague.includes(matchLeague) ||
-                    matchLeague.includes(searchCountry) ||
-                    (m.leagueId && league.id && m.leagueId === league.id);
-            }).slice(0, 20);
-
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setLeagueMatches(filtered);
-        }
-    }, [isOpen, league, matches]);
+            return matchLeague.includes(searchLeague) ||
+                searchLeague.includes(matchLeague) ||
+                matchLeague.includes(searchCountry) ||
+                (m.leagueId && league.id && m.leagueId === league.id);
+        }).slice(0, 20)
+        : [];
 
     if (!league) return null;
 

@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -30,79 +30,94 @@ export const createToken = mutation({
     },
 });
 
+interface VerifyTokenArgs {
+    token: string;
+    deviceId: string;
+    username?: string;
+}
+
+type VerifyTokenResult =
+    | { valid: false; reason: string }
+    | { valid: true; type: "vip" | "paid"; matchId: string | undefined };
+
+// Shared implementation so both the public mutation and the mobile alias run
+// the exact same verification logic.
+async function verifyTokenImpl(ctx: MutationCtx, args: VerifyTokenArgs): Promise<VerifyTokenResult> {
+    // Find user
+    let user;
+    const username = args.username;
+    if (username) {
+        user = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", username))
+            .first();
+    } else {
+        user = await ctx.db
+            .query("users")
+            .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
+            .first();
+    }
+
+    if (user?.isBlocked) {
+        return { valid: false, reason: "Account is blocked. Contact support." };
+    }
+
+    if (user && (user.failedAttempts ?? 0) >= 5) {
+        return { valid: false, reason: "Too many failed attempts. Account locked." };
+    }
+
+    const tokenDoc = await ctx.db
+        .query("accessTokens")
+        .withIndex("by_token", (q) => q.eq("token", args.token))
+        .unique();
+
+    if (!tokenDoc) {
+        if (user) {
+            await ctx.db.patch(user._id, {
+                failedAttempts: (user.failedAttempts ?? 0) + 1,
+                lastFailedAt: new Date().toISOString()
+            });
+        }
+        return { valid: false, reason: "Token not found" };
+    }
+
+    if (!tokenDoc.isActive) return { valid: false, reason: "Token is inactive" };
+
+    // Strict username binding check (if provided during token creation)
+    if (tokenDoc.username && tokenDoc.username !== args.username) {
+        if (user) {
+            await ctx.db.patch(user._id, {
+                failedAttempts: (user.failedAttempts ?? 0) + 1,
+                lastFailedAt: new Date().toISOString()
+            });
+        }
+        return { valid: false, reason: "Token bound to different username" };
+    }
+
+    if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
+        return { valid: false, reason: "Token expired" };
+    }
+
+    // Success! Reset failed attempts and mark claimed
+    if (user) {
+        await ctx.db.patch(user._id, { failedAttempts: 0, lastActiveAt: new Date().toISOString() });
+    }
+
+    if (!tokenDoc.isClaimed) {
+        // Also bind the token to this username if it wasn't already
+        await ctx.db.patch(tokenDoc._id, { isClaimed: true, username: args.username, claimedAt: new Date().toISOString() });
+    }
+
+    return { valid: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
+}
+
 export const verifyToken = mutation({
     args: {
         token: v.string(),
         deviceId: v.string(),
         username: v.optional(v.string()),
     },
-    handler: async (ctx, args) => {
-        // Find user
-        let user;
-        if (args.username) {
-            user = await ctx.db
-                .query("users")
-                .withIndex("by_username", (q) => q.eq("username", args.username!))
-                .first();
-        } else {
-            user = await ctx.db
-                .query("users")
-                .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
-                .first();
-        }
-
-        if (user?.isBlocked) {
-            return { valid: false, reason: "Account is blocked. Contact support." };
-        }
-
-        if (user && (user.failedAttempts ?? 0) >= 5) {
-            return { valid: false, reason: "Too many failed attempts. Account locked." };
-        }
-
-        const tokenDoc = await ctx.db
-            .query("accessTokens")
-            .withIndex("by_token", (q) => q.eq("token", args.token))
-            .unique();
-
-        if (!tokenDoc) {
-            if (user) {
-                await ctx.db.patch(user._id, {
-                    failedAttempts: (user.failedAttempts ?? 0) + 1,
-                    lastFailedAt: new Date().toISOString()
-                });
-            }
-            return { valid: false, reason: "Token not found" };
-        }
-        
-        if (!tokenDoc.isActive) return { valid: false, reason: "Token is inactive" };
-        
-        // Strict username binding check (if provided during token creation)
-        if (tokenDoc.username && tokenDoc.username !== args.username) {
-             if (user) {
-                await ctx.db.patch(user._id, {
-                    failedAttempts: (user.failedAttempts ?? 0) + 1,
-                    lastFailedAt: new Date().toISOString()
-                });
-            }
-            return { valid: false, reason: "Token bound to different username" };
-        }
-
-        if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) < new Date()) {
-            return { valid: false, reason: "Token expired" };
-        }
-
-        // Success! Reset failed attempts and mark claimed
-        if (user) {
-            await ctx.db.patch(user._id, { failedAttempts: 0, lastActiveAt: new Date().toISOString() });
-        }
-
-        if (!tokenDoc.isClaimed) {
-            // Also bind the token to this username if it wasn't already
-            await ctx.db.patch(tokenDoc._id, { isClaimed: true, username: args.username, claimedAt: new Date().toISOString() });
-        }
-
-        return { valid: true, type: tokenDoc.type, matchId: tokenDoc.matchId };
-    },
+    handler: (ctx, args) => verifyTokenImpl(ctx, args),
 });
 
 export const getTokensByDevice = query({
@@ -367,7 +382,7 @@ export const claimToken = mutation({
         username: v.optional(v.string())
     },
     handler: async (ctx, args) => {
-        const result = await verifyToken(ctx, args);
+        const result = await verifyTokenImpl(ctx, args);
         if (!result.valid) return { success: false, reason: result.reason };
         return { success: true, type: result.type, matchId: result.matchId };
     },

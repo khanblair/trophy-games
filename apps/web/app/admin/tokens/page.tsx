@@ -25,7 +25,6 @@ export default function AdminTokensPage() {
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
     const loadTokens = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await fetch('/api/admin/tokens');
             const data = await res.json();
@@ -34,8 +33,12 @@ export default function AdminTokensPage() {
         setLoading(false);
     }, []);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { loadTokens(); }, [loadTokens]);
+    useEffect(() => {
+        async function initialize() {
+            await loadTokens();
+        }
+        void initialize();
+    }, [loadTokens]);
 
     const createToken = async () => {
         if (!form.deviceId) return;
@@ -116,7 +119,7 @@ export default function AdminTokensPage() {
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Generate and manage VIP & Paid access tokens for users.</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={loadTokens} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
+                    <button onClick={() => { setLoading(true); void loadTokens(); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
                         <RefreshCw size={14} />
                     </button>
                     <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">

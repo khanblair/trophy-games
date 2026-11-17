@@ -78,7 +78,9 @@ export default function MatchesPage() {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             if (params.get('action') === 'new' || params.get('manual') === 'true') {
-                setIsManualModalOpen(true);
+                // Defer so the URL-driven open doesn't synchronously trigger a
+                // cascading render inside the effect.
+                queueMicrotask(() => setIsManualModalOpen(true));
             }
         }
     }, []);
@@ -98,7 +100,10 @@ export default function MatchesPage() {
     };
 
     useEffect(() => {
-        fetchMatches(); // eslint-disable-line react-hooks/set-state-in-effect
+        async function initialize() {
+            await fetchMatches();
+        }
+        void initialize();
     }, []);
 
     const handleRefresh = async () => {

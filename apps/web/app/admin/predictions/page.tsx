@@ -63,7 +63,6 @@ export default function AdminPredictionsPage() {
     const [filterHasPrediction, setFilterHasPrediction] = useState<'all' | 'yes' | 'no'>('all');
 
     const loadMatches = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await fetch('/api/admin/matches');
             const data = await res.json();
@@ -78,7 +77,12 @@ export default function AdminPredictionsPage() {
         setLoading(false);
     }, []);
 
-    useEffect(() => { loadMatches(); }, [loadMatches]);
+    useEffect(() => {
+        async function initialize() {
+            await loadMatches();
+        }
+        void initialize();
+    }, [loadMatches]);
 
     const getForm = (match: Match): PredictionForm => {
         if (forms[match._id]) return forms[match._id];
@@ -187,7 +191,7 @@ export default function AdminPredictionsPage() {
                     </p>
                 </div>
                 <button
-                    onClick={loadMatches}
+                    onClick={() => { setLoading(true); void loadMatches(); }}
                     className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm"
                 >
                     <RefreshCw size={14} />Refresh

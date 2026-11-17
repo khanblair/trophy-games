@@ -203,14 +203,17 @@ export default function AnalysisPage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchHistory();
-    fetchResultForDate();
-  }, [fetchHistory, fetchResultForDate]);
+    async function initialize() {
+      await fetchHistory();
+    }
+    void initialize();
+  }, [fetchHistory]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchResultForDate();
+    async function initialize() {
+      await fetchResultForDate();
+    }
+    void initialize();
   }, [fetchResultForDate]);
 
   const runAnalysis = async () => {

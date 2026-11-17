@@ -23,7 +23,6 @@ export default function AdminRequestsPage() {
     const [tab, setTab] = useState<'pending' | 'all'>('pending');
 
     const loadRequests = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await fetch('/api/admin/requests');
             const data = await res.json();
@@ -32,8 +31,12 @@ export default function AdminRequestsPage() {
         setLoading(false);
     }, []);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { loadRequests(); }, [loadRequests]);
+    useEffect(() => {
+        async function initialize() {
+            await loadRequests();
+        }
+        void initialize();
+    }, [loadRequests]);
 
     const handleAction = async (requestId: string, action: 'approve' | 'reject') => {
         setProcessingId(requestId);
@@ -75,7 +78,7 @@ export default function AdminRequestsPage() {
                     <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Membership Requests</h1>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Review and approve VIP/Paid access requests from users.</p>
                 </div>
-                <button onClick={loadRequests} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
+                <button onClick={() => { setLoading(true); void loadRequests(); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl transition-colors text-sm">
                     <RefreshCw size={14} />Refresh
                 </button>
             </div>

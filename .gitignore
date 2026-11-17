@@ -8,3 +8,5 @@ build
 *.tsbuildinfo
 .claude/skills
 .opencode
+.vercel
+.env*

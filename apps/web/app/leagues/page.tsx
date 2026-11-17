@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { MatchData } from '@trophy-games/shared';
 import { Trophy, Search, ChevronRight, Globe, Loader2, Flame, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { leagueTier, rankOrInfinity } from '@/lib/trending';
@@ -17,7 +19,7 @@ interface League {
 
 export default function LeaguesPage() {
     const [leagues, setLeagues] = useState<League[]>([]);
-    const [matches, setMatches] = useState<any[]>([]);
+    const [matches, setMatches] = useState<MatchData[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Filter State
@@ -46,7 +48,10 @@ export default function LeaguesPage() {
     };
 
     useEffect(() => {
-        fetchData(); // eslint-disable-line react-hooks/set-state-in-effect
+        async function initialize() {
+            await fetchData();
+        }
+        void initialize();
     }, []);
 
     const uniqueCountries = Array.from(new Set(leagues.map(l => l.country).filter(Boolean))).sort();
@@ -95,8 +100,7 @@ export default function LeaguesPage() {
                 <div className="flex items-start justify-between">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 overflow-hidden">
                         {league.logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={league.logo} alt={league.name} className="h-full w-full object-contain" />
+                            <Image src={league.logo} alt={league.name} width={40} height={40} unoptimized className="h-full w-full object-contain" />
                         ) : (
                             <Trophy size={20} />
                         )}

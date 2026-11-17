@@ -63,7 +63,10 @@ export default function DashboardPage() {
   };
 
   React.useEffect(() => {
-    fetchStats(); // eslint-disable-line react-hooks/set-state-in-effect
+    async function initialize() {
+      await fetchStats();
+    }
+    void initialize();
   }, []);
 
   const statCards = [
