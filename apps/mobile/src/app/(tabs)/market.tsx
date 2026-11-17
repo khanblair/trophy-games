@@ -87,15 +87,17 @@ export default function MembershipStoreScreen() {
     const vipTokenStatus = getLocalStatus(vipStatusData);
     const paidTokenStatus = getLocalStatus(paidStatusData);
 
-    // Status priority: real IAP purchase > manually entered token.
+    // Status priority: real IAP purchase > manually granted access.
+    // If Google Play is connected but there is no active matching subscription,
+    // keep the user's manually issued/pending/approved access visible instead of hiding it as `none`.
     const iapConnected = !iapLoading && iapError === null;
 
     // VIP status is shared across weekly and monthly (same tier)
-    const vipStatus: MemberStatus = iapConnected
-        ? (iapActiveSub?.tier === 'vip' ? 'active' : 'none')
+    const vipStatus: MemberStatus = iapActiveSub?.tier === 'vip'
+        ? 'active'
         : vipTokenStatus;
-    const paidStatus: MemberStatus = iapConnected
-        ? (iapActiveSub?.tier === 'paid' ? 'active' : 'none')
+    const paidStatus: MemberStatus = iapActiveSub?.tier === 'paid'
+        ? 'active'
         : paidTokenStatus;
 
     const onRefresh = useCallback(async () => {
@@ -325,7 +327,7 @@ export default function MembershipStoreScreen() {
                     {iapError && Platform.OS === 'android' && !iapLoading && (
                         <View style={[styles.iapNotice, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
                             <Text style={[styles.iapNoticeText, { color: themeColors.textMuted }]}>
-                                ⚠️ Google Play Billing unavailable: {iapError.includes('not available') ? 'This device may not support Google Play Billing, or you may be running in Expo Go (use a dev build).' : iapError}
+                                ⚠️ Google Play Billing unavailable: {iapError.includes('not available') ? 'This device may not support Google Play Billing, or you may be running in Expo Go (which disables IAP).' : iapError}
                             </Text>
                         </View>
                     )}
@@ -334,7 +336,7 @@ export default function MembershipStoreScreen() {
                     <Text style={[styles.sectionTitle, { color: themeColors.text }]}>MEMBERSHIP PLANS</Text>
 
                     {/* ── VIP WEEKLY CARD ── */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_WEEKLY.productId ? themeColors.primary + '60' : themeColors.border }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Crown size={24} color={themeColors.primary} />
@@ -367,7 +369,7 @@ export default function MembershipStoreScreen() {
                     </View>
 
                     {/* ── VIP MONTHLY CARD ── */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.VIP_MONTHLY.productId ? themeColors.primary + '60' : themeColors.border }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Crown size={24} color={themeColors.primary} />
@@ -405,7 +407,7 @@ export default function MembershipStoreScreen() {
                     </View>
 
                     {/* ── PAID MONTHLY CARD ── */}
-                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId ? themeColors.primary + '60' : 'rgba(255,255,255,0.05)' }]}>
+                    <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: activeProductId === SUBSCRIPTION_PRODUCTS.PAID_MONTHLY.productId ? themeColors.primary + '60' : themeColors.border }]}>
                         <View style={styles.cardTop}>
                             <View style={styles.cardHeader}>
                                 <Trophy size={24} color={themeColors.primary} />
@@ -592,7 +594,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
         paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingPaddingVertical: 6,
         borderRadius: 10,
         borderWidth: 1,
         alignSelf: 'flex-start',
