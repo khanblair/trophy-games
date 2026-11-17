@@ -43,6 +43,32 @@ export interface AppMatch {
   };
   homePPG?: number;
   awayPPG?: number;
+  aiPrediction?: {
+    prediction: string;
+    confidence: number;
+    reasoning: string[];
+    suggestedBet?: string;
+  };
+  matchType?: 'free' | 'paid' | 'vip' | 'unassigned';
+}
+
+/** Shape of a match document returned by the Convex queries. */
+interface ConvexMatchDoc {
+  id: string;
+  league: string;
+  country?: string;
+  timestamp: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore?: number;
+  awayScore?: number;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  leagueLogo?: string;
+  status: string;
+  odds?: { home: string | number; draw?: string | number; away?: string | number };
+  aiPrediction?: AppMatch['aiPrediction'];
+  matchType?: AppMatch['matchType'];
 }
 
 export interface TeamStat {
@@ -147,8 +173,48 @@ export interface MatchDetailData {
   };
 }
 
+/** Raw result row returned by the FootyStats match-stats endpoint. */
+interface TeamResultRow {
+  winningTeam?: number;
+  homeID?: number;
+  date_unix?: number;
+  home_name?: string;
+  away_name?: string;
+  homeGoalCount?: number;
+  awayGoalCount?: number;
+}
+
+interface GoalEventRow {
+  known_as?: string;
+  time?: string | number;
+  extra?: string | number;
+  teamIS?: string;
+  assist_known_as?: string;
+  type?: string;
+}
+
+interface LineupEventRow {
+  event_type?: string;
+  event_time?: string;
+}
+
+interface LineupPlayerRow {
+  known_as?: string;
+  shirt_number?: number;
+  player_events?: LineupEventRow[];
+}
+
+interface CompetitionStats {
+  english_name?: string;
+  name?: string;
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 // Map a Convex match document to the AppMatch shape used across the screens.
-function convexToAppMatch(d: any): AppMatch {
+function convexToAppMatch(d: ConvexMatchDoc): AppMatch {
   return {
     id: d.id,
     league: d.league,
@@ -169,10 +235,9 @@ function convexToAppMatch(d: any): AppMatch {
     } : undefined,
     homePPG: undefined,
     awayPPG: undefined,
-    // Overlay fields the screens also read (win rate / AI insight / tier).
-    ...(d.aiPrediction ? { aiPrediction: d.aiPrediction } : {}),
-    ...(d.matchType ? { matchType: d.matchType } : {}),
-  } as AppMatch;
+    aiPrediction: d.aiPrediction,
+    matchType: d.matchType,
+  };
 }
 
 export async function fetchMatches(date?: string): Promise<AppMatch[]> {
@@ -203,8 +268,8 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   const rawH2h = (d.h2h ?? {}) as Record<string, unknown>;
   const h2hSummary = (rawH2h.previous_matches_results ?? {}) as Record<string, unknown>;
 
-  const teamAResults = (d.teamAResults ?? []) as any[];
-  const teamBResults = (d.teamBResults ?? []) as any[];
+  const teamAResults = asArray<TeamResultRow>(d.teamAResults);
+  const teamBResults = asArray<TeamResultRow>(d.teamBResults);
 
   const timestamp = typeof d.date_unix === 'number'
     ? new Date((d.date_unix as number) * 1000).toISOString()
@@ -213,8 +278,8 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   const scoresAvailable = d.status !== 'incomplete' && d.status !== '';
 
   // Derive form from last 5 results (W/D/L)
-  const deriveForm = (results: any[], teamId: number): string => {
-    return results.slice(0, 5).map((r: any) => {
+  const deriveForm = (results: TeamResultRow[], teamId: number): string => {
+    return results.slice(0, 5).map((r: TeamResultRow) => {
       if (r.winningTeam === 0) return 'D';
       const isHome = r.homeID === teamId;
       const won = r.winningTeam === teamId;
@@ -228,7 +293,7 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   const awayForm = deriveForm(teamBResults, awayId);
 
   // Parse H2H history from team results (last 5 meetings between these teams)
-  const h2hHistory = teamAResults.slice(0, 5).map((r: any) => ({
+  const h2hHistory = teamAResults.slice(0, 5).map((r: TeamResultRow) => ({
     date: new Date((r.date_unix as number) * 1000).toISOString().split('T')[0],
     league: String(r.home_name ?? '') + ' vs ' + String(r.away_name ?? ''),
     home: String(r.home_name ?? ''),
@@ -325,7 +390,7 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   }
 
   // --- Goal timeline ---
-  const rawGoals = (d.goal_events ?? []) as any[];
+  const rawGoals = asArray<GoalEventRow>(d.goal_events);
   const goals: GoalEvent[] = rawGoals
     .filter(g => g && g.known_as)
     .map(g => ({
@@ -339,12 +404,12 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   // --- Lineups ---
   const rawLineups = (d.lineups ?? {}) as Record<string, unknown>;
   const mapLineup = (arr: unknown): LineupPlayer[] =>
-    (Array.isArray(arr) ? arr : [])
-      .filter((p: any) => p && p.known_as)
-      .map((p: any) => ({
+    asArray<LineupPlayerRow>(arr)
+      .filter((p) => Boolean(p && p.known_as))
+      .map((p) => ({
         name: String(p.known_as),
         number: Number(p.shirt_number ?? 0) || undefined,
-        events: (Array.isArray(p.player_events) ? p.player_events : []).map((e: any) => ({
+        events: asArray<LineupEventRow>(p.player_events).map((e) => ({
           type: String(e.event_type ?? ''),
           time: String(e.event_time ?? ''),
         })),
@@ -369,7 +434,8 @@ export async function fetchMatchStats(matchId: string): Promise<MatchDetailData>
   const htAway = Number(d.ht_goals_team_b ?? -1);
 
   // --- Venue / broadcast / preview ---
-  const competitionName = String((d.competition_stats as any)?.english_name ?? (d.competition_stats as any)?.name ?? '');
+  const competitionStats = d.competition_stats as CompetitionStats | undefined;
+  const competitionName = String(competitionStats?.english_name ?? competitionStats?.name ?? '');
   const stadium = String(d.stadium_name ?? '').trim();
   const stadiumLoc = String(d.stadium_location ?? '').trim();
   const attendance = Number(d.attendance ?? -1);

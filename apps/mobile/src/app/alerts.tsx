@@ -29,7 +29,9 @@ export default function AlertsScreen() {
     const markRead = useMutation(api.alerts.markRead);
     const markAllRead = useMutation(api.alerts.markAllRead);
 
-    const handleMarkRead = async (id: any) => {
+    type AlertId = NonNullable<typeof alerts>[number]['_id'];
+
+    const handleMarkRead = async (id: AlertId) => {
         if (deviceId) {
             await markRead({ alertId: id, deviceId });
         }

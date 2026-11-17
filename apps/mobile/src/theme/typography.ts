@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 export const fontWeights = {
   thin: '100',
   light: '300',
@@ -125,6 +127,6 @@ export const typography = {
 } as const;
 
 // Helper to merge typography with custom styles
-export function t(key: keyof typeof typography, overrides?: Record<string, any>) {
+export function t(key: keyof typeof typography, overrides?: Partial<TextStyle>): TextStyle {
   return { ...typography[key], ...overrides };
 }

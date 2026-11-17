@@ -1,398 +1,381 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { Lock } from 'lucide-react-native';
 import { useState } from 'react';
-import { getCountryFlagUrl } from '../lib/flags';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import { ChevronDown, ChevronUp, Lock, Sparkles, Target } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { getCountryFlagUrl, getLeagueFlagUrl } from '../lib/flags';
 import { useTheme } from '../context/ThemeContext';
 import { typography } from '../theme/typography';
-import { useRouter } from 'expo-router';
+import type { AiPrediction, FixtureMatch, MatchTier } from '../types/match';
 
 const TeamBadge = ({ uri, name }: { uri?: string; name: string }) => {
-    const [failed, setFailed] = useState(false);
-    const safeName = String(name || '');
-    const initials = safeName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
-    const flagUri = !uri || failed ? getCountryFlagUrl(name) : undefined;
+  const [failed, setFailed] = useState(false);
+  const { themeColors, radii } = useTheme();
+  const safeName = String(name || '');
+  const initials = safeName
+    .split(' ')
+    .slice(0, 2)
+    .map((word) => word[0] ?? '')
+    .join('')
+    .toUpperCase();
+  const flagUri = !uri || failed ? getCountryFlagUrl(safeName) : undefined;
 
-    if (flagUri) {
-        return (
-            <View style={badgeStyles.flagBox}>
-                <Image source={{ uri: flagUri }} style={badgeStyles.flag} />
-            </View>
-        );
-    }
-    if (uri && !failed) {
-        return <Image source={{ uri }} style={badgeStyles.logo} onError={() => setFailed(true)} />;
-    }
-    return <View style={badgeStyles.initialsBox}><Text style={badgeStyles.initials}>{initials}</Text></View>;
+  const boxStyle: ViewStyle = {
+    width: 36,
+    height: 36,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  };
+
+  if (flagUri) {
+    return (
+      <View style={boxStyle}>
+        <Image source={{ uri: flagUri }} style={{ width: 36, height: 24, resizeMode: 'cover' }} />
+      </View>
+    );
+  }
+  if (uri && !failed) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: radii.sm,
+          borderWidth: 1,
+          borderColor: themeColors.border,
+          backgroundColor: themeColors.surfaceMuted,
+          resizeMode: 'contain',
+        }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <View style={boxStyle}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary, letterSpacing: 0.3 }}>
+        {initials || '?'}
+      </Text>
+    </View>
+  );
 };
 
-const badgeStyles = StyleSheet.create({
-    logo: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
-    flagBox: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
-    flag: { width: 36, height: 24, resizeMode: 'cover' },
-    initialsBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.12)' },
-    initials: { fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#888', letterSpacing: 0.3 },
-});
-
-interface MatchCardProps {
-    leagueName: string;
-    leagueLogo?: string;
-    countryFlag?: string;
-    time: string;
-    homeTeam: string;
-    homeTeamLogo?: string;
-    awayTeam: string;
-    awayTeamLogo?: string;
-    prediction?: string;
-    odds?: string;
-    homeOdds?: string;
-    awayOdds?: string;
-    isLocked?: boolean;
-    price?: number;
-    homeScore?: number;
-    awayScore?: number;
-    aiInsight?: {
-        prediction: string;
-        confidence: number;
-        reasoning: string[];
-    };
-    matchId?: string;
-    matchData?: any;
+export interface MatchCardProps {
+  leagueName: string;
+  leagueLogo?: string;
+  countryFlag?: string;
+  time: string;
+  homeTeam: string;
+  homeTeamLogo?: string;
+  awayTeam: string;
+  awayTeamLogo?: string;
+  prediction?: string;
+  odds?: string;
+  homeOdds?: string;
+  drawOdds?: string;
+  awayOdds?: string;
+  isLocked?: boolean;
+  price?: number;
+  homeScore?: number;
+  awayScore?: number;
+  aiInsight?: AiPrediction;
+  matchId?: string;
+  matchData?: FixtureMatch;
+  tier?: MatchTier;
 }
 
-export const MatchCard = ({
-    leagueName,
-    leagueLogo,
-    countryFlag,
-    time,
-    homeTeam,
-    homeTeamLogo,
-    awayTeam,
-    awayTeamLogo,
-    prediction,
-    odds,
-    homeOdds,
-    awayOdds,
-    isLocked = false,
-    price,
-    homeScore,
-    awayScore,
-    aiInsight,
-    matchId,
-    matchData,
-}: MatchCardProps) => {
-    const router = useRouter();
-    const { themeColors } = useTheme();
-
-    const getFlagUrl = (countryName?: string) => {
-        if (!countryName) return null;
-        const codeMap: Record<string, string> = {
-            'England': 'gb-eng', 'Spain': 'es', 'Germany': 'de', 'Italy': 'it',
-            'France': 'fr', 'Netherlands': 'nl', 'Portugal': 'pt', 'Brazil': 'br',
-            'Argentina': 'ar', 'USA': 'us', 'Turkey': 'tr', 'Scotland': 'gb-sct',
-            'Belgium': 'be', 'Austria': 'at', 'Switzerland': 'ch', 'Denmark': 'dk',
-            'Norway': 'no', 'Sweden': 'se', 'Poland': 'pl', 'Greece': 'gr',
-            'Ukraine': 'ua', 'Croatia': 'hr', 'Serbia': 'rs', 'Japan': 'jp',
-            'South Korea': 'kr', 'Mexico': 'mx', 'Saudi Arabia': 'sa',
-            'Morocco': 'ma', 'Egypt': 'eg', 'Nigeria': 'ng', 'Senegal': 'sn',
-        };
-        const code = codeMap[countryName] || countryName.toLowerCase().split(' ')[0].substring(0, 2);
-        return `https://flagcdn.com/w80/${code}.png`;
-    };
-
-    const handleCardPress = () => {
-        if (matchId) {
-            const params: Record<string, string> = { id: matchId };
-            if (matchData) {
-                params.matchData = encodeURIComponent(JSON.stringify(matchData));
-            }
-            router.push({ pathname: '/match/[id]', params } as any);
-        }
-    };
-
-    // Win rate: AI confidence > implied probability from bookmaker odds > dash
-    const computeWinRate = (): string => {
-        if (aiInsight?.confidence) return `${aiInsight.confidence}%`;
-
-        // Derive implied home-win probability from decimal odds (normalised)
-        const h = parseFloat(matchData?.odds?.home ?? odds ?? '');
-        const d = parseFloat(matchData?.odds?.draw ?? '');
-        const a = parseFloat(matchData?.odds?.away ?? '');
-
-        if (!isNaN(h) && h > 1) {
-            if (!isNaN(d) && d > 1 && !isNaN(a) && a > 1) {
-                // Three-way market: remove overround via normalisation
-                const inv = 1 / h + 1 / d + 1 / a;
-                return `${Math.round((1 / h) / inv * 100)}%`;
-            }
-            // Two-way market fallback
-            return `${Math.round((1 / h) * 100)}%`;
-        }
-        return '—';
-    };
-    const winRate = computeWinRate();
-    const safePrediction = typeof prediction === 'string' ? prediction : undefined;
-    const displayPrediction = safePrediction || winRate;
-    const predictionLabel = safePrediction ? 'PREDICTION' : 'WIN RATE';
-
-    return (
-        <TouchableOpacity
-            style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}
-            onPress={handleCardPress}
-            activeOpacity={0.7}
-        >
-            {/* Header: league + time */}
-            <View style={styles.header}>
-                <View style={styles.leagueRow}>
-                    <View style={styles.logoContainer}>
-                        {leagueLogo ? (
-                            <Image source={{ uri: leagueLogo }} style={styles.leagueLogo} />
-                        ) : countryFlag || getFlagUrl(leagueName) ? (
-                            <Image source={{ uri: countryFlag || getFlagUrl(leagueName) || '' }} style={styles.leagueLogo} />
-                        ) : (
-                            <View style={[styles.leagueLogoPlaceholder, { backgroundColor: themeColors.gray5 }]} />
-                        )}
-                    </View>
-                    <Text style={[styles.leagueName, { color: themeColors.textMuted }]}>{leagueName}</Text>
-                </View>
-                <Text style={[styles.time, { color: themeColors.textMuted }]}>{time}</Text>
-            </View>
-
-            {/* Teams */}
-            <View style={styles.teamsContainer}>
-                <View style={styles.teamRow}>
-                    <View style={styles.teamNameContainer}>
-                        <TeamBadge uri={homeTeamLogo} name={homeTeam} />
-                        <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{homeTeam}</Text>
-                    </View>
-                    <View style={styles.teamRightSection}>
-                        {homeScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{homeScore}</Text>}
-                        {homeOdds && (
-                            <View style={[styles.teamOddsBox, { backgroundColor: themeColors.cardBgSecondary }]}>
-                                <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>1</Text>
-                                <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{homeOdds}</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-
-                <View style={styles.teamRow}>
-                    <View style={styles.teamNameContainer}>
-                        <TeamBadge uri={awayTeamLogo} name={awayTeam} />
-                        <Text style={[styles.teamName, { color: themeColors.text }]} numberOfLines={1}>{awayTeam}</Text>
-                    </View>
-                    <View style={styles.teamRightSection}>
-                        {awayScore !== undefined && <Text style={[styles.score, { color: themeColors.text }]}>{awayScore}</Text>}
-                        {awayOdds && (
-                            <View style={[styles.teamOddsBox, { backgroundColor: themeColors.cardBgSecondary }]}>
-                                <Text style={[styles.teamOddsLabel, { color: themeColors.textMuted }]}>2</Text>
-                                <Text style={[styles.teamOddsValue, { color: themeColors.primary }]}>{awayOdds}</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </View>
-
-            {/* Footer */}
-            <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
-                {isLocked ? (
-                    <View style={styles.lockedContainer}>
-                        <View style={[styles.lockBadge, { backgroundColor: themeColors.cardBgSecondary, borderColor: themeColors.border }]}>
-                            <Lock size={12} color={themeColors.primary} />
-                            <Text style={[styles.lockText, { color: themeColors.primary }]}>UNLOCK {price} COINS</Text>
-                        </View>
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            style={[styles.unlockButton, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}
-                        >
-                            <Text style={styles.unlockButtonText}>BUY TIP</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.predictionRow}>
-                        <View style={styles.predictionWrap}>
-                            <Text style={[styles.predictionLabel, { color: themeColors.textMuted }]}>{predictionLabel}</Text>
-                            <View style={[styles.predictionChip, { backgroundColor: themeColors.primary, shadowColor: themeColors.primary }]}>
-                                <Text
-                                    style={[styles.predictionValue, { color: '#090A0C' }]}
-                                    numberOfLines={1}
-                                    adjustsFontSizeToFit
-                                    minimumFontScale={0.7}
-                                >
-                                    {String(displayPrediction || '')}
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.oddsWrap}>
-                            <Text style={[styles.oddsLabel, { color: themeColors.textMuted }]}>ODDS</Text>
-                            <Text style={[styles.oddsValue, { color: themeColors.text }]}>{String(odds || '—')}</Text>
-                        </View>
-                    </View>
-                )}
-            </View>
-        </TouchableOpacity>
-    );
+const TIER_LABEL: Record<Exclude<MatchTier, 'unassigned'>, string> = {
+  free: 'FREE',
+  paid: 'PAID',
+  vip: 'VIP',
 };
 
-const styles = StyleSheet.create({
+/** Fixture card: league, kickoff, teams, odds, pick, confidence and expandable AI reasoning. */
+export function MatchCard({
+  leagueName,
+  leagueLogo,
+  countryFlag,
+  time,
+  homeTeam,
+  homeTeamLogo,
+  awayTeam,
+  awayTeamLogo,
+  prediction,
+  odds,
+  homeOdds,
+  drawOdds,
+  awayOdds,
+  isLocked = false,
+  price,
+  homeScore,
+  awayScore,
+  aiInsight,
+  matchId,
+  matchData,
+  tier,
+}: MatchCardProps) {
+  const router = useRouter();
+  const { themeColors, spacing, radii, shadows } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+
+  const displayTier: Exclude<MatchTier, 'unassigned'> =
+    tier && tier !== 'unassigned' ? tier : matchData?.matchType === 'paid' || matchData?.matchType === 'vip' ? matchData.matchType : 'free';
+  const tierAccent =
+    displayTier === 'vip' ? themeColors.vip : displayTier === 'paid' ? themeColors.paid : themeColors.info;
+
+  const handleCardPress = () => {
+    if (!matchId) return;
+    const params: Record<string, string> = { id: matchId };
+    if (matchData) {
+      params.matchData = encodeURIComponent(JSON.stringify(matchData));
+    }
+    router.push({ pathname: '/match/[id]', params });
+  };
+
+  const impliedProbability = (): string => {
+    const toNumber = (value: unknown): number => {
+      const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+      return Number.isFinite(parsed) ? parsed : Number.NaN;
+    };
+    const home = toNumber(matchData?.odds?.home ?? homeOdds ?? odds);
+    const draw = toNumber(matchData?.odds?.draw ?? drawOdds);
+    const away = toNumber(matchData?.odds?.away ?? awayOdds);
+
+    if (Number.isFinite(home) && home > 1) {
+      if (Number.isFinite(draw) && draw > 1 && Number.isFinite(away) && away > 1) {
+        const inverse = 1 / home + 1 / draw + 1 / away;
+        return `${Math.round(((1 / home) / inverse) * 100)}%`;
+      }
+      return `${Math.round((1 / home) * 100)}%`;
+    }
+    return '—';
+  };
+
+  const confidence = typeof aiInsight?.confidence === 'number' ? `${aiInsight.confidence}%` : impliedProbability();
+  const confidenceLabel = typeof aiInsight?.confidence === 'number' ? 'AI CONFIDENCE' : 'WIN PROBABILITY';
+  const pick = typeof prediction === 'string' && prediction.length > 0 ? prediction : aiInsight?.prediction || '—';
+  const reasoning = aiInsight?.reasoning ?? [];
+  const leagueFlag = countryFlag || leagueLogo || getLeagueFlagUrl(leagueName);
+
+  const styles = StyleSheet.create({
     card: {
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 16,
-        marginVertical: 6,
-        // Remove harsh borders, use subtle shadow
-        borderWidth: 0,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 4,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      backgroundColor: themeColors.surface,
+      padding: spacing.lg,
+      gap: spacing.md,
+      ...shadows.sm,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    leagueRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    logoContainer: {
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        overflow: 'hidden',
-    },
+    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     leagueLogo: {
-        width: '100%',
-        height: '100%',
+      width: 24,
+      height: 24,
+      borderRadius: radii.xs,
+      backgroundColor: themeColors.surfaceMuted,
     },
-    leagueLogoPlaceholder: {
-        width: '100%',
-        height: '100%',
+    leagueName: { ...typography.leagueName, color: themeColors.textSecondary, flex: 1 },
+    time: { ...typography.time, color: themeColors.textMuted, fontWeight: '700' },
+    tierBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xxs,
+      borderRadius: radii.pill,
+      backgroundColor: displayTier === 'vip' ? themeColors.primarySoft : displayTier === 'paid' ? themeColors.surfaceMuted : themeColors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: displayTier === 'free' ? themeColors.border : tierAccent + '55',
     },
-    leagueName: {
-        ...typography.leagueName,
-        letterSpacing: 0.2,
+    tierText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: tierAccent },
+    teams: { gap: spacing.sm },
+    teamRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+    teamLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+    teamName: { ...typography.teamName, color: themeColors.text, flex: 1 },
+    teamRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    score: { ...typography.score, color: themeColors.text, fontSize: 22 },
+    oddsBox: {
+      minWidth: 40,
+      alignItems: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radii.xs,
+      backgroundColor: themeColors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: themeColors.border,
     },
-    time: {
-        ...typography.time,
-        letterSpacing: 0.2,
+    oddsBoxLabel: { fontSize: 8, fontWeight: '700', color: themeColors.textDisabled },
+    oddsBoxValue: { fontSize: 12, fontWeight: '700', color: themeColors.text },
+    divider: { height: 1, backgroundColor: themeColors.divider },
+    insightRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm },
+    insightBlock: {
+      flex: 1,
+      minWidth: 0,
+      backgroundColor: themeColors.surfaceElevated,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
     },
-    teamsContainer: {
-        gap: 10,
-        marginBottom: 14,
+    insightLabel: { ...typography.predictionLabel, color: themeColors.textMuted, marginBottom: spacing.xxs },
+    pickText: { fontSize: 13, fontWeight: '800', color: themeColors.primary },
+    confidenceText: { fontSize: 13, fontWeight: '800', color: themeColors.text },
+    oddsText: { fontSize: 13, fontWeight: '800', color: themeColors.text },
+    reasoningToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, alignSelf: 'flex-start' },
+    reasoningToggleText: { fontSize: 11, fontWeight: '700', color: themeColors.textMuted },
+    reasoningCard: {
+      gap: spacing.sm,
+      backgroundColor: themeColors.surfaceElevated,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      padding: spacing.md,
     },
-    teamRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    teamNameContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        flex: 1,
-    },
-    teamName: {
-        ...typography.teamName,
-        flex: 1,
-    },
-    score: {
-        ...typography.score,
-    },
-    teamRightSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    teamOddsBox: {
-        alignItems: 'center',
-        minWidth: 38,
-        paddingVertical: 4,
-        paddingHorizontal: 6,
-        borderRadius: 8,
-    },
-    teamOddsLabel: {
-        ...typography.teamOddsLabel,
-    },
-    teamOddsValue: {
-        ...typography.teamOddsValue,
-    },
-    footer: {
-        borderTopWidth: StyleSheet.hairlineWidth,
-        paddingTop: 12,
-    },
-    predictionRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-    },
-    predictionWrap: {
-        minWidth: 0,
-    },
-    predictionLabel: {
-        ...typography.predictionLabel,
-        letterSpacing: 0.4,
-        marginBottom: 4,
-    },
-    predictionChip: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 11,
-        paddingVertical: 6,
-        borderRadius: 9,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 4,
-    },
-    predictionValue: {
-        ...typography.predictionValue,
-    },
-    oddsWrap: {
-        alignItems: 'flex-end',
-    },
-    oddsLabel: {
-        ...typography.oddsLabel,
-        letterSpacing: 0.4,
-        marginBottom: 3,
-    },
-    oddsValue: {
-        ...typography.oddsValue,
-    },
-    lockedContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
+    reasoningTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, color: themeColors.primary },
+    reasoningItem: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+    reasoningBullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: themeColors.primary, marginTop: 6 },
+    reasoningText: { ...typography.aiReasoning, color: themeColors.textSecondary, flex: 1, fontSize: 12 },
+    betRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+    betText: { fontSize: 11, fontWeight: '700', color: themeColors.text },
     lockBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 10,
-        borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      alignSelf: 'flex-start',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radii.sm,
+      backgroundColor: themeColors.surfaceMuted,
+      borderColor: themeColors.border,
+      borderWidth: 1,
     },
-    lockText: {
-        ...typography.lockText,
-        letterSpacing: 0.2,
-    },
-    unlockButton: {
-        paddingHorizontal: 18,
-        paddingVertical: 9,
-        borderRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 4,
-    },
-    unlockButtonText: {
-        color: '#090A0C',
-        ...typography.result,
-        letterSpacing: 0.3,
-    },
-});
+    lockText: { ...typography.lockText, color: themeColors.primary },
+  });
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={handleCardPress}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`${homeTeam} vs ${awayTeam}, ${time}`}
+    >
+      <View style={styles.header}>
+        {leagueFlag ? <Image source={{ uri: leagueFlag }} style={styles.leagueLogo} /> : null}
+        <Text style={styles.leagueName} numberOfLines={1}>{leagueName}</Text>
+        <View style={styles.tierBadge}>
+          <Text style={styles.tierText}>{TIER_LABEL[displayTier]}</Text>
+        </View>
+        <Text style={styles.time}>{time}</Text>
+      </View>
+
+      <View style={styles.teams}>
+        <View style={styles.teamRow}>
+          <View style={styles.teamLeft}>
+            <TeamBadge uri={homeTeamLogo} name={homeTeam} />
+            <Text style={styles.teamName} numberOfLines={1}>{homeTeam}</Text>
+          </View>
+          <View style={styles.teamRight}>
+            {homeScore !== undefined && <Text style={styles.score}>{homeScore}</Text>}
+            {homeOdds && (
+              <View style={styles.oddsBox}>
+                <Text style={styles.oddsBoxLabel}>HOME</Text>
+                <Text style={styles.oddsBoxValue}>{homeOdds}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.teamRow}>
+          <View style={styles.teamLeft}>
+            <TeamBadge uri={awayTeamLogo} name={awayTeam} />
+            <Text style={styles.teamName} numberOfLines={1}>{awayTeam}</Text>
+          </View>
+          <View style={styles.teamRight}>
+            {awayScore !== undefined && <Text style={styles.score}>{awayScore}</Text>}
+            {awayOdds && (
+              <View style={styles.oddsBox}>
+                <Text style={styles.oddsBoxLabel}>AWAY</Text>
+                <Text style={styles.oddsBoxValue}>{awayOdds}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      {isLocked ? (
+        <View style={styles.lockBadge}>
+          <Lock size={13} color={themeColors.primary} />
+          <Text style={styles.lockText}>UNLOCK {price ?? 0} COINS</Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.insightRow}>
+            <View style={styles.insightBlock}>
+              <Text style={styles.insightLabel}>THE PICK</Text>
+              <Text style={styles.pickText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                {String(pick)}
+              </Text>
+            </View>
+            <View style={styles.insightBlock}>
+              <Text style={styles.insightLabel}>{confidenceLabel}</Text>
+              <Text style={styles.confidenceText}>{confidence}</Text>
+            </View>
+            <View style={styles.insightBlock}>
+              <Text style={styles.insightLabel}>ODDS</Text>
+              <Text style={styles.oddsText}>{String(odds || '—')}</Text>
+            </View>
+          </View>
+
+          {reasoning.length > 0 && (
+            <>
+              <TouchableOpacity
+                onPress={() => setExpanded((value) => !value)}
+                activeOpacity={0.75}
+                style={styles.reasoningToggle}
+                accessibilityRole="button"
+                accessibilityLabel={expanded ? 'Hide AI reasoning' : 'Show AI reasoning'}
+              >
+                <Sparkles size={13} color={themeColors.primary} />
+                <Text style={styles.reasoningToggleText}>
+                  {expanded ? 'Hide AI reasoning' : 'Why this pick?'}
+                </Text>
+                {expanded ? <ChevronUp size={13} color={themeColors.textMuted} /> : <ChevronDown size={13} color={themeColors.textMuted} />}
+              </TouchableOpacity>
+
+              {expanded && (
+                <View style={styles.reasoningCard}>
+                  <Text style={styles.reasoningTitle}>AI ANALYSIS</Text>
+                  {reasoning.map((item, index) => (
+                    <View key={`${index}-${item}`} style={styles.reasoningItem}>
+                      <View style={styles.reasoningBullet} />
+                      <Text style={styles.reasoningText}>{item}</Text>
+                    </View>
+                  ))}
+                  {aiInsight?.suggestedBet && (
+                    <View style={styles.betRow}>
+                      <Target size={13} color={themeColors.primary} />
+                      <Text style={styles.betText}>Suggested bet: {aiInsight.suggestedBet}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+export default MatchCard;

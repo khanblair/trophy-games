@@ -230,3 +230,11 @@ export function getCountryFlagUrl(teamName: string): string | undefined {
     if (!code) return undefined;
     return `https://flagcdn.com/w80/${code}.png`;
 }
+
+/** Flag for a league header (accepts a country name or a "Country League" title). */
+export function getLeagueFlagUrl(countryOrLeague: string): string | undefined {
+    if (!countryOrLeague) return undefined;
+    const normalized = countryOrLeague.toLowerCase().trim();
+    const code = COUNTRY_FLAG_MAP[normalized] ?? COUNTRY_FLAG_MAP[normalized.split(' ')[0] ?? ''];
+    return code ? `https://flagcdn.com/w80/${code}.png` : undefined;
+}

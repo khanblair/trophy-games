@@ -4,7 +4,7 @@ const CACHE_PREFIX = '@bet_titan_cache_';
 const DEFAULT_TTL = 3600000; // 1 hour in milliseconds
 
 export const CacheManager = {
-    async set(key: string, data: any, ttl: number = DEFAULT_TTL) {
+    async set(key: string, data: unknown, ttl: number = DEFAULT_TTL) {
         try {
             const cacheData = {
                 data,
