@@ -11,12 +11,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const league = String(body.league ?? '').trim();
-    const homeTeam = String(body.homeTeam ?? '').trim();
-    const awayTeam = String(body.awayTeam ?? '').trim();
-    const date = String(body.date ?? '').trim();
-    const time = String(body.time ?? '18:00').trim();
+    const body: unknown = await req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'A JSON object is required.' }, { status: 400 });
+    }
+
+    const input = body as Record<string, unknown>;
+    const league = String(input.league ?? '').trim();
+    const homeTeam = String(input.homeTeam ?? '').trim();
+    const awayTeam = String(input.awayTeam ?? '').trim();
+    const date = String(input.date ?? '').trim();
+    const time = String(input.time ?? '18:00').trim();
 
     if (!league || !homeTeam || !awayTeam || !date) {
       return NextResponse.json(
@@ -25,9 +30,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const timestamp = new Date(`${date}T${time}:00`).toISOString();
-    const matchType = ['free', 'paid', 'vip', 'unassigned'].includes(body.matchType)
-      ? body.matchType
+    // Validate the date/time before toISOString(), which throws for malformed input.
+    const timestampDate = new Date(`${date}T${time}:00`);
+    if (Number.isNaN(timestampDate.getTime())) {
+      return NextResponse.json({ error: 'A valid date and kickoff time are required.' }, { status: 400 });
+    }
+
+    const rawOdds = input.odds && typeof input.odds === 'object' && !Array.isArray(input.odds)
+      ? input.odds as Record<string, unknown>
+      : {};
+    const matchType = ['free', 'paid', 'vip', 'unassigned'].includes(String(input.matchType))
+      ? input.matchType as 'free' | 'paid' | 'vip' | 'unassigned'
       : 'unassigned';
 
     const match = {
@@ -35,16 +48,16 @@ export async function POST(req: Request) {
       league,
       homeTeam,
       awayTeam,
-      country: body.country ? String(body.country).trim() : undefined,
-      timestamp,
-      status: body.status || 'Scheduled',
+      country: input.country ? String(input.country).trim() : undefined,
+      timestamp: timestampDate.toISOString(),
+      status: input.status ? String(input.status) : 'Scheduled',
       score: '0-0',
       matchType,
-      isTrending: Boolean(body.isTrending),
+      isTrending: input.isTrending === true,
       odds: {
-        home: String(body.odds?.home ?? ''),
-        away: String(body.odds?.away ?? ''),
-        draw: body.odds?.draw ? String(body.odds.draw) : undefined,
+        home: String(rawOdds.home ?? ''),
+        away: String(rawOdds.away ?? ''),
+        draw: rawOdds.draw ? String(rawOdds.draw) : undefined,
       },
     };
 
